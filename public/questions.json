@@ -1,0 +1,108 @@
+[
+  {
+    "id": 1,
+    "type": "mcq",
+    "subject": "Mathematics",
+    "question": "Let $L_1 : \\frac{x-1}{1} = \\frac{y-2}{-1} = \\frac{z-1}{2}$ and $L_2 : \\frac{x+1}{-1} = \\frac{y-2}{2} = \\frac{z}{1}$ be two lines. Let $L_3$ be a line passing through the point $(\\alpha, \\beta, \\gamma)$ and be perpendicular to both $L_1$ and $L_2$. If $L_3$ intersects $L_1$, then $|5\\alpha - 11\\beta - 8\\gamma|$ equals:",
+    "options": ["25", "20", "16", "18"]
+  },
+  {
+    "id": 2,
+    "type": "mcq",
+    "subject": "Mathematics",
+    "question": "Let the ellipse $E_1 : \\frac{x^2}{a^2} + \\frac{y^2}{b^2} = 1, a > b$ and $E_2 : \\frac{x^2}{A^2} + \\frac{y^2}{B^2} = 1, A < B$ have same eccentricity $\\frac{1}{\\sqrt{3}}$. Let the product of their lengths of latus rectums be $\\frac{32}{\\sqrt{3}}$ and the distance between the foci of $E_1$ be 4. If $E_1$ and $E_2$ meet at A, B, C and D, then the area of the quadrilateral ABCD equals:",
+    "options": ["$\\frac{24\\sqrt{6}}{5}$", "$\\frac{18\\sqrt{6}}{5}$", "$6\\sqrt{6}$", "$\\frac{12\\sqrt{6}}{5}$"]
+  },
+  {
+    "id": 3,
+    "type": "integer",
+    "subject": "Chemistry",
+    "question": "0.1 mole of compound 'S' will weigh __________ g. (Given molar mass in g mol$^{-1}$ C : 12, H : 1, O : 16)",
+    "image": "/images/organic-compound.png",
+    "options": null
+  },
+  {
+    "id": 4,
+    "type": "mcq",
+    "subject": "Physics",
+    "question": "A body moves along a straight line with a constant acceleration. Its velocity at time t = 0 is u and at time t = T is v. The average velocity during this time interval is:",
+    "options": ["$\\frac{u + v}{2}$", "$\\sqrt{uv}$", "$\\frac{2uv}{u + v}$", "None of these"]
+  },
+  {
+    "id": 5,
+    "type": "mcq",
+    "subject": "Mathematics",
+    "question": "Let $f(x) = \\int_{0}^{x} \\frac{\\sin t}{t} dt, x > 0$. Then:",
+    "options": ["$f$ is increasing and concave upward", "$f$ is increasing and concave downward", "$f$ is decreasing and concave upward", "$f$ is decreasing and concave downward"]
+  },
+  {
+    "id": 6,
+    "type": "integer",
+    "subject": "Physics",
+    "question": "A particle is moving in a circular path of radius 20 cm with a constant speed. If the angular speed of the particle is 10 rad/s, the magnitude of its velocity (in cm/s) is __________.",
+    "options": null
+  },
+  {
+    "id": 7,
+    "type": "mcq",
+    "subject": "Chemistry",
+    "question": "Among the following, the compound that exhibits optical isomerism is:",
+    "options": ["2-methyl propanoic acid", "3-methyl pentanoic acid", "2,3-dimethyl pentanoic acid", "2,2-dimethyl propanoic acid"]
+  },
+  {
+    "id": 8,
+    "type": "mcq",
+    "subject": "Physics",
+    "question": "A bob of mass 0.1 kg is suspended from a thread of length 1 m. It is given a horizontal velocity of 2 m/s at the lowest position. The tension in the thread when the bob reaches its maximum height is:",
+    "options": ["1.5 N", "0.5 N", "2.0 N", "0 N"]
+  },
+  {
+    "id": 9,
+    "type": "integer",
+    "subject": "Mathematics",
+    "question": "The value of $\\int_{0}^{\\pi/2} \\frac{\\sin x}{\\sin x + \\cos x} dx$ is __________.",
+    "options": null
+  },
+  {
+    "id": 10,
+    "type": "mcq",
+    "subject": "Chemistry",
+    "question": "The IUPAC name of the compound CH₃-CH=CH-CHO is:",
+    "options": ["But-2-enal", "But-3-enal", "But-2-al", "Crotonal"]
+  },
+  {
+    "id": 11,
+    "type": "integer",
+    "subject": "Mathematics",
+    "question": "The number of differentiable functions $f : [0, 1] \\to \\mathbb{R}$ such that $f(0) = 0, f(1) = 1$ and $f'(x) \\in \\{1, 2\\} \\forall x \\in [0, 1]$ is __________.",
+    "options": null
+  },
+  {
+    "id": 12,
+    "type": "mcq",
+    "subject": "Physics",
+    "question": "Two cylindrical vessels A and B of equal volumes contain nitrogen at 300 K and oxygen at 450 K respectively at the same pressure. The ratio of the number of molecules in vessels A and B is:",
+    "options": ["3:2", "2:3", "1:1", "4:3"]
+  },
+  {
+    "id": 13,
+    "type": "mcq",
+    "subject": "Chemistry",
+    "question": "The hybridization of the central atom in XeF₄ is:",
+    "options": ["sp³", "sp³d", "sp³d²", "dsp²"]
+  },
+  {
+    "id": 14,
+    "type": "integer",
+    "subject": "Physics",
+    "question": "A uniform cylinder of mass 3 kg and radius 0.1 m rolls without slipping up an inclined plane of angle 30°. If the initial velocity of the center of mass is 10 m/s, the distance traveled along the inclined plane (in m) before the cylinder comes to rest is __________. (Take g = 10 m/s²)",
+    "options": null
+  },
+  {
+    "id": 15,
+    "type": "mcq",
+    "subject": "Mathematics",
+    "question": "The sum of the series $\\sum_{n=1}^{\\infty} \\frac{n}{2^n}$ is:",
+    "options": ["1", "2", "3", "4"]
+  }
+] 
