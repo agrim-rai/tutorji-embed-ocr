@@ -156,3 +156,109 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Enhanced Math Renderer Styles */
+.math-renderer,
+.simple-math-renderer {
+  line-height: 1.6;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.math-renderer .katex,
+.simple-math-renderer .katex {
+  color: inherit !important;
+  font-size: 1em !important;
+  white-space: nowrap;
+  max-width: 100%;
+}
+
+.math-renderer .katex-display,
+.simple-math-renderer .katex-display {
+  margin: 1rem 0 !important;
+  text-align: center !important;
+}
+
+.math-renderer .katex .base,
+.simple-math-renderer .katex .base {
+  color: inherit !important;
+  display: inline-flex !important;
+  align-items: baseline !important;
+}
+
+/* Inline math specific styles */
+.math-renderer .katex-html,
+.simple-math-renderer .katex-html {
+  display: inline-flex;
+  align-items: baseline;
+  vertical-align: baseline;
+}
+
+/* Text flow improvements */
+.math-renderer span,
+.simple-math-renderer span {
+  word-break: normal;
+  overflow-wrap: break-word;
+}
+
+/* Dark theme math adjustments */
+.dark .math-renderer .katex,
+.dark .simple-math-renderer .katex {
+  color: var(--foreground) !important;
+}
+
+.dark .math-renderer .katex .base,
+.dark .simple-math-renderer .katex .base {
+  color: var(--foreground) !important;
+}
+
+.dark .math-renderer .katex .mord,
+.dark .simple-math-renderer .katex .mord {
+  color: var(--foreground) !important;
+}
+
+.dark .math-renderer .katex .mbin,
+.dark .simple-math-renderer .katex .mbin {
+  color: var(--muted-foreground) !important;
+}
+
+.dark .math-renderer .katex .mrel,
+.dark .simple-math-renderer .katex .mrel {
+  color: var(--muted-foreground) !important;
+}
+
+/* Layout improvements for step containers */
+.step-container {
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+  hyphens: auto;
+}
+
+.step-container .flex {
+  min-width: 0;
+}
+
+.step-container .flex-1 {
+  min-width: 0;
+  overflow-wrap: break-word;
+}
+
+/* Responsive math rendering */
+@media (max-width: 640px) {
+  .math-renderer .katex,
+  .simple-math-renderer .katex {
+    font-size: 0.9em !important;
+  }
+  
+  .math-renderer .katex-display,
+  .simple-math-renderer .katex-display {
+    margin: 0.75rem 0 !important;
+  }
+}
+
+/* Ensure math expressions don't break layout */
+.math-renderer .katex-html,
+.simple-math-renderer .katex-html {
+  max-width: 100%;
+}

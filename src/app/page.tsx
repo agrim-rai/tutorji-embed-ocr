@@ -37,6 +37,7 @@ import {
   Info,
   RotateCw,
   Clipboard,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
@@ -88,7 +89,7 @@ const UserProfile: React.FC<{
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/' });
+    await signIn('google', { callbackUrl: '/upload-image' });
   };
   
   // If not authenticated, show login prompt
@@ -283,6 +284,12 @@ export default function UploadImagePage() {
   const [rotationAngle, setRotationAngle] = useState(0);
   const [clipboardFocused, setClipboardFocused] = useState(false);
 
+  // Sharing functionality state
+  const [shareId, setShareId] = useState<string | null>(null);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  const [imageUrl, setImageUrl] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadAreaRef = useRef<HTMLDivElement>(null);
@@ -387,7 +394,7 @@ export default function UploadImagePage() {
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/' });
+    await signIn('google', { callbackUrl: '/upload-image' });
   };
 
   /**
@@ -660,13 +667,31 @@ export default function UploadImagePage() {
     setError(null);
 
     try {
-      // Step 1: Process image with AI
-      const formData = new FormData();
-      formData.append("image", selectedImage);
+      // Step 1: Upload image to Cloudinary first
+      const uploadFormData = new FormData();
+      uploadFormData.append("image", selectedImage);
+
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: uploadFormData,
+      });
+
+      const uploadResult = await uploadResponse.json();
+
+      if (!uploadResponse.ok) {
+        throw new Error(uploadResult.error || "Failed to upload image");
+      }
+
+      // Store the Cloudinary URL
+      setImageUrl(uploadResult.imageUrl);
+
+      // Step 2: Process image with AI
+      const aiFormData = new FormData();
+      aiFormData.append("image", selectedImage);
 
       const response = await fetch("/api/process-image", {
         method: "POST",
-        body: formData,
+        body: aiFormData,
       });
 
       const result = await response.json();
@@ -685,8 +710,8 @@ export default function UploadImagePage() {
         }
       }
 
-      // Step 2: Automatically create chatbot session
-      await createChatbotSession(result.data);
+      // Step 3: Automatically create chatbot session with imageUrl
+      await createChatbotSession(result.data, uploadResult.imageUrl);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Unknown error occurred");
     } finally {
@@ -701,7 +726,7 @@ export default function UploadImagePage() {
   /**
    * Create chatbot session automatically after AI processing
    */
-  const createChatbotSession = async (data: ProcessedData) => {
+  const createChatbotSession = async (data: ProcessedData, imageUrl: string) => {
     try {
       const response = await fetch("/api/upload-json", {
         method: "POST",
@@ -721,10 +746,59 @@ export default function UploadImagePage() {
         chatbotLink: result.chatbotLink,
         sessionId: result.sessionId,
       });
+
+      // Step 4: Save upload data for sharing
+      await saveUploadForSharing(imageUrl, result.sessionId);
     } catch (err) {
       setError(
         err instanceof Error ? err.message : "Failed to create chatbot session"
       );
+    }
+  };
+
+  /**
+   * Save upload data for sharing functionality
+   */
+  const saveUploadForSharing = async (imageUrl: string, sessionId: string) => {
+    try {
+      const response = await fetch("/api/save-upload", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl,
+          sessionId,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (response.ok) {
+        setShareId(result.id);
+        setShareUrl(result.shareUrl);
+      } else {
+        console.error("Failed to save upload for sharing:", result.error);
+        // Don't show error to user since this is a secondary feature
+      }
+    } catch (err) {
+      console.error("Error saving upload for sharing:", err);
+      // Don't show error to user since this is a secondary feature
+    }
+  };
+
+  /**
+   * Copy share link to clipboard
+   */
+  const copyShareLink = async () => {
+    if (!shareUrl) return;
+    
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      setShareCopied(true);
+      setTimeout(() => setShareCopied(false), 2000);
+    } catch (err) {
+      console.error("Failed to copy share link:", err);
     }
   };
 
@@ -776,6 +850,11 @@ export default function UploadImagePage() {
     setCropImageSrc(null);
     setCompletedCrop(null);
     setRotationAngle(0); // Reset rotation angle
+    // Reset sharing state
+    setShareId(null);
+    setShareUrl(null);
+    setShareCopied(false);
+    setImageUrl(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1434,6 +1513,41 @@ export default function UploadImagePage() {
                       </Button>
                     </motion.div>
 
+                    {/* Share Button Section */}
+                    {shareUrl && (
+                      <motion.div
+                        initial={{ opacity: 0, y: 10 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        className="pt-6 border-t border-border/30"
+                      >
+                        <div className="text-center space-y-3">
+                          <p className="text-sm text-muted-foreground">
+                            Share this learning session with others
+                          </p>
+                          <Button
+                            onClick={copyShareLink}
+                            variant="outline"
+                            size="lg"
+                            className="w-full sm:w-auto"
+                          >
+                            <Share2 className="mr-2 h-4 w-4" />
+                            {shareCopied ? "Link Copied!" : "Copy Share Link"}
+                          </Button>
+                          {shareCopied && (
+                            <motion.p
+                              initial={{ opacity: 0 }}
+                              animate={{ opacity: 1 }}
+                              transition={{ duration: 0.3 }}
+                              className="text-sm text-green-600 font-medium"
+                            >
+                              ✓ Share link copied to clipboard!
+                            </motion.p>
+                          )}
+                        </div>
+                      </motion.div>
+                    )}
+
                     {/* Additional Options */}
                     <div className="grid md:grid-cols-2 gap-4 mt-8">
                       {/* <div className="space-y-3">
@@ -1587,7 +1701,7 @@ export default function UploadImagePage() {
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               transition={{ duration: 0.6, ease: "easeOut" }}
-              className="bg-card rounded-xl border shadow-lg overflow-hidden"
+              className="bg-card rounded-xl border shadow-lg overflow-hidden w-full"
             >
               {/* Header with controls */}
               <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
