@@ -11,21 +11,16 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
   content, 
   className = '' 
 }) => {
-  console.log('SimpleMathRenderer received:', content);
-
   const renderContent = (text: string) => {
     if (!text || typeof text !== 'string') {
       return <span>{text}</span>;
     }
 
-    // Clean up the text and normalize whitespace
-    let workingText = text.trim();
-    console.log('Processing text:', workingText);
-
+    // Simple and robust approach: find math expressions and render them
     const parts: React.ReactNode[] = [];
     let keyCounter = 0;
 
-    // More flexible regex patterns that handle different LaTeX delimiter formats
+    // Find all math expressions with their positions
     const mathExpressions: Array<{
       start: number;
       end: number;
@@ -34,92 +29,39 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
       original: string;
     }> = [];
 
-    // Pattern 1: Display math with \[ \] (with or without backslashes)
-    const displayPatterns = [
-      /\\?\[([^]*?)\\\]/g,   // \[content\]
-      /\\\[([^]*?)\\?\]/g,   // \[content]  
-      /\[([^]*?)\]/g         // [content] (fallback for broken delimiters)
-    ];
-
-    // Pattern 2: Inline math with \( \) (with or without backslashes)
-    const inlinePatterns = [
-      /\\?\(([^]*?)\\\)/g,   // \(content\)
-      /\\\(([^]*?)\\?\)/g,   // \(content)
-      /\(([^]*?)\)/g         // (content) (fallback)
-    ];
-
-    // Process display math first (higher priority)
-    displayPatterns.forEach((pattern, patternIndex) => {
-      let match: RegExpExecArray | null;
-      pattern.lastIndex = 0;
+    // Pattern for display math: \[ ... \]
+    const displayRegex = /\\\[([^]*?)\\\]/g;
+    let match;
+    while ((match = displayRegex.exec(text)) !== null) {
+      mathExpressions.push({
+        start: match.index,
+        end: match.index + match[0].length,
+        content: match[1].trim(),
+        type: 'display',
+        original: match[0]
+      });
+    }
+    // Pattern for inline math: \( ... \)
+    const inlineRegex = /\\\(([^]*?)\\\)/g;
+    while ((match = inlineRegex.exec(text)) !== null) {
+      // Check if this overlaps with any display math
+      const hasOverlap = mathExpressions.some(existing => 
+        (match!.index < existing.end && match!.index + match![0].length > existing.start)
+      );
       
-      while ((match = pattern.exec(workingText)) !== null) {
-        const mathContent = match[1].trim();
-        
-        // Only accept if it looks like math (contains math symbols or operators)
-        const isMathLike = /[=+\-*/^_{}\\∫∑∂∇πα-ωΑ-Ω]/.test(mathContent) || 
-                          mathContent.includes('frac') || 
-                          mathContent.includes('sqrt') ||
-                          mathContent.includes('int') ||
-                          mathContent.length > 10; // Long expressions are likely math
-        
-        if (mathContent && (isMathLike || patternIndex < 2)) { // Always accept first 2 patterns
-          // Check for overlaps
-          const hasOverlap = mathExpressions.some(existing => 
-            (match!.index < existing.end && match!.index + match![0].length > existing.start)
-          );
-          
-          if (!hasOverlap) {
-            console.log('Found display math:', mathContent);
-            mathExpressions.push({
-              start: match!.index,
-              end: match!.index + match![0].length,
-              content: mathContent,
-              type: 'display',
-              original: match![0]
-            });
-          }
-        }
+      if (!hasOverlap) {
+        mathExpressions.push({
+          start: match.index,
+          end: match.index + match[0].length,
+          content: match[1].trim(),
+          type: 'inline',
+          original: match[0]
+        });
       }
-    });
+    }
 
-    // Process inline math
-    inlinePatterns.forEach((pattern, patternIndex) => {
-      let match: RegExpExecArray | null;
-      pattern.lastIndex = 0;
-      
-      while ((match = pattern.exec(workingText)) !== null) {
-        const mathContent = match[1].trim();
-        
-        // Only accept if it looks like math
-        const isMathLike = /[=+\-*/^_{}\\∫∑∂∇πα-ωΑ-Ω]/.test(mathContent) || 
-                          mathContent.includes('frac') || 
-                          mathContent.includes('sqrt') ||
-                          mathContent.includes('int');
-        
-        if (mathContent && (isMathLike || patternIndex < 2)) { // Always accept first 2 patterns
-          // Check for overlaps with existing expressions
-          const hasOverlap = mathExpressions.some(existing => 
-            (match!.index < existing.end && match!.index + match![0].length > existing.start)
-          );
-          
-          if (!hasOverlap) {
-            console.log('Found inline math:', mathContent);
-            mathExpressions.push({
-              start: match!.index,
-              end: match!.index + match![0].length,
-              content: mathContent,
-              type: 'inline',
-              original: match![0]
-            });
-          }
-        }
-      }
-    });
-
-    // Sort all expressions by position
+    // Sort by position
     mathExpressions.sort((a, b) => a.start - b.start);
-    console.log('All math expressions found:', mathExpressions);
 
     let currentIndex = 0;
 
@@ -127,10 +69,10 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
     mathExpressions.forEach(expr => {
       // Add text before this expression
       if (expr.start > currentIndex) {
-        const textBefore = workingText.slice(currentIndex, expr.start);
-        if (textBefore.trim()) {
+        const textBefore = text.slice(currentIndex, expr.start);
+        if (textBefore) {
           parts.push(
-            <span key={`text-${keyCounter++}`} className="inline">
+            <span key={`text-${keyCounter++}`}>
               {textBefore}
             </span>
           );
@@ -147,27 +89,18 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
           );
         } else {
           parts.push(
-            <span 
-              key={`inline-${keyCounter++}`} 
-              className="inline-flex items-center align-baseline whitespace-nowrap"
-              style={{ 
-                verticalAlign: 'baseline',
-                display: 'inline-flex',
-                alignItems: 'baseline'
-              }}
-            >
+            <span key={`inline-${keyCounter++}`} className="inline-math">
               <InlineMath math={expr.content} />
             </span>
           );
         }
-        console.log(`Successfully rendered ${expr.type} math:`, expr.content);
       } catch (error) {
         console.warn('Math rendering error for:', expr.content, error);
-        // Show error with original content
+        // Fallback: show the original text
         parts.push(
           <span 
             key={`error-${keyCounter++}`} 
-            className="inline bg-red-100 dark:bg-red-900/20 px-1 py-0.5 rounded text-red-700 dark:text-red-400 font-mono text-sm border border-red-300 dark:border-red-700"
+            className="bg-red-100 dark:bg-red-900/20 px-1 py-0.5 rounded text-red-700 dark:text-red-400 font-mono text-sm"
             title={`Math rendering failed: ${error}`}
           >
             {expr.original}
@@ -179,11 +112,11 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
     });
 
     // Add any remaining text
-    if (currentIndex < workingText.length) {
-      const remainingText = workingText.slice(currentIndex);
-      if (remainingText.trim()) {
+    if (currentIndex < text.length) {
+      const remainingText = text.slice(currentIndex);
+      if (remainingText) {
         parts.push(
-          <span key={`remaining-${keyCounter++}`} className="inline">
+          <span key={`remaining-${keyCounter++}`}>
             {remainingText}
           </span>
         );
@@ -192,29 +125,19 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
 
     // If no math was found, return the original text
     if (parts.length === 0) {
-      console.log('No math found, returning original text');
-      return <span className="inline">{workingText}</span>;
+      return <span>{text}</span>;
     }
 
-    console.log('Rendered parts:', parts.length);
     return <>{parts}</>;
   };
 
   return (
-    <div className={`simple-math-renderer leading-relaxed ${className}`} 
-         style={{ 
-           lineHeight: '1.6',
-           wordWrap: 'break-word',
-           overflowWrap: 'break-word',
-           hyphens: 'auto'
-         }}>
-      <div className="inline-block w-full">
-        {renderContent(content)}
-      </div>
+    <div className={`simple-math-renderer ${className}`}>
+      {renderContent(content)}
       
       <style jsx global>{`
         .simple-math-renderer .katex {
-          font-size: 1em !important;
+          font-size: inherit !important;
         }
         
         .simple-math-renderer .katex-display {
@@ -222,34 +145,17 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
           text-align: center !important;
         }
         
-        .simple-math-renderer .katex .base {
-          display: inline-flex !important;
-          align-items: baseline !important;
+        .simple-math-renderer .inline-math {
+          display: inline;
+          vertical-align: baseline;
         }
         
-        /* Ensure proper text flow around math */
-        .simple-math-renderer span {
-          word-break: normal;
-          overflow-wrap: break-word;
+        .simple-math-renderer .inline-math .katex {
+          display: inline;
         }
         
-        /* Prevent awkward breaks in mathematical expressions */
-        .simple-math-renderer .katex {
-          white-space: nowrap;
-          max-width: 100%;
-        }
-        
-        /* Better alignment for inline math */
-        .simple-math-renderer .katex .katex-html {
-          display: inline-flex;
-          align-items: baseline;
-        }
-        
-        /* Responsive handling for very long expressions */
-        @media (max-width: 640px) {
-          .simple-math-renderer .katex {
-            font-size: 0.9em !important;
-          }
+        .simple-math-renderer .inline-math .katex .katex-html {
+          display: inline;
         }
       `}</style>
     </div>

@@ -1,8 +1,10 @@
 "use client"
 
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { useSession, signIn } from "next-auth/react";
+import { useSession, signIn, signOut } from "next-auth/react";
+import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
+import 'react-image-crop/dist/ReactCrop.css';
 import {
   Upload,
   Image as ImageIcon,
@@ -30,6 +32,9 @@ import {
   ZoomIn,
   ZoomOut,
   RotateCcw,
+  RotateCw,
+  Crop as CropIcon,
+  Clipboard,
 } from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
@@ -38,7 +43,35 @@ import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
 import { ShiningText } from "@/components/ui/shining-text";
 import { ResponseStream } from "@/components/ui/response-stream";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+// Lazy load the SplineSceneBasic component with SSR disabled and error handling
+const SplineSceneBasic = dynamic(() => import("@/components/robotui").then(mod => ({ default: mod.SplineSceneBasic })), {
+  ssr: false,
+  loading: () => null, // No loading placeholder since it won't show on mobile anyway
+});
+
+// Error boundary component for the robot UI
+const RobotUIWrapper: React.FC = () => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false); // Reset error state when component mounts
+  }, []);
+
+  if (hasError) {
+    return null; // Fail silently for robot UI
+  }
+
+  try {
+    return <SplineSceneBasic />;
+  } catch (error) {
+    console.warn('Robot UI failed to load:', error);
+    setHasError(true);
+    return null;
+  }
+};
 
 interface Step {
   id: string;
@@ -75,6 +108,180 @@ interface ProcessedData {
   concept_tags: string[][];
 }
 
+/**
+ * UserProfile Component
+ * 
+ * Displays the current user's information and credits status
+ * Shows upgrade option for free users and authentication status
+ */
+const UserProfile: React.FC<{ 
+  session: any; 
+  darkMode?: boolean; 
+  realTimeCredits?: number | null;
+  creditsLoading?: boolean;
+  onRefreshCredits?: () => void;
+}> = ({ session, darkMode = false, realTimeCredits, creditsLoading, onRefreshCredits }) => {
+  // Check if user is authenticated
+  const isAuthenticated = !!session?.user;
+  
+  // Handle user logout
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
+
+  // Handle direct Google sign in
+  const handleSignIn = async () => {
+    await signIn('google', { callbackUrl: '/stepsbot' });
+  };
+  
+  // If not authenticated, show login prompt
+  if (!isAuthenticated) {
+    return (
+      <div className={`p-3 ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg backdrop-blur-sm`}>
+        <div className="flex items-center space-x-3">
+          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+            darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'
+          }`}>
+            <User size={16} />
+          </div>
+          
+          <div className="flex-grow">
+            <h3 className={`text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>Guest User</h3>
+            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Sign in to access AI features</p>
+          </div>
+        </div>
+        
+        <button
+          onClick={handleSignIn}
+          className={`mt-3 w-full py-2 rounded-lg text-sm font-medium ${
+            darkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+          } transition-colors flex items-center justify-center`}
+        >
+          <User className="mr-2" size={14} />
+          Sign In
+        </button>
+      </div>
+    );
+  }
+  
+  // For authenticated users, show compact profile with credits
+  const user = session.user;
+  // Use real-time credits if available, otherwise fall back to session credits
+  const creditsRemaining = realTimeCredits !== null ? realTimeCredits : (user.credits !== undefined ? user.credits : 0);
+  const totalCredits = 25; // This could be made dynamic in the future
+  
+  return (
+    <div className={`p-3 ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg backdrop-blur-sm`}>
+      {/* Compact user profile header */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center space-x-2">
+          {user.image ? (
+            <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500">
+              <img 
+                src={user.image} 
+                alt={user.name || 'User'} 
+                className="w-full h-full object-cover"
+              />
+            </div>
+          ) : (
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+              darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-500 text-white'
+            }`}>
+              {user.name?.charAt(0) || 'U'}
+            </div>
+          )}
+          
+          <div className="flex-grow min-w-0">
+            <div className="flex items-center space-x-1">
+              <h3 className={`text-sm font-medium truncate ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
+                {user.name || 'User'}
+              </h3>
+              {user.accountType === "pro" && (
+                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                  darkMode ? 'bg-yellow-800 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
+                } flex items-center space-x-1`}>
+                  <Crown size={8} />
+                  <span>PRO</span>
+                </span>
+              )}
+            </div>
+            <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user.email}</p>
+          </div>
+        </div>
+        
+        {/* Logout button */}
+        <button 
+          onClick={handleLogout}
+          className={`p-1.5 rounded-lg text-xs font-medium ${
+            darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+          } transition-colors flex items-center`}
+          title="Logout"
+        >
+          <LogOut size={12} />
+        </button>
+      </div>
+      
+      {/* Compact credits display */}
+      <div className={`mt-2 p-2 rounded ${
+        darkMode ? 'bg-gray-700/50' : 'bg-white/80'
+      }`}>
+        <div className="flex justify-between items-center mb-1">
+          <div className="flex items-center gap-1">
+            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              Credits
+            </span>
+            {onRefreshCredits && (
+              <button
+                onClick={onRefreshCredits}
+                disabled={creditsLoading}
+                className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
+                  creditsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                }`}
+                title="Refresh credits"
+              >
+                <RefreshCw 
+                  size={10} 
+                  className={`${creditsLoading ? 'animate-spin' : ''} ${
+                    darkMode ? 'text-gray-400' : 'text-gray-500'
+                  }`} 
+                />
+              </button>
+            )}
+          </div>
+          <span className={`text-xs font-medium ${
+            (creditsRemaining <= 1)
+              ? 'text-red-500' 
+              : darkMode ? 'text-indigo-400' : 'text-indigo-600'
+          }`}>
+            {creditsLoading ? '...' : `${creditsRemaining}/${totalCredits}`}
+          </span>
+        </div>
+        
+        {/* Compact credits progress bar */}
+        <div className={`w-full h-1.5 rounded-full overflow-hidden ${
+          darkMode ? 'bg-gray-600' : 'bg-gray-200'
+        }`}>
+          <div 
+            style={{ width: `${(creditsRemaining / totalCredits) * 100}%` }}
+            className={`h-full transition-all duration-500 ${
+              (creditsRemaining <= 1) 
+                ? 'bg-red-500' 
+                : darkMode ? 'bg-indigo-500' : 'bg-indigo-500'
+            }`}
+          ></div>
+        </div>
+        
+        {/* Credits reset notice for free users with no credits */}
+        {user.accountType === "free" && creditsRemaining === 0 && (
+          <div className={`mt-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center`}>
+            Resets in 24h
+          </div>
+        )}
+      </div>
+    </div>
+  );
+};
+
 export default function StepsBot() {
   // Session management
   const { data: session, status } = useSession();
@@ -104,17 +311,41 @@ export default function StepsBot() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   
+  // Clipboard and focus states
+  const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
+  const [clipboardFocused, setClipboardFocused] = useState(false);
+  
+  // Camera and crop states
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Crop>({
+    unit: '%',
+    width: 90,
+    height: 90,
+    x: 5,
+    y: 5,
+  });
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const uploadAreaRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
 
   // Check if screen is mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
+    
     checkMobile();
     window.addEventListener('resize', checkMobile);
-    return () => window.removeEventListener('resize', checkMobile);
+    
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
   // Check for dark mode
@@ -122,17 +353,19 @@ export default function StepsBot() {
     const checkDarkMode = () => {
       setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
+    
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
       attributeFilter: ['class']
     });
+    
     return () => observer.disconnect();
   }, []);
 
   // Fetch user credits
-  const fetchUserCredits = async () => {
+  const fetchUserCredits = useCallback(async () => {
     if (status !== 'authenticated' || !session?.user?.email) return;
     
     try {
@@ -141,19 +374,47 @@ export default function StepsBot() {
       if (response.ok) {
         const data = await response.json();
         setRealTimeCredits(data.credits);
+        
+        // Update session object with latest credits for immediate UI updates
+        if (session?.user) {
+          (session.user as any).credits = data.credits;
+        }
       }
     } catch (error) {
       console.error('Error fetching credits:', error);
     } finally {
       setCreditsLoading(false);
     }
-  };
+  }, [status, session?.user?.email, session?.user]);
 
   useEffect(() => {
     if (status === 'authenticated') {
       fetchUserCredits();
     }
-  }, [status]);
+  }, [status, fetchUserCredits]);
+
+  // Set up periodic credit refresh every 30 seconds
+  useEffect(() => {
+    if (status !== 'authenticated') return;
+
+    const intervalId = setInterval(() => {
+      fetchUserCredits();
+    }, 30000); // Refresh every 30 seconds
+
+    return () => clearInterval(intervalId);
+  }, [status, fetchUserCredits]); // Add fetchUserCredits to dependency array
+
+  // Manual refresh on window focus (when user comes back to tab)
+  useEffect(() => {
+    const handleFocus = () => {
+      if (status === 'authenticated') {
+        fetchUserCredits();
+      }
+    };
+
+    window.addEventListener('focus', handleFocus);
+    return () => window.removeEventListener('focus', handleFocus);
+  }, [status, fetchUserCredits]); // Add fetchUserCredits to dependency array
 
   // Utility functions
   const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
@@ -201,16 +462,11 @@ export default function StepsBot() {
       return;
     }
 
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image file size should be less than 5MB');
-      return;
-    }
-
     setSelectedImage(file);
-    setError('');
     setSteps([]);
     setBotResult(null);
-    setShowIframe(false);
+    setProcessedData(null);
+    setError('');
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -222,7 +478,24 @@ export default function StepsBot() {
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
-      handleImageUpload(file);
+      // For mobile, show crop modal like camera capture
+      if (isMobile) {
+        if (file.type.startsWith("image/")) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            const imageSrc = e.target?.result as string;
+            setCropImageSrc(imageSrc);
+            setRotationAngle(0); // Reset rotation angle for new image
+            setShowCropModal(true);
+          };
+          reader.readAsDataURL(file);
+        } else {
+          setError("Please select a valid image file");
+        }
+      } else {
+        // For desktop, process directly as before
+        handleImageUpload(file);
+      }
     }
   };
 
@@ -245,15 +518,234 @@ export default function StepsBot() {
     setIsDragOver(false);
   };
 
+  /**
+   * Handle camera capture for mobile devices
+   */
+  const handleCameraCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        const imageSrc = e.target?.result as string;
+        setCropImageSrc(imageSrc);
+        setRotationAngle(0); // Reset rotation angle for new image
+        setShowCropModal(true);
+      };
+      reader.readAsDataURL(file);
+    } else if (file) {
+      setError("Please capture a valid image file");
+    }
+  };
+
+  /**
+   * Trigger camera input
+   */
+  const triggerCameraInput = () => {
+    cameraInputRef.current?.click();
+  };
+
+  /**
+   * Generate canvas from crop with rotation
+   */
+  const generateCroppedImage = useCallback(
+    (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
+      return new Promise((resolve, reject) => {
+        try {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            reject(new Error('Canvas not available'));
+            return;
+          }
+
+          const scaleX = image.naturalWidth / image.width;
+          const scaleY = image.naturalHeight / image.height;
+          const ctx = canvas.getContext('2d');
+
+          if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+          }
+
+          // Set canvas dimensions based on crop
+          const cropWidth = crop.width * scaleX;
+          const cropHeight = crop.height * scaleY;
+          
+          // When rotating by 90 or 270 degrees, swap width and height
+          const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
+          canvas.width = isRotated90or270 ? cropHeight : cropWidth;
+          canvas.height = isRotated90or270 ? cropWidth : cropHeight;
+
+          // Clear canvas and translate to center for rotation
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((rotationAngle * Math.PI) / 180);
+          
+          // Draw the image with correct position adjustment for rotation
+          ctx.drawImage(
+            image,
+            crop.x * scaleX,
+            crop.y * scaleY,
+            cropWidth,
+            cropHeight,
+            -cropWidth / 2,
+            -cropHeight / 2,
+            cropWidth,
+            cropHeight
+          );
+          
+          ctx.restore();
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const file = new File([blob], 'cropped-image.jpg', {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(file);
+              } else {
+                reject(new Error('Failed to generate blob from canvas'));
+              }
+            },
+            'image/jpeg',
+            0.9
+          );
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    [rotationAngle] // Add rotationAngle to dependency array
+  );
+
+  /**
+   * Handle crop completion and image processing
+   */
+  const handleCropComplete = async () => {
+    if (!completedCrop || !imgRef.current) return;
+
+    try {
+      const croppedFile = await generateCroppedImage(imgRef.current, completedCrop);
+      handleImageUpload(croppedFile);
+      setShowCropModal(false);
+      setCropImageSrc(null);
+    } catch (error) {
+      console.error('Crop operation failed:', error);
+      setError("Failed to crop image. Please try again.");
+    }
+  };
+
+  /**
+   * Cancel crop operation
+   */
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    // Reset camera input
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
+    }
+  };
+
+  /**
+   * Handle rotation of the image
+   */
+  const rotateImage = () => {
+    // Rotate 90 degrees clockwise each time
+    setRotationAngle((prevAngle) => (prevAngle + 90) % 360);
+  };
+
+  /**
+   * Reset rotation angle
+   */
+  const resetRotation = () => {
+    setRotationAngle(0);
+  };
+
+  /**
+   * Handle clipboard paste functionality
+   */
+  const handlePaste = useCallback((event: ClipboardEvent) => {
+    if (!isUploadAreaFocused && !clipboardFocused) return;
+
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          handleImageUpload(file);
+          event.preventDefault();
+          break;
+        }
+      }
+    }
+  }, [isUploadAreaFocused, clipboardFocused]);
+
+  const handleUploadAreaClick = () => {
+    setIsUploadAreaFocused(true);
+    uploadAreaRef.current?.focus();
+  };
+
+  const handleUploadAreaBlur = () => {
+    setIsUploadAreaFocused(false);
+  };
+
+  const handleClipboardAreaClick = () => {
+    setClipboardFocused(true);
+    // Keep the previous focus handler for upload area
+    setIsUploadAreaFocused(false);
+    // Focus the clipboard area element to ensure paste events work
+    if (uploadAreaRef.current) {
+      uploadAreaRef.current.focus();
+    }
+  };
+
+  const handleClipboardAreaBlur = () => {
+    setClipboardFocused(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fileInputRef.current?.click();
+    }
+  };
+
+  // Add global paste event listener
+  React.useEffect(() => {
+    const handleGlobalPaste = (event: ClipboardEvent) => {
+      handlePaste(event);
+    };
+
+    document.addEventListener("paste", handleGlobalPaste);
+    return () => {
+      document.removeEventListener("paste", handleGlobalPaste);
+    };
+  }, [isUploadAreaFocused, clipboardFocused]); // Add proper dependency array
+
   const removeImage = () => {
     setSelectedImage(null);
     setImagePreview(null);
-    setError('');
     setSteps([]);
     setBotResult(null);
+    setProcessedData(null);
+    setError('');
     setShowIframe(false);
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    setCompletedCrop(null);
+    setRotationAngle(0);
+    setShareUrl(null);
+    setShareCopied(false);
     if (fileInputRef.current) {
-      fileInputRef.current.value = '';
+      fileInputRef.current.value = "";
+    }
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
     }
   };
 
@@ -641,26 +1133,7 @@ export default function StepsBot() {
               transition={{ duration: 0.6, delay: 0.2 }}
               className="max-w-md mx-auto"
             >
-              <div className="bg-card rounded-xl p-6 border shadow-sm text-center space-y-4">
-                <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                  <Bot className="w-8 h-8 text-primary" />
-                </div>
-                
-                <div className="space-y-2">
-                  <h2 className="text-xl font-bold">Sign In Required</h2>
-                  <p className="text-muted-foreground text-sm">
-                    Sign in to access the interactive learning features
-                  </p>
-                </div>
-
-                <button
-                  onClick={() => signIn('google', { callbackUrl: '/stepsbot' })}
-                  className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-6 py-3 font-medium transition-colors inline-flex items-center justify-center gap-2"
-                >
-                  <User size={18} />
-                  Sign In to Continue
-                </button>
-              </div>
+              <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
             </motion.div>
           )}
 
@@ -674,244 +1147,235 @@ export default function StepsBot() {
                 transition={{ duration: 0.6, delay: 0.1 }}
                 className="max-w-md mx-auto"
               >
-                <div className={`p-3 ${isDarkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg backdrop-blur-sm`}>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center space-x-2">
-                      {session.user?.image ? (
-                        <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500">
-                          <img 
-                            src={session.user.image} 
-                            alt={session.user.name || 'User'} 
-                            className="w-full h-full object-cover"
-                          />
-                        </div>
-                      ) : (
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-                          isDarkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-500 text-white'
-                        }`}>
-                          {session.user?.name?.charAt(0) || 'U'}
-                        </div>
-                      )}
-                      
-                      <div className="flex-grow min-w-0">
-                        <div className="flex items-center space-x-1">
-                          <h3 className={`text-sm font-medium truncate ${isDarkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                            {session.user?.name || 'User'}
-                          </h3>
-                          {(session.user as any)?.accountType === "pro" && (
-                            <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                              isDarkMode ? 'bg-yellow-800 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
-                            } flex items-center space-x-1`}>
-                              <Crown size={8} />
-                              <span>PRO</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className={`text-xs truncate ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>{session.user?.email}</p>
-                      </div>
+                <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
+              </motion.div>
+
+              {/* Main Content Grid */}
+              <div className={`grid gap-8 ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
+                {/* Left Side - Animated Bot (Desktop only) */}
+                {!isMobile && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ duration: 0.6, ease: "easeOut" }}
+                    className="space-y-6 order-1 lg:order-1"
+                  >
+                    {/* Animated Bot - Desktop only */}
+                    <div className="block">
+                      <RobotUIWrapper />
                     </div>
-                  </div>
-                  
-                  {/* Credits display */}
-                  <div className={`mt-2 p-2 rounded ${isDarkMode ? 'bg-gray-700/50' : 'bg-white/80'}`}>
-                    <div className="flex justify-between items-center mb-1">
-                      <div className="flex items-center gap-1">
-                        <span className={`text-xs ${isDarkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                          Credits
-                        </span>
-                        <button
-                          onClick={fetchUserCredits}
-                          disabled={creditsLoading}
-                          className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                            creditsLoading ? 'opacity-50 cursor-not-allowed' : ''
-                          }`}
-                          title="Refresh credits"
-                        >
-                          <RefreshCw 
-                            size={10} 
-                            className={`${creditsLoading ? 'animate-spin' : ''} ${
-                              isDarkMode ? 'text-gray-400' : 'text-gray-500'
-                            }`} 
-                          />
-                        </button>
+                  </motion.div>
+                )}
+
+                {/* Right Side - Upload Section */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut", delay: isMobile ? 0 : 0.2 }}
+                  className={`space-y-6 ${isMobile ? 'order-1' : 'order-2 lg:order-2'}`}
+                >
+                  {/* Image Upload Section */}
+                  <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg h-[580px] flex flex-col">
+                    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                      <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
                       </div>
-                      <span className={`text-xs font-medium ${
-                        (realTimeCredits !== null ? realTimeCredits : (session.user?.credits ?? 0)) <= 1
-                          ? 'text-red-500' 
-                          : isDarkMode ? 'text-indigo-400' : 'text-indigo-600'
-                      }`}>
-                        {creditsLoading ? '...' : `${realTimeCredits !== null ? realTimeCredits : (session.user?.credits ?? 0)}/25`}
-                      </span>
+                      <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                        Upload Problem Image
+                      </h2>
                     </div>
                     
-                    <div className={`w-full h-1.5 rounded-full overflow-hidden ${
-                      isDarkMode ? 'bg-gray-600' : 'bg-gray-200'
-                    }`}>
-                      <div 
-                        style={{ width: `${((realTimeCredits !== null ? realTimeCredits : (session.user?.credits ?? 0)) / 25) * 100}%` }}
-                        className={`h-full transition-all duration-500 ${
-                          (realTimeCredits !== null ? realTimeCredits : (session.user?.credits ?? 0)) <= 1
-                            ? 'bg-red-500' 
-                            : isDarkMode ? 'bg-indigo-500' : 'bg-indigo-500'
-                        }`}
-                      ></div>
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
-
-              {/* Image Upload Section */}
-              <motion.div 
-                initial={{ opacity: 0, y: 20 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.2 }}
-                className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 mb-6 sm:mb-8 shadow-lg"
-              >
-                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                  </div>
-                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
-                    Upload Problem Image
-                  </h2>
-                </div>
-                
-                {!imagePreview ? (
-                  <>
-                    {isMobile ? (
-                      /* Mobile: Camera and Upload buttons */
-                      <div className="space-y-4">
-                        <button
-                          onClick={() => cameraInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-3 p-6 bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30 rounded-xl transition-all hover:from-primary/15 hover:to-primary/10 hover:border-primary/40"
-                        >
-                          <Camera className="w-8 h-8 text-primary" />
-                          <div className="text-center">
-                            <h3 className="text-lg font-semibold">Take Photo</h3>
-                            <p className="text-sm text-muted-foreground">Capture question image</p>
-                          </div>
-                        </button>
-
-                        <button
-                          onClick={() => fileInputRef.current?.click()}
-                          className="w-full flex items-center justify-center gap-3 p-4 bg-muted/30 border-2 border-dashed border-border rounded-lg transition-all hover:border-primary/50 hover:bg-muted/40"
-                        >
-                          <Upload className="w-6 h-6 text-muted-foreground" />
-                          <div className="text-center">
-                            <p className="font-medium">Upload Image</p>
-                            <p className="text-xs text-muted-foreground">Select from gallery</p>
-                          </div>
-                        </button>
-
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                        />
-                        <input
-                          ref={cameraInputRef}
-                          type="file"
-                          accept="image/*"
-                          capture="environment"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                        />
-                      </div>
-                    ) : (
-                      /* Desktop: Drag and drop area */
-                      <div
-                        className={`border-2 border-dashed rounded-lg sm:rounded-xl p-6 sm:p-8 md:p-12 text-center transition-all duration-300 cursor-pointer ${
-                          isDragOver 
-                            ? 'border-primary bg-primary/5 scale-[1.02]' 
-                            : 'border-border hover:border-primary/50 hover:bg-muted/30'
-                        }`}
-                        onDrop={handleDrop}
-                        onDragOver={handleDragOver}
-                        onDragLeave={handleDragLeave}
-                        onClick={() => fileInputRef.current?.click()}
-                      >
-                        <ImageIcon className="mx-auto h-12 w-12 sm:h-16 sm:w-16 text-muted-foreground mb-4 sm:mb-6" />
-                        <h3 className="text-lg sm:text-xl font-semibold text-foreground mb-2">
-                          Drop your image here
-                        </h3>
-                        <p className="text-sm sm:text-base text-muted-foreground mb-4 sm:mb-6 px-2">
-                          or click to browse • Supports JPG, PNG, GIF up to 5MB
-                        </p>
-                        <input
-                          ref={fileInputRef}
-                          type="file"
-                          accept="image/*"
-                          onChange={handleFileSelect}
-                          className="hidden"
-                        />
-                        <div className="inline-flex items-center gap-2 bg-primary text-primary-foreground px-4 sm:px-6 py-2.5 sm:py-3 rounded-lg sm:rounded-xl font-medium hover:bg-primary/90 transition-colors text-sm sm:text-base">
-                          <Upload size={16} className="sm:w-[18px] sm:h-[18px]" />
-                          Choose Image
+                    {/* Image Upload Area */}
+                    <div className="flex-1 flex flex-col">
+                      {imagePreview ? (
+                        <div className="space-y-4 h-full flex flex-col justify-center border-2 border-dashed rounded-lg p-6 text-center transition-all bg-muted/30">
+                          <img
+                            src={imagePreview}
+                            alt="Preview"
+                            className="max-w-full max-h-48 mx-auto rounded-lg shadow-md object-contain"
+                          />
+                          <p className="text-sm text-muted-foreground">
+                            {selectedImage?.name} (
+                            {((selectedImage?.size || 0) / 1024 / 1024).toFixed(
+                              2
+                            )}{" "}
+                            MB)
+                          </p>
+                          <button
+                            onClick={removeImage}
+                            className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
+                          >
+                            <X className="inline mr-2 h-4 w-4" />
+                            Remove Image
+                          </button>
                         </div>
-                      </div>
-                    )}
-                  </>
-                ) : (
-                  <motion.div 
-                    initial={{ opacity: 0, scale: 0.95 }}
-                    animate={{ opacity: 1, scale: 1 }}
-                    transition={{ duration: 0.3 }}
-                    className="space-y-4 sm:space-y-6"
-                  >
-                    <div className="relative inline-block rounded-lg sm:rounded-xl overflow-hidden shadow-lg max-w-full">
-                      <img
-                        src={imagePreview}
-                        alt="Preview"
-                        className="max-w-full max-h-60 sm:max-h-80 object-contain bg-muted/20"
-                      />
-                      <button
-                        onClick={removeImage}
-                        className="absolute -top-1 -right-1 sm:-top-2 sm:-right-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-full p-1.5 sm:p-2 transition-colors shadow-lg"
-                      >
-                        <X size={14} className="sm:w-4 sm:h-4" />
-                      </button>
-                    </div>
-                    <div className="bg-muted/30 rounded-lg p-3 sm:p-4 border border-border">
-                      <p className="text-xs sm:text-sm text-muted-foreground mb-1">Ready for analysis</p>
-                      <p className="font-medium text-foreground text-sm sm:text-base truncate">{selectedImage?.name}</p>
-                    </div>
-                  </motion.div>
-                )}
-
-                {imagePreview && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.3, delay: 0.1 }}
-                    className="mt-6 sm:mt-8"
-                  >
-                    <button
-                      onClick={analyzeImageSteps}
-                      disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                      className="w-full bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 disabled:from-muted disabled:to-muted text-primary-foreground font-semibold py-3 sm:py-4 px-6 sm:px-8 rounded-lg sm:rounded-xl transition-all duration-300 flex items-center justify-center gap-2 sm:gap-3 shadow-lg disabled:shadow-none text-sm sm:text-base"
-                    >
-                      {isLoadingMainSteps ? (
-                        <>
-                          <Loader2 className="animate-spin w-4 h-4 sm:w-5 sm:h-5" />
-                          Analyzing image...
-                        </>
-                      ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
-                        <>
-                          <XCircle className="w-4 h-4 sm:w-5 sm:h-5" />
-                          No Credits Remaining
-                        </>
                       ) : (
                         <>
-                          <Sparkles className="w-4 h-4 sm:w-5 sm:h-5" />
-                          Analyze & Break Down Steps
+                          {isMobile ? (
+                            /* Mobile: Two buttons layout with crop and rotate options */
+                            <div className="flex-1 flex flex-col gap-4 justify-center">
+                              {/* Take Photo Button - Larger */}
+                              <button
+                                onClick={triggerCameraInput}
+                                className="flex flex-col items-center gap-3 p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30 rounded-xl transition-all hover:from-primary/15 hover:to-primary/10 hover:border-primary/40 active:scale-95"
+                              >
+                                <div className="p-4 bg-primary/10 rounded-full">
+                                  <Camera className="w-10 h-10 text-primary" />
+                                </div>
+                                <div className="text-center">
+                                  <h3 className="text-xl font-semibold text-foreground">Take Photo</h3>
+                                  <p className="text-sm text-muted-foreground">
+                                    Capture, crop & rotate question
+                                  </p>
+                                </div>
+                              </button>
+
+                              {/* Upload Button - Smaller */}
+                              <button
+                                onClick={() => fileInputRef.current?.click()}
+                                className="flex items-center justify-center gap-3 p-4 bg-muted/30 border-2 border-dashed border-border rounded-lg transition-all hover:border-primary/50 hover:bg-muted/40"
+                              >
+                                <Upload className="w-6 h-6 text-muted-foreground" />
+                                <div className="text-left">
+                                  <p className="text-sm font-medium">Upload Image</p>
+                                  <p className="text-xs text-muted-foreground">
+                                    Select, crop & rotate
+                                  </p>
+                                </div>
+                              </button>
+
+                              {/* Hidden inputs */}
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileSelect}
+                                className="hidden"
+                              />
+                              <input
+                                ref={cameraInputRef}
+                                type="file"
+                                accept="image/*"
+                                capture="environment"
+                                onChange={handleCameraCapture}
+                                className="hidden"
+                              />
+                            </div>
+                          ) : (
+                            /* Desktop: Split upload and paste areas */
+                            <div className="flex-1 grid grid-cols-2 gap-4">
+                              {/* Upload Area */}
+                              <div
+                                onClick={() => fileInputRef.current?.click()}
+                                className="border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center hover:border-primary/50 hover:bg-primary/5"
+                                role="button"
+                                aria-label="Upload image area - click to select file"
+                              >
+                                <input
+                                  ref={fileInputRef}
+                                  type="file"
+                                  accept="image/*"
+                                  onChange={handleFileSelect}
+                                  className="hidden"
+                                />
+
+                                <div className="space-y-4">
+                                  <Upload className="w-12 h-12 text-muted-foreground mx-auto" />
+                                  <div>
+                                    <p className="text-lg font-medium">
+                                      Upload Image
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Click to browse or drag & drop
+                                    </p>
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {/* Paste Area */}
+                              <div
+                                ref={uploadAreaRef}
+                                onDrop={handleDrop}
+                                onDragOver={handleDragOver}
+                                onClick={handleClipboardAreaClick}
+                                onBlur={handleClipboardAreaBlur}
+                                onKeyDown={handleKeyDown}
+                                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center outline-none ${
+                                  clipboardFocused
+                                    ? "border-primary/70 bg-primary/5 ring-2 ring-primary/20"
+                                    : "border-border hover:border-primary/50"
+                                }`}
+                                tabIndex={0}
+                                role="button"
+                                aria-label="Paste image area - click and paste from clipboard"
+                              >
+                                <div className="space-y-4">
+                                  <Clipboard className="w-12 h-12 text-muted-foreground mx-auto" />
+                                  <div>
+                                    <p className="text-lg font-medium">
+                                      Paste from Clipboard
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Click here and press{" "}
+                                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                                        {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'}
+                                      </kbd>
+                                    </p>
+                                    {clipboardFocused && (
+                                      <p className="text-xs text-primary font-medium mt-2">
+                                        Ready for paste! Press {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'} now
+                                      </p>
+                                    )}
+                                  </div>
+                                </div>
+                              </div>
+                              
+                              {session && (
+                                <div className="col-span-2 text-center">
+                                  <span className="text-xs text-muted-foreground">
+                                    <span className="font-medium">1 credit will be used</span> for each question breakdown. 
+                                    You have {realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)} credits remaining.
+                                  </span>
+                                </div>
+                              )}
+                            </div>
+                          )}
                         </>
                       )}
-                    </button>
-                  </motion.div>
-                )}
-              </motion.div>
+                    </div>
+
+                    {/* Action Button */}
+                    {imagePreview && (
+                      <div className="flex gap-3 mt-4">
+                        <Button
+                          onClick={analyzeImageSteps}
+                          disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                          className="flex-1"
+                          size="lg"
+                        >
+                          {isLoadingMainSteps ? (
+                            <ShiningText text="AI is analyzing..." />
+                          ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
+                            <>
+                              <XCircle className="mr-2 h-4 w-4" />
+                              No Credits Remaining
+                            </>
+                          ) : (
+                            <>
+                              <Sparkles className="mr-2 h-4 w-4" />
+                              Analyze & Break Down Steps
+                            </>
+                          )}
+                        </Button>
+
+                        <Button onClick={removeImage} variant="outline" size="lg">
+                          <RefreshCw className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              </div>
 
               {/* Error Display */}
               <AnimatePresence>
@@ -930,6 +1394,33 @@ export default function StepsBot() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* No Credits Notice */}
+              {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
+                >
+                  <div className="flex items-start gap-3">
+                    <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
+                    <div className="flex-1">
+                      <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
+                      <p className="text-yellow-700 mb-3">
+                        You've used all your credits for this account. Get more credits to continue using the AI Step Breakdown feature.
+                      </p>
+                      <div className="flex gap-2">
+                        <Link 
+                          href="/features/premium"
+                          className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
+                        >
+                          Upgrade to Pro
+                        </Link>
+                      </div>
+                    </div>
+                  </div>
+                </motion.div>
+              )}
 
               {/* Steps Display */}
               <AnimatePresence>
@@ -1124,7 +1615,7 @@ export default function StepsBot() {
                       ))}
                     </div>
 
-                    {/* Interactive Learning Button */}
+                    {/* Interactive Learning Button - CENTERED */}
                     {steps.length > 0 && !botResult && (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
@@ -1142,28 +1633,29 @@ export default function StepsBot() {
                             </h3>
                           </div>
                           
-                          {/* center the button */}
-                          <p className="text-muted-foreground">
+                          <p className="text-muted-foreground text-center">
                             Now that you have the step breakdown, launch the AI tutor for personalized guidance through the solution!
                           </p>
-                          <button
-                            onClick={startInteractiveLearning}
-                            disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                            className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
-                          >
-                            {processing ? (
-                              <>
-                                <Loader2 className="animate-spin w-5 h-5" />
-                                <ShiningText text="Preparing AI Tutor..." />
-                              </>
-                            ) : (
-                              <>
-
-                                <Play className="w-5 h-5  " />
-                                Launch Interactive Learning
-                              </>
-                            )}
-                          </button>
+                          
+                          <div className="flex justify-center">
+                            <button
+                              onClick={startInteractiveLearning}
+                              disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
+                            >
+                              {processing ? (
+                                <>
+                                  <Loader2 className="animate-spin w-5 h-5" />
+                                  <ShiningText text="Preparing AI Tutor..." />
+                                </>
+                              ) : (
+                                <>
+                                  <Play className="w-5 h-5" />
+                                  Launch Interactive Learning
+                                </>
+                              )}
+                            </button>
+                          </div>
                         </div>
                       </motion.div>
                     )}
@@ -1473,6 +1965,134 @@ export default function StepsBot() {
               </AnimatePresence>
             </>
           )}
+
+          {/* Crop Modal with Rotation */}
+          <AnimatePresence>
+            {showCropModal && cropImageSrc && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.9 }}
+                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CropIcon className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
+                      </div>
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                        size="icon"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Instructions */}
+                    <p className="text-sm text-muted-foreground">
+                      Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+                    </p>
+
+                    {/* Rotation Controls */}
+                    <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
+                      <Button
+                        onClick={resetRotation}
+                        variant="outline"
+                        size="sm"
+                        disabled={rotationAngle === 0}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Reset
+                      </Button>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{rotationAngle}°</span>
+                      </div>
+                      
+                      <Button
+                        onClick={rotateImage}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        Rotate 90°
+                      </Button>
+                    </div>
+
+                    {/* Crop Area */}
+                    <div className="flex justify-center">
+                      <div className="max-w-full max-h-[60vh] overflow-auto">
+                        <ReactCrop
+                          crop={crop}
+                          onChange={(c) => setCrop(c)}
+                          onComplete={(c) => setCompletedCrop(c)}
+                          aspect={undefined}
+                          minWidth={50}
+                          minHeight={50}
+                        >
+                          <img
+                            ref={imgRef}
+                            src={cropImageSrc}
+                            alt="Crop preview"
+                            className="max-w-full h-auto"
+                            style={{ transform: `rotate(${rotationAngle}deg)` }}
+                            onLoad={() => {
+                              // Auto-select most of the image initially
+                              if (imgRef.current) {
+                                const { width, height } = imgRef.current;
+                                setCrop({
+                                  unit: 'px',
+                                  width: width * 0.9,
+                                  height: height * 0.9,
+                                  x: width * 0.05,
+                                  y: height * 0.05,
+                                });
+                              }
+                            }}
+                          />
+                        </ReactCrop>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end">
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleCropComplete}
+                        disabled={!completedCrop}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        <CropIcon className="mr-2 h-4 w-4" />
+                        Crop & Upload
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Hidden canvas for image processing */}
+          <canvas
+            ref={canvasRef}
+            className="hidden"
+          />
         </div>
       </main>
       <Footer />
