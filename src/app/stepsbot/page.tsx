@@ -1048,10 +1048,11 @@ export default function StepsBot() {
       return;
     }
 
-    // Start streaming
+    // Start streaming and API call simultaneously
     setIsStreaming(true);
     setStreamingMessages([]);
     setError('');
+    setProcessing(true);
 
     const streamingTexts = [
       "Analyzing image content and mathematical expressions...",
@@ -1063,67 +1064,88 @@ export default function StepsBot() {
       "Establishing secure learning session and preparing interface..."
     ];
 
-    // Simulate streaming messages with varied timing
-    for (let i = 0; i < streamingTexts.length; i++) {
-      const delay = i === 0 ? 800 : (i < 3 ? 1200 : 1000); // Vary timing for realism
-      await new Promise(resolve => setTimeout(resolve, delay));
-      setStreamingMessages(prev => [...prev, {
-        id: `msg-${i}`,
-        content: streamingTexts[i],
-        timestamp: Date.now()
-      }]);
-    }
+    // Start API call immediately
+    const apiPromise = (async () => {
+      try {
+        // Step 1: Process image for chatbot
+        const aiFormData = new FormData();
+        aiFormData.append("image", selectedImage);
 
-    // Now call the actual API
+        const response = await fetch("/api/process-image", {
+          method: "POST",
+          body: aiFormData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to process image");
+        }
+
+        setProcessedData(result.data);
+
+        // Step 2: Create chatbot session
+        const chatbotResponse = await fetch("/api/upload-json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(result.data),
+        });
+
+        const chatbotResult = await chatbotResponse.json();
+
+        if (!chatbotResponse.ok) {
+          throw new Error(chatbotResult.error || "Failed to create chatbot");
+        }
+
+        // Update credits
+        if (result.creditsRemaining !== undefined) {
+          setRealTimeCredits(result.creditsRemaining);
+        }
+        
+        await fetchUserCredits();
+
+        return {
+          chatbotLink: chatbotResult.chatbotLink,
+          sessionId: chatbotResult.sessionId,
+        };
+      } catch (err) {
+        throw err;
+      }
+    })();
+
+    // Start streaming messages with cancellation support
+    const streamingPromise = (async () => {
+      for (let i = 0; i < streamingTexts.length; i++) {
+        // Check if API has finished
+        const apiFinished = await Promise.race([
+          apiPromise.then(() => true),
+          new Promise(resolve => setTimeout(() => resolve(false), 10))
+        ]);
+        
+        if (apiFinished) {
+          break; // Stop streaming if API finished
+        }
+
+        const delay = i === 0 ? 800 : (i < 3 ? 1200 : 1000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        setStreamingMessages(prev => [...prev, {
+          id: `msg-${i}`,
+          content: streamingTexts[i],
+          timestamp: Date.now()
+        }]);
+      }
+    })();
+
+    // Wait for API to complete (streaming will stop automatically when API finishes)
     try {
-      setProcessing(true);
-      
-      // Step 1: Process image for chatbot
-      const aiFormData = new FormData();
-      aiFormData.append("image", selectedImage);
-
-      const response = await fetch("/api/process-image", {
-        method: "POST",
-        body: aiFormData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to process image");
-      }
-
-      setProcessedData(result.data);
-
-      // Step 2: Create chatbot session
-      const chatbotResponse = await fetch("/api/upload-json", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(result.data),
-      });
-
-      const chatbotResult = await chatbotResponse.json();
-
-      if (!chatbotResponse.ok) {
-        throw new Error(chatbotResult.error || "Failed to create chatbot");
-      }
-
-      setBotResult({
-        chatbotLink: chatbotResult.chatbotLink,
-        sessionId: chatbotResult.sessionId,
-      });
-
-      // Update credits
-      if (result.creditsRemaining !== undefined) {
-        setRealTimeCredits(result.creditsRemaining);
-      }
-      
-      await fetchUserCredits();
+      const result = await apiPromise;
       
       // Stop streaming and show success
       setIsStreaming(false);
+      setBotResult(result);
       
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start interactive learning");
@@ -1853,10 +1875,10 @@ export default function StepsBot() {
               {/* Desktop Layout - Split View */}
               <AnimatePresence>
                 {showDesktopLayout && botResult && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
+                <motion.div
+                  initial={{ opacity: 0, y: 20 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.6 }}
                     className="hidden md:block"
                   >
                     {/* Desktop Split Layout */}
@@ -2268,133 +2290,133 @@ export default function StepsBot() {
                 )}
               </AnimatePresence>
 
-              {/* Crop Modal with Rotation */}
-              <AnimatePresence>
-                {showCropModal && cropImageSrc && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0.9 }}
-                      className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="space-y-4">
-                        {/* Header */}
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <CropIcon className="w-5 h-5 text-primary" />
-                            <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
-                          </div>
-                          <Button
-                            onClick={handleCropCancel}
-                            variant="outline"
-                            size="icon"
-                          >
-                            <X className="h-4 w-4" />
-                          </Button>
-                        </div>
-
-                        {/* Instructions */}
-                        <p className="text-sm text-muted-foreground">
-                          Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
-                        </p>
-
-                        {/* Rotation Controls */}
-                        <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
-                          <Button
-                            onClick={resetRotation}
-                            variant="outline"
-                            size="sm"
-                            disabled={rotationAngle === 0}
-                          >
-                            <RotateCcw className="mr-2 h-4 w-4" />
-                            Reset
-                          </Button>
-                          
-                          <div className="flex items-center gap-2">
-                            <span className="text-sm font-medium">{rotationAngle}°</span>
-                          </div>
-                          
-                          <Button
-                            onClick={rotateImage}
-                            variant="outline"
-                            size="sm"
-                          >
-                            <RotateCw className="mr-2 h-4 w-4" />
-                            Rotate 90°
-                          </Button>
-                        </div>
-
-                        {/* Crop Area */}
-                        <div className="flex justify-center">
-                          <div className="max-w-full max-h-[60vh] overflow-auto">
-                            <ReactCrop
-                              crop={crop}
-                              onChange={(c) => setCrop(c)}
-                              onComplete={(c) => setCompletedCrop(c)}
-                              aspect={undefined}
-                              minWidth={50}
-                              minHeight={50}
-                            >
-                              <img
-                                ref={imgRef}
-                                src={cropImageSrc || ''}
-                                alt="Crop preview"
-                                className="max-w-full h-auto"
-                                style={{ transform: `rotate(${rotationAngle}deg)` }}
-                                onLoad={() => {
-                                  // Auto-select most of the image initially
-                                  if (imgRef.current) {
-                                    const { width, height } = imgRef.current;
-                                    setCrop({
-                                      unit: 'px',
-                                      width: width * 0.9,
-                                      height: height * 0.9,
-                                      x: width * 0.05,
-                                      y: height * 0.05,
-                                    });
-                                  }
-                                }}
-                              />
-                            </ReactCrop>
-                          </div>
-                        </div>
-
-                        {/* Action Buttons */}
-                        <div className="flex gap-3 justify-end">
-                          <Button
-                            onClick={handleCropCancel}
-                            variant="outline"
-                          >
-                            Cancel
-                          </Button>
-                          <Button
-                            onClick={handleCropComplete}
-                            disabled={!completedCrop}
-                            className="bg-primary hover:bg-primary/90"
-                          >
-                            <CropIcon className="mr-2 h-4 w-4" />
-                            Crop & Upload
-                          </Button>
-                        </div>
+          {/* Crop Modal with Rotation */}
+          <AnimatePresence>
+            {showCropModal && cropImageSrc && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.9 }}
+                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CropIcon className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
                       </div>
-                    </motion.div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                        size="icon"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
 
-              {/* Hidden canvas for image processing */}
-              <canvas
-                ref={canvasRef}
-                className="hidden"
-              />
+                    {/* Instructions */}
+                    <p className="text-sm text-muted-foreground">
+                      Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+                    </p>
+
+                    {/* Rotation Controls */}
+                    <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
+                      <Button
+                        onClick={resetRotation}
+                        variant="outline"
+                        size="sm"
+                        disabled={rotationAngle === 0}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Reset
+                      </Button>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{rotationAngle}°</span>
+                      </div>
+                      
+                      <Button
+                        onClick={rotateImage}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        Rotate 90°
+                      </Button>
+                    </div>
+
+                    {/* Crop Area */}
+                    <div className="flex justify-center">
+                      <div className="max-w-full max-h-[60vh] overflow-auto">
+                        <ReactCrop
+                          crop={crop}
+                          onChange={(c) => setCrop(c)}
+                          onComplete={(c) => setCompletedCrop(c)}
+                          aspect={undefined}
+                          minWidth={50}
+                          minHeight={50}
+                        >
+                          <img
+                            ref={imgRef}
+                                src={cropImageSrc || ''}
+                            alt="Crop preview"
+                            className="max-w-full h-auto"
+                            style={{ transform: `rotate(${rotationAngle}deg)` }}
+                            onLoad={() => {
+                              // Auto-select most of the image initially
+                              if (imgRef.current) {
+                                const { width, height } = imgRef.current;
+                                setCrop({
+                                  unit: 'px',
+                                  width: width * 0.9,
+                                  height: height * 0.9,
+                                  x: width * 0.05,
+                                  y: height * 0.05,
+                                });
+                              }
+                            }}
+                          />
+                        </ReactCrop>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end">
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleCropComplete}
+                        disabled={!completedCrop}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        <CropIcon className="mr-2 h-4 w-4" />
+                        Crop & Upload
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Hidden canvas for image processing */}
+          <canvas
+            ref={canvasRef}
+            className="hidden"
+          />
             </>
           )}
         </div>
