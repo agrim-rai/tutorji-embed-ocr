@@ -301,6 +301,8 @@ export default function StepsBot() {
   // Steps breakdown states
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
+  const [questionSummary, setQuestionSummary] = useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
   
   // Interactive learning states
   const [botResult, setBotResult] = useState<BotResult | null>(null);
@@ -756,6 +758,8 @@ export default function StepsBot() {
     setIsStreaming(false);
     setStreamingMessages([]);
     setShowDesktopLayout(false);
+    setQuestionSummary(null);
+    setIsLoadingSummary(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -782,6 +786,10 @@ export default function StepsBot() {
       return;
     }
 
+    // First get the question summary
+    await getQuestionSummary();
+
+    // Then get the main steps
     setIsLoadingMainSteps(true);
     setError('');
     setSteps([]);
@@ -832,6 +840,42 @@ export default function StepsBot() {
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
+  };
+
+  const getQuestionSummary = async () => {
+    if (!selectedImage) return;
+
+    setIsLoadingSummary(true);
+    setQuestionSummary(null);
+
+    try {
+      const imageBase64 = await convertImageToBase64(selectedImage);
+      
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: imageBase64,
+          type: 'summary'
+        }),
+      });
+
+      const data: BreakdownResponse = await response.json();
+
+      if (data.success && data.content) {
+        setQuestionSummary(data.content);
+      } else {
+        console.error('Failed to get question summary:', data.error);
+        // Don't show error for summary failure, just continue without it
+      }
+    } catch (err) {
+      console.error('Network error getting summary:', err);
+      // Don't show error for summary failure, just continue without it
+    } finally {
+      setIsLoadingSummary(false);
+    }
   };
 
   // Step interaction functions
@@ -1464,6 +1508,45 @@ export default function StepsBot() {
                     <div className="flex items-center gap-2">
                       <XCircle size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
                       <span className="text-sm sm:text-base">{error}</span>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Question Summary Display */}
+              <AnimatePresence>
+                {(questionSummary || isLoadingSummary) && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.5 }}
+                    className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 mb-6 sm:mb-8 backdrop-blur-sm shadow-sm"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
+                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                          Question Analysis
+                        </h3>
+                        {isLoadingSummary ? (
+                          <div className="flex items-center gap-2">
+                            <Loader2 className="animate-spin w-4 h-4 text-blue-600" />
+                            <span className="text-blue-700 dark:text-blue-300 text-sm">
+                              Analyzing question...
+                            </span>
+                          </div>
+                        ) : questionSummary ? (
+                          <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
+                            <SimpleMathRenderer 
+                              content={questionSummary} 
+                              className="text-blue-800 dark:text-blue-200 leading-relaxed" 
+                            />
+                          </div>
+                        ) : null}
+                      </div>
                     </div>
                   </motion.div>
                 )}

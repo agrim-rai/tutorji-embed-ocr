@@ -12,7 +12,59 @@ export async function POST(request: NextRequest) {
     let prompt = '';
     let messages: any[] = [];
     
-    if (type === 'main') {
+    if (type === 'summary') {
+      if (imageData) {
+        prompt = `Analyze this image and provide a brief 1-2 line summary of the question/problem shown. The summary should include:
+1. What type of problem/question this is
+2. Key mathematical concepts or topics involved
+
+End with exactly this phrase: "Here is a step by step solution for the problem followed by interactive bot to solve it"
+Keep it concise, professional, and informative. Use LaTeX notation for any mathematical expressions: \\( \\) for inline math.`;
+        
+        messages = [
+          {
+            role: "system",
+            content: "You are a helpful math tutor. Provide concise, professional summaries. Use LaTeX notation: \\( \\) for inline math."
+          },
+          {
+            role: "user",
+            content: [
+              {
+                type: "text",
+                text: prompt
+              },
+              {
+                type: "image_url",
+                image_url: {
+                  url: imageData
+                }
+              }
+            ]
+          }
+        ];
+      } else {
+        prompt = `Provide a brief 1-2 line summary of the following problem. The summary should include:
+1. What type of problem/question this is
+2. Key mathematical concepts or topics involved
+
+End with exactly this phrase: "Here is a step by step solution for the problem followed by interactive bot to solve it"
+
+Problem: ${problem}
+
+Keep it concise, professional, and informative. Use LaTeX notation for any mathematical expressions: \\( \\) for inline math.`;
+        
+        messages = [
+          {
+            role: "system",
+            content: "You are a helpful math tutor. Provide concise, professional summaries. Use LaTeX notation: \\( \\) for inline math."
+          },
+          {
+            role: "user",
+            content: prompt
+          }
+        ];
+      }
+    } else if (type === 'main') {
       if (imageData) {
         prompt = `Analyze this image and break down the problem or task shown into exactly 5-6 main steps. Each step should be clear and actionable. Format each step as "Step X: [description]" where each step builds logically on the previous ones.
 
@@ -115,7 +167,7 @@ Provide only the concise explanation, nothing else.`;
     const completion = await openai.chat.completions.create({
       model: "gpt-4o-mini",
       messages: messages,
-      max_tokens: type === 'theory' ? 400 : 1000,
+      max_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000,
       temperature: 0.3,
     });
 
