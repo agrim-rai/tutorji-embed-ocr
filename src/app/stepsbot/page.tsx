@@ -108,6 +108,13 @@ interface ProcessedData {
   concept_tags: string[][];
 }
 
+// Add new interface for streaming messages
+interface StreamingMessage {
+  id: string;
+  content: string;
+  timestamp: number;
+}
+
 /**
  * UserProfile Component
  * 
@@ -301,6 +308,11 @@ export default function StepsBot() {
   const [showFullQuestion, setShowFullQuestion] = useState(false);
   const [processing, setProcessing] = useState(false);
   const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
+  
+  // Add new states for streaming and layout
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingMessages, setStreamingMessages] = useState<StreamingMessage[]>([]);
+  const [showDesktopLayout, setShowDesktopLayout] = useState(false);
   
   // General states
   const [error, setError] = useState('');
@@ -741,6 +753,9 @@ export default function StepsBot() {
     setRotationAngle(0);
     setShareUrl(null);
     setShareCopied(false);
+    setIsStreaming(false);
+    setStreamingMessages([]);
+    setShowDesktopLayout(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1026,17 +1041,43 @@ export default function StepsBot() {
     }
   };
 
-  // Interactive learning functions
-  const startInteractiveLearning = async () => {
+  // Interactive learning functions with streaming
+  const startInteractiveLearningWithStreaming = async () => {
     if (!selectedImage || steps.length === 0) {
       setError('Please analyze the image first to generate steps');
       return;
     }
 
-    setProcessing(true);
+    // Start streaming
+    setIsStreaming(true);
+    setStreamingMessages([]);
     setError('');
 
+    const streamingTexts = [
+      "Analyzing image content and mathematical expressions...",
+      "Identifying key problem components and variable relationships...", 
+      "Processing question structure and determining solution pathway...",
+      "Generating adaptive learning framework for personalized guidance...",
+      "Calibrating interactive response system for optimal learning experience...",
+      "Finalizing AI tutor configuration and knowledge base integration...",
+      "Establishing secure learning session and preparing interface..."
+    ];
+
+    // Simulate streaming messages with varied timing
+    for (let i = 0; i < streamingTexts.length; i++) {
+      const delay = i === 0 ? 800 : (i < 3 ? 1200 : 1000); // Vary timing for realism
+      await new Promise(resolve => setTimeout(resolve, delay));
+      setStreamingMessages(prev => [...prev, {
+        id: `msg-${i}`,
+        content: streamingTexts[i],
+        timestamp: Date.now()
+      }]);
+    }
+
+    // Now call the actual API
     try {
+      setProcessing(true);
+      
       // Step 1: Process image for chatbot
       const aiFormData = new FormData();
       aiFormData.append("image", selectedImage);
@@ -1081,11 +1122,22 @@ export default function StepsBot() {
       
       await fetchUserCredits();
       
+      // Stop streaming and show success
+      setIsStreaming(false);
+      
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to start interactive learning");
+      setIsStreaming(false);
     } finally {
       setProcessing(false);
     }
+  };
+
+  const launchDesktopLayout = () => {
+    if (!isMobile) {
+      setShowDesktopLayout(true);
+    }
+    setShowIframe(true);
   };
 
   const copyShareLink = async () => {
@@ -1429,7 +1481,9 @@ export default function StepsBot() {
                     initial={{ opacity: 0, y: 20 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.6 }}
-                    className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8"
+                    className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
+                      showDesktopLayout ? 'hidden md:block' : ''
+                    }`}
                   >
                     <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
                       <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
@@ -1616,7 +1670,7 @@ export default function StepsBot() {
                     </div>
 
                     {/* Interactive Learning Button - CENTERED */}
-                    {steps.length > 0 && !botResult && (
+                    {steps.length > 0 && !botResult && !isStreaming && (
                       <motion.div 
                         initial={{ opacity: 0, y: 10 }}
                         animate={{ opacity: 1, y: 0 }}
@@ -1639,7 +1693,7 @@ export default function StepsBot() {
                           
                           <div className="flex justify-center">
                             <button
-                              onClick={startInteractiveLearning}
+                              onClick={startInteractiveLearningWithStreaming}
                               disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
                               className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
                             >
@@ -1663,8 +1717,61 @@ export default function StepsBot() {
                 )}
               </AnimatePresence>
 
+              {/* Streaming Messages Display */}
+              <AnimatePresence>
+                {isStreaming && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    exit={{ opacity: 0, y: -20 }}
+                    transition={{ duration: 0.6 }}
+                    className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
+                  >
+                    <div className="text-center space-y-6">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                          <Bot className="w-8 h-8 text-green-600" />
+                        </div>
+                        <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
+                          Preparing AI Tutor
+                        </h2>
+                      </div>
+
+                      <div className="space-y-3 max-w-md mx-auto">
+                        {streamingMessages.map((message, index) => (
+                          <motion.div
+                            key={message.id}
+                            initial={{ opacity: 0, x: -20 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ duration: 0.5, delay: index * 0.1 }}
+                            className="flex items-center gap-3 text-left"
+                          >
+                            <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+                            <ResponseStream 
+                              textStream={message.content}
+                              className="text-muted-foreground"
+                            />
+                          </motion.div>
+                        ))}
+                      </div>
+
+                      {processing && (
+                        <motion.div
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          className="flex items-center justify-center gap-2"
+                        >
+                          <Loader2 className="animate-spin w-5 h-5 text-green-600" />
+                          <span className="text-green-600 font-medium">Finalizing setup...</span>
+                        </motion.div>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
               {/* Bot Result Display */}
-              {botResult && (
+              {botResult && !showDesktopLayout && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
@@ -1692,7 +1799,7 @@ export default function StepsBot() {
                       transition={{ duration: 0.2 }}
                     >
                       <Button
-                        onClick={() => setShowIframe(true)}
+                        onClick={launchDesktopLayout}
                         size="lg"
                         className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 sm:px-12 py-4 text-lg sm:text-xl font-semibold rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl w-full sm:w-auto max-w-full"
                       >
@@ -1743,13 +1850,210 @@ export default function StepsBot() {
                 </motion.div>
               )}
 
-              {/* Interactive Learning Iframe */}
-              {showIframe && botResult && (
+              {/* Desktop Layout - Split View */}
+              <AnimatePresence>
+                {showDesktopLayout && botResult && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 20 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.6 }}
+                    className="hidden md:block"
+                  >
+                    {/* Desktop Split Layout */}
+                    <div className="grid grid-cols-2 gap-6 h-[800px]">
+                      {/* Left Side - Question + Steps */}
+                      <motion.div
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: 0.1 }}
+                        className="space-y-4 overflow-hidden"
+                      >
+                        {/* Question Image */}
+                        <div className="bg-card rounded-xl border shadow-sm h-[300px]">
+                          <div className="p-4 border-b">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                              <ImageIcon className="w-5 h-5 text-primary" />
+                              Question
+                            </h3>
+                          </div>
+                          <div className="p-4 h-[calc(100%-64px)] flex flex-col">
+                            {imagePreview && (
+                              <>
+                                <div className="border rounded-lg bg-muted/20 overflow-hidden relative flex-1">
+                                  <TransformWrapper
+                                    initialScale={1}
+                                    minScale={0.3}
+                                    maxScale={5}
+                                    centerOnInit={true}
+                                    wheel={{ step: 0.1 }}
+                                  >
+                                    {({ zoomIn, zoomOut, resetTransform }: any) => (
+                                      <>
+                                        {/* Zoom Controls */}
+                                        <div className="absolute top-2 right-2 z-10 flex gap-1">
+                                          <Button
+                                            onClick={() => zoomIn()}
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                            title="Zoom In"
+                                          >
+                                            <ZoomIn className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            onClick={() => zoomOut()}
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                            title="Zoom Out"
+                                          >
+                                            <ZoomOut className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            onClick={() => resetTransform()}
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                            title="Reset View"
+                                          >
+                                            <RotateCcw className="h-3 w-3" />
+                                          </Button>
+                                          <Button
+                                            onClick={() => setShowFullQuestion(true)}
+                                            variant="outline"
+                                            size="icon"
+                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                            title="Full Screen"
+                                          >
+                                            <Maximize2 className="h-3 w-3" />
+                                          </Button>
+                                        </div>
+                                        <TransformComponent>
+                                          <img
+                                            src={imagePreview}
+                                            alt="Question"
+                                            className="w-full h-full object-contain rounded-lg"
+                                          />
+                                        </TransformComponent>
+                                      </>
+                                    )}
+                                  </TransformWrapper>
+                                </div>
+                                
+                                {/* Full Screen Button */}
+                                <div className="mt-3">
+                                  <Button
+                                    onClick={() => setShowFullQuestion(true)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="w-full text-sm"
+                                  >
+                                    <Maximize2 className="mr-2 h-4 w-4" />
+                                    View Full Screen
+                                  </Button>
+                                </div>
+                              </>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Steps List */}
+                        <div className="bg-card rounded-xl border shadow-sm h-[480px] flex flex-col">
+                          <div className="p-4 border-b">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                              <Target className="w-5 h-5 text-primary" />
+                              Step-by-Step Solution
+                            </h3>
+                          </div>
+                          <div className="flex-1 overflow-y-auto p-4">
+                            <div className="space-y-3">
+                              {steps.map((step, stepIndex) => (
+                                <motion.div
+                                  key={step.id}
+                                  initial={{ opacity: 0, y: 10 }}
+                                  animate={{ opacity: 1, y: 0 }}
+                                  transition={{ duration: 0.3, delay: stepIndex * 0.05 }}
+                                  className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                                >
+                                  <div className="flex items-start gap-3">
+                                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold text-primary mt-1">
+                                      {stepIndex + 1}
+                                    </div>
+                                    <div className="flex-1">
+                                      <SimpleMathRenderer
+                                        content={step.content}
+                                        className="text-foreground leading-relaxed text-sm"
+                                      />
+                                      
+                                      {/* Sub-steps */}
+                                      {step.subSteps.length > 0 && (
+                                        <div className="mt-2 ml-4 space-y-2">
+                                          {step.subSteps.map((subStep, subIndex) => (
+                                            <div key={subStep.id} className="flex items-start gap-2">
+                                              <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
+                                                {String.fromCharCode(97 + subIndex)}
+                                              </div>
+                                              <SimpleMathRenderer
+                                                content={subStep.content}
+                                                className="text-muted-foreground text-xs leading-relaxed"
+                                              />
+                                            </div>
+                                          ))}
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                </motion.div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+
+                      {/* Right Side - AI Bot Iframe */}
+                      <motion.div
+                        initial={{ opacity: 0, x: 20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.6, delay: 0.2 }}
+                        className="bg-card rounded-xl border shadow-sm overflow-hidden"
+                      >
+                        <div className="p-4 border-b bg-card">
+                          <div className="flex items-center justify-between">
+                            <h3 className="font-semibold text-lg flex items-center gap-2">
+                              <Bot className="w-5 h-5 text-primary" />
+                              AI Interactive Tutor
+                            </h3>
+                            <Button
+                              onClick={() => setShowDesktopLayout(false)}
+                              variant="outline"
+                              size="sm"
+                            >
+                              <X className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                        <div className="h-[calc(100%-64px)]">
+                          <iframe
+                            src={botResult.chatbotLink}
+                            className="w-full h-full border-0"
+                            title="AI Tutor Interactive Session"
+                            scrolling="yes"
+                            allow="fullscreen"
+                          />
+                        </div>
+                      </motion.div>
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Mobile Interactive Learning Iframe (unchanged) */}
+              {showIframe && botResult && !showDesktopLayout && (
                 <motion.div
                   initial={{ opacity: 0, y: 20 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.6 }}
-                  className="bg-card rounded-xl border shadow-lg overflow-hidden w-full"
+                  className="bg-card rounded-xl border shadow-lg overflow-hidden w-full md:hidden"
                 >
                   {/* Header with controls */}
                   <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
@@ -1811,7 +2115,7 @@ export default function StepsBot() {
                               centerOnInit={true}
                               wheel={{ step: 0.1 }}
                             >
-                              {({ zoomIn, zoomOut, resetTransform }) => (
+                              {({ zoomIn, zoomOut, resetTransform }: any) => (
                                 <>
                                   {/* Zoom Controls */}
                                   <div className="absolute top-2 lg:top-4 right-2 lg:right-4 z-10 flex gap-1">
@@ -1963,136 +2267,136 @@ export default function StepsBot() {
                   </motion.div>
                 )}
               </AnimatePresence>
+
+              {/* Crop Modal with Rotation */}
+              <AnimatePresence>
+                {showCropModal && cropImageSrc && (
+                  <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    exit={{ opacity: 0 }}
+                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <motion.div
+                      initial={{ scale: 0.9 }}
+                      animate={{ scale: 1 }}
+                      exit={{ scale: 0.9 }}
+                      className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div className="space-y-4">
+                        {/* Header */}
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <CropIcon className="w-5 h-5 text-primary" />
+                            <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
+                          </div>
+                          <Button
+                            onClick={handleCropCancel}
+                            variant="outline"
+                            size="icon"
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+                        </div>
+
+                        {/* Instructions */}
+                        <p className="text-sm text-muted-foreground">
+                          Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+                        </p>
+
+                        {/* Rotation Controls */}
+                        <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
+                          <Button
+                            onClick={resetRotation}
+                            variant="outline"
+                            size="sm"
+                            disabled={rotationAngle === 0}
+                          >
+                            <RotateCcw className="mr-2 h-4 w-4" />
+                            Reset
+                          </Button>
+                          
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{rotationAngle}°</span>
+                          </div>
+                          
+                          <Button
+                            onClick={rotateImage}
+                            variant="outline"
+                            size="sm"
+                          >
+                            <RotateCw className="mr-2 h-4 w-4" />
+                            Rotate 90°
+                          </Button>
+                        </div>
+
+                        {/* Crop Area */}
+                        <div className="flex justify-center">
+                          <div className="max-w-full max-h-[60vh] overflow-auto">
+                            <ReactCrop
+                              crop={crop}
+                              onChange={(c) => setCrop(c)}
+                              onComplete={(c) => setCompletedCrop(c)}
+                              aspect={undefined}
+                              minWidth={50}
+                              minHeight={50}
+                            >
+                              <img
+                                ref={imgRef}
+                                src={cropImageSrc || ''}
+                                alt="Crop preview"
+                                className="max-w-full h-auto"
+                                style={{ transform: `rotate(${rotationAngle}deg)` }}
+                                onLoad={() => {
+                                  // Auto-select most of the image initially
+                                  if (imgRef.current) {
+                                    const { width, height } = imgRef.current;
+                                    setCrop({
+                                      unit: 'px',
+                                      width: width * 0.9,
+                                      height: height * 0.9,
+                                      x: width * 0.05,
+                                      y: height * 0.05,
+                                    });
+                                  }
+                                }}
+                              />
+                            </ReactCrop>
+                          </div>
+                        </div>
+
+                        {/* Action Buttons */}
+                        <div className="flex gap-3 justify-end">
+                          <Button
+                            onClick={handleCropCancel}
+                            variant="outline"
+                          >
+                            Cancel
+                          </Button>
+                          <Button
+                            onClick={handleCropComplete}
+                            disabled={!completedCrop}
+                            className="bg-primary hover:bg-primary/90"
+                          >
+                            <CropIcon className="mr-2 h-4 w-4" />
+                            Crop & Upload
+                          </Button>
+                        </div>
+                      </div>
+                    </motion.div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
+
+              {/* Hidden canvas for image processing */}
+              <canvas
+                ref={canvasRef}
+                className="hidden"
+              />
             </>
           )}
-
-          {/* Crop Modal with Rotation */}
-          <AnimatePresence>
-            {showCropModal && cropImageSrc && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <motion.div
-                  initial={{ scale: 0.9 }}
-                  animate={{ scale: 1 }}
-                  exit={{ scale: 0.9 }}
-                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
-                  onClick={(e) => e.stopPropagation()}
-                >
-                  <div className="space-y-4">
-                    {/* Header */}
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <CropIcon className="w-5 h-5 text-primary" />
-                        <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
-                      </div>
-                      <Button
-                        onClick={handleCropCancel}
-                        variant="outline"
-                        size="icon"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    {/* Instructions */}
-                    <p className="text-sm text-muted-foreground">
-                      Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
-                    </p>
-
-                    {/* Rotation Controls */}
-                    <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
-                      <Button
-                        onClick={resetRotation}
-                        variant="outline"
-                        size="sm"
-                        disabled={rotationAngle === 0}
-                      >
-                        <RotateCcw className="mr-2 h-4 w-4" />
-                        Reset
-                      </Button>
-                      
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{rotationAngle}°</span>
-                      </div>
-                      
-                      <Button
-                        onClick={rotateImage}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <RotateCw className="mr-2 h-4 w-4" />
-                        Rotate 90°
-                      </Button>
-                    </div>
-
-                    {/* Crop Area */}
-                    <div className="flex justify-center">
-                      <div className="max-w-full max-h-[60vh] overflow-auto">
-                        <ReactCrop
-                          crop={crop}
-                          onChange={(c) => setCrop(c)}
-                          onComplete={(c) => setCompletedCrop(c)}
-                          aspect={undefined}
-                          minWidth={50}
-                          minHeight={50}
-                        >
-                          <img
-                            ref={imgRef}
-                            src={cropImageSrc}
-                            alt="Crop preview"
-                            className="max-w-full h-auto"
-                            style={{ transform: `rotate(${rotationAngle}deg)` }}
-                            onLoad={() => {
-                              // Auto-select most of the image initially
-                              if (imgRef.current) {
-                                const { width, height } = imgRef.current;
-                                setCrop({
-                                  unit: 'px',
-                                  width: width * 0.9,
-                                  height: height * 0.9,
-                                  x: width * 0.05,
-                                  y: height * 0.05,
-                                });
-                              }
-                            }}
-                          />
-                        </ReactCrop>
-                      </div>
-                    </div>
-
-                    {/* Action Buttons */}
-                    <div className="flex gap-3 justify-end">
-                      <Button
-                        onClick={handleCropCancel}
-                        variant="outline"
-                      >
-                        Cancel
-                      </Button>
-                      <Button
-                        onClick={handleCropComplete}
-                        disabled={!completedCrop}
-                        className="bg-primary hover:bg-primary/90"
-                      >
-                        <CropIcon className="mr-2 h-4 w-4" />
-                        Crop & Upload
-                      </Button>
-                    </div>
-                  </div>
-                </motion.div>
-              </motion.div>
-            )}
-          </AnimatePresence>
-
-          {/* Hidden canvas for image processing */}
-          <canvas
-            ref={canvasRef}
-            className="hidden"
-          />
         </div>
       </main>
       <Footer />
