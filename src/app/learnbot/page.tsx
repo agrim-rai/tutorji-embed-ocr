@@ -78,7 +78,9 @@ const QuestionCard: React.FC<{
   };
 
   // Check if any option is too long for 2-column layout
-  const hasLongOptions = options.some((option) => option.length > 80);
+  // 50 characters is the max width of the option text in the 2-column layout
+  // edit as needed
+  const hasLongOptions = options.some((option) => option.length > 50);
 
   const renderOptions = () => {
     const optionElements = options.map((option, idx) => (
@@ -89,7 +91,7 @@ const QuestionCard: React.FC<{
         onMouseLeave={() => setHoveredOption(null)}
         aria-label={`Option ${String.fromCharCode(65 + idx)}: ${option}`}
         className={`
-          flex items-center bg-gray-700 hover:bg-gray-600 rounded-lg p-3 text-base transition-colors duration-150 w-full
+          flex items-center bg-gray-700 hover:bg-gray-600 rounded-lg p-3 ${hasLongOptions ? 'text-sm' : 'text-base'} transition-colors duration-150 w-full
           ${selectedOption === idx ? "bg-gray-600 ring-2 ring-gray-500" : ""}
         `}
       >
