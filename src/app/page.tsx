@@ -1,51 +1,104 @@
-"use client";
+"use client"
 
-import React, { useState, useRef, useEffect, useCallback } from "react";
-import { motion, AnimatePresence } from "framer-motion";
-import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import React, { useState, useRef, useEffect, useCallback } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { useSession, signIn, signOut } from "next-auth/react";
 import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
 import 'react-image-crop/dist/ReactCrop.css';
-import { useSession, signOut, signIn } from "next-auth/react";
 import {
   Upload,
   Image as ImageIcon,
-  FileText,
-  CheckCircle,
-  XCircle,
-  Loader2,
-  Copy,
-  RefreshCw,
-  Home,
-  Download,
-  Eye,
-  Sparkles,
-  ExternalLink,
-  Maximize2,
   X,
-  ZoomIn,
-  ZoomOut,
-  RotateCcw,
-  Bot,
-  Play,
+  Sparkles,
+  Brain,
+  Target,
+  XCircle,
+  CheckCircle,
+  Loader2,
+  ChevronRight,
   ChevronDown,
-  ChevronUp,
+  Plus,
+  FileText,
+  Play,
+  Bot,
   Camera,
-  Crop as CropIcon,
   User,
   Crown,
   LogOut,
+  RefreshCw,
   Info,
-  RotateCw,
-  Clipboard,
+  Maximize2,
   Share2,
-} from "lucide-react";
+  ZoomIn,
+  ZoomOut,
+  RotateCcw,
+  RotateCw,
+  Crop as CropIcon,
+  Clipboard,
+} from 'lucide-react';
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
-import dynamic from "next/dynamic";
+import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
 import { ShiningText } from "@/components/ui/shining-text";
 import { ResponseStream } from "@/components/ui/response-stream";
+import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import dynamic from "next/dynamic";
 import Link from "next/link";
+
+// Lazy load the SplineSceneBasic component with SSR disabled and error handling
+const SplineSceneBasic = dynamic(() => import("@/components/robotui").then(mod => ({ default: mod.SplineSceneBasic })), {
+  ssr: false,
+  loading: () => null, // No loading placeholder since it won't show on mobile anyway
+});
+
+// Error boundary component for the robot UI
+const RobotUIWrapper: React.FC = () => {
+  const [hasError, setHasError] = useState(false);
+
+  useEffect(() => {
+    setHasError(false); // Reset error state when component mounts
+  }, []);
+
+  if (hasError) {
+    return null; // Fail silently for robot UI
+  }
+
+  try {
+    return <SplineSceneBasic />;
+  } catch (error) {
+    console.warn('Robot UI failed to load:', error);
+    setHasError(true);
+    return null;
+  }
+};
+
+interface Step {
+  id: string;
+  content: string;
+  subSteps: SubStep[];
+  isExpanded: boolean;
+  isLoadingSubSteps: boolean;
+}
+
+interface SubStep {
+  id: string;
+  content: string;
+  theory?: string;
+  isExpanded: boolean;
+  isLoadingTheory: boolean;
+}
+
+interface BreakdownResponse {
+  success: boolean;
+  content?: string;
+  error?: string;
+}
+
+interface BotResult {
+  chatbotLink: string;
+  sessionId: string;
+}
 
 interface ProcessedData {
   questions: string[];
@@ -55,16 +108,12 @@ interface ProcessedData {
   concept_tags: string[][];
 }
 
-interface BotResult {
-  chatbotLink: string;
-  sessionId: string;
+// Add new interface for streaming messages
+interface StreamingMessage {
+  id: string;
+  content: string;
+  timestamp: number;
 }
-
-// Lazy load the SplineSceneBasic component with SSR disabled
-const SplineSceneBasic = dynamic(() => import("@/components/robotui").then(mod => ({ default: mod.SplineSceneBasic })), {
-  ssr: false,
-  loading: () => null, // No loading placeholder since it won't show on mobile anyway
-})
 
 /**
  * UserProfile Component
@@ -89,7 +138,7 @@ const UserProfile: React.FC<{
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/upload-image' });
+    await signIn('google', { callbackUrl: '/' });
   };
   
   // If not authenticated, show login prompt
@@ -240,30 +289,45 @@ const UserProfile: React.FC<{
   );
 };
 
-export default function UploadImagePage() {
-  // Session management with NextAuth
+export default function StepsBot() {
+  // Session management
   const { data: session, status } = useSession();
   
-  // State management
+  // Image upload states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
-  const [processing, setProcessing] = useState(false);
-  const [processedData, setProcessedData] = useState<ProcessedData | null>(
-    null
-  );
-  const [error, setError] = useState<string | null>(null);
+  const [isDragOver, setIsDragOver] = useState(false);
+  
+  // Steps breakdown states
+  const [steps, setSteps] = useState<Step[]>([]);
+  const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
+  const [questionSummary, setQuestionSummary] = useState<string | null>(null);
+  const [isLoadingSummary, setIsLoadingSummary] = useState(false);
+  
+  // Interactive learning states
   const [botResult, setBotResult] = useState<BotResult | null>(null);
-  const [copied, setCopied] = useState(false);
   const [showIframe, setShowIframe] = useState(false);
   const [showFullQuestion, setShowFullQuestion] = useState(false);
-  const [showGeneratedQuestions, setShowGeneratedQuestions] = useState(false);
-  const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
-  const [showThinkingDropdown, setShowThinkingDropdown] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+  const [processing, setProcessing] = useState(false);
+  const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
   
-  // Real-time credits state
+  // Add new states for streaming and layout
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingMessages, setStreamingMessages] = useState<StreamingMessage[]>([]);
+  const [showDesktopLayout, setShowDesktopLayout] = useState(false);
+  
+  // General states
+  const [error, setError] = useState('');
   const [realTimeCredits, setRealTimeCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
+  const [isMobile, setIsMobile] = useState(false);
+  const [isDarkMode, setIsDarkMode] = useState(false);
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [shareCopied, setShareCopied] = useState(false);
+  
+  // Clipboard and focus states
+  const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
+  const [clipboardFocused, setClipboardFocused] = useState(false);
   
   // Camera and crop states
   const [showCropModal, setShowCropModal] = useState(false);
@@ -276,27 +340,20 @@ export default function UploadImagePage() {
     y: 5,
   });
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
-  
-  // Dark mode detection
-  const [isDarkMode, setIsDarkMode] = useState(false);
-
-  // Add rotation state
   const [rotationAngle, setRotationAngle] = useState(0);
-  const [clipboardFocused, setClipboardFocused] = useState(false);
-
-  // Sharing functionality state
-  const [shareId, setShareId] = useState<string | null>(null);
-  const [shareUrl, setShareUrl] = useState<string | null>(null);
-  const [shareCopied, setShareCopied] = useState(false);
-  const [imageUrl, setImageUrl] = useState<string | null>(null);
-
+  
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadAreaRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
-  // Check if screen is mobile (< 768px)
+  // Handle direct Google sign in
+  const handleSignIn = async () => {
+    await signIn('google', { callbackUrl: '/' });
+  };
+
+  // Check if screen is mobile
   useEffect(() => {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
@@ -305,19 +362,18 @@ export default function UploadImagePage() {
     checkMobile();
     window.addEventListener('resize', checkMobile);
     
-    return () => window.removeEventListener('resize', checkMobile);
+    return () => {
+      window.removeEventListener('resize', checkMobile);
+    };
   }, []);
 
-  // Check for dark mode and listen for theme changes
+  // Check for dark mode
   useEffect(() => {
     const checkDarkMode = () => {
       setIsDarkMode(document.documentElement.classList.contains('dark'));
     };
     
-    // Initial check
     checkDarkMode();
-    
-    // Listen for theme changes
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
@@ -327,23 +383,13 @@ export default function UploadImagePage() {
     return () => observer.disconnect();
   }, []);
 
-  /**
-   * Fetch real-time credits from the database
-   */
-  const fetchUserCredits = async () => {
-    if (status !== 'authenticated' || !session?.user?.email) {
-      return;
-    }
-
+  // Fetch user credits
+  const fetchUserCredits = useCallback(async () => {
+    if (status !== 'authenticated' || !session?.user?.email) return;
+    
     try {
       setCreditsLoading(true);
-      const response = await fetch('/api/user/credits', {
-        method: 'GET',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
+      const response = await fetch('/api/user/credits');
       if (response.ok) {
         const data = await response.json();
         setRealTimeCredits(data.credits);
@@ -352,22 +398,19 @@ export default function UploadImagePage() {
         if (session?.user) {
           (session.user as any).credits = data.credits;
         }
-      } else {
-        console.error('Failed to fetch credits:', await response.text());
       }
     } catch (error) {
-      console.error('Error fetching user credits:', error);
+      console.error('Error fetching credits:', error);
     } finally {
       setCreditsLoading(false);
     }
-  };
+  }, [status, session?.user?.email, session?.user]);
 
-  // Fetch credits on session load and page refresh
   useEffect(() => {
     if (status === 'authenticated') {
       fetchUserCredits();
     }
-  }, [status, session?.user?.email]);
+  }, [status, fetchUserCredits]);
 
   // Set up periodic credit refresh every 30 seconds
   useEffect(() => {
@@ -378,7 +421,7 @@ export default function UploadImagePage() {
     }, 30000); // Refresh every 30 seconds
 
     return () => clearInterval(intervalId);
-  }, [status]);
+  }, [status, fetchUserCredits]); // Add fetchUserCredits to dependency array
 
   // Manual refresh on window focus (when user comes back to tab)
   useEffect(() => {
@@ -390,17 +433,68 @@ export default function UploadImagePage() {
 
     window.addEventListener('focus', handleFocus);
     return () => window.removeEventListener('focus', handleFocus);
-  }, [status]);
+  }, [status, fetchUserCredits]); // Add fetchUserCredits to dependency array
 
-  // Handle direct Google sign in
-  const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/upload-image' });
+  // Utility functions
+  const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+
+  const parseStepsFromContent = (content: string): string[] => {
+    if (!content || !content.trim()) return [];
+    
+    const blocks = content.split('\n\n').filter(block => block.trim());
+    
+    if (blocks.length > 1) {
+      const completeSteps: string[] = [];
+      let currentStep = '';
+      
+      for (const block of blocks) {
+        const isStepStart = /^(Step|Sub-step)\s+\d+(\.\d+)?:/i.test(block.trim());
+        
+        if (isStepStart && currentStep) {
+          completeSteps.push(currentStep.trim());
+          currentStep = block;
+        } else if (isStepStart) {
+          currentStep = block;
+        } else {
+          if (currentStep) {
+            currentStep += '\n\n' + block;
+          } else {
+            currentStep = block;
+          }
+        }
+      }
+      
+      if (currentStep) {
+        completeSteps.push(currentStep.trim());
+      }
+      
+      return completeSteps.length > 0 ? completeSteps : blocks.map(block => block.trim());
+    }
+    
+    return [content.trim()];
   };
 
-  /**
-   * Handle image file selection from input or drag & drop
-   */
-  const handleImageSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
+  // Image handling functions
+  const handleImageUpload = (file: File) => {
+    if (!file.type.startsWith('image/')) {
+      setError('Please select a valid image file');
+      return;
+    }
+
+    setSelectedImage(file);
+    setSteps([]);
+    setBotResult(null);
+    setProcessedData(null);
+    setError('');
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImagePreview(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     if (file) {
       // For mobile, show crop modal like camera capture
@@ -419,68 +513,28 @@ export default function UploadImagePage() {
         }
       } else {
         // For desktop, process directly as before
-        processImageFile(file);
+        handleImageUpload(file);
       }
     }
   };
 
-  /**
-   * Handle drag and drop functionality
-   */
   const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    setIsDragOver(false);
     const file = event.dataTransfer.files[0];
     if (file) {
-      processImageFile(file);
+      handleImageUpload(file);
     }
   };
 
   const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
     event.preventDefault();
+    setIsDragOver(true);
   };
 
-  /**
-   * Process the selected image file and create preview
-   */
-  const processImageFile = (file: File) => {
-    if (file.type.startsWith("image/")) {
-      setSelectedImage(file);
-      setError(null);
-      setProcessedData(null);
-      setBotResult(null);
-      setShowIframe(false);
-
-      // Create preview
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setImagePreview(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    } else {
-      setError("Please select a valid image file");
-    }
-  };
-
-  /**
-   * Handle clipboard paste functionality
-   */
-  const handlePaste = (event: ClipboardEvent) => {
-    if (!isUploadAreaFocused && !clipboardFocused) return;
-
-    const items = event.clipboardData?.items;
-    if (!items) return;
-
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) {
-          processImageFile(file);
-          event.preventDefault();
-          break;
-        }
-      }
-    }
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
   };
 
   /**
@@ -514,59 +568,71 @@ export default function UploadImagePage() {
    */
   const generateCroppedImage = useCallback(
     (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
-      return new Promise((resolve) => {
-        const canvas = canvasRef.current;
-        if (!canvas) return;
+      return new Promise((resolve, reject) => {
+        try {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            reject(new Error('Canvas not available'));
+            return;
+          }
 
-        const scaleX = image.naturalWidth / image.width;
-        const scaleY = image.naturalHeight / image.height;
-        const ctx = canvas.getContext('2d');
+          const scaleX = image.naturalWidth / image.width;
+          const scaleY = image.naturalHeight / image.height;
+          const ctx = canvas.getContext('2d');
 
-        if (!ctx) return;
+          if (!ctx) {
+            reject(new Error('Canvas context not available'));
+            return;
+          }
 
-        // Set canvas dimensions based on crop
-        const cropWidth = crop.width * scaleX;
-        const cropHeight = crop.height * scaleY;
-        
-        // When rotating by 90 or 270 degrees, swap width and height
-        const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
-        canvas.width = isRotated90or270 ? cropHeight : cropWidth;
-        canvas.height = isRotated90or270 ? cropWidth : cropHeight;
+          // Set canvas dimensions based on crop
+          const cropWidth = crop.width * scaleX;
+          const cropHeight = crop.height * scaleY;
+          
+          // When rotating by 90 or 270 degrees, swap width and height
+          const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
+          canvas.width = isRotated90or270 ? cropHeight : cropWidth;
+          canvas.height = isRotated90or270 ? cropWidth : cropHeight;
 
-        // Clear canvas and translate to center for rotation
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        ctx.save();
-        ctx.translate(canvas.width / 2, canvas.height / 2);
-        ctx.rotate((rotationAngle * Math.PI) / 180);
-        
-        // Draw the image with correct position adjustment for rotation
-        ctx.drawImage(
-          image,
-          crop.x * scaleX,
-          crop.y * scaleY,
-          cropWidth,
-          cropHeight,
-          -cropWidth / 2,
-          -cropHeight / 2,
-          cropWidth,
-          cropHeight
-        );
-        
-        ctx.restore();
+          // Clear canvas and translate to center for rotation
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((rotationAngle * Math.PI) / 180);
+          
+          // Draw the image with correct position adjustment for rotation
+          ctx.drawImage(
+            image,
+            crop.x * scaleX,
+            crop.y * scaleY,
+            cropWidth,
+            cropHeight,
+            -cropWidth / 2,
+            -cropHeight / 2,
+            cropWidth,
+            cropHeight
+          );
+          
+          ctx.restore();
 
-        canvas.toBlob(
-          (blob) => {
-            if (blob) {
-              const file = new File([blob], 'cropped-image.jpg', {
-                type: 'image/jpeg',
-                lastModified: Date.now(),
-              });
-              resolve(file);
-            }
-          },
-          'image/jpeg',
-          0.9
-        );
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const file = new File([blob], 'cropped-image.jpg', {
+                  type: 'image/jpeg',
+                  lastModified: Date.now(),
+                });
+                resolve(file);
+              } else {
+                reject(new Error('Failed to generate blob from canvas'));
+              }
+            },
+            'image/jpeg',
+            0.9
+          );
+        } catch (error) {
+          reject(error);
+        }
       });
     },
     [rotationAngle] // Add rotationAngle to dependency array
@@ -580,10 +646,11 @@ export default function UploadImagePage() {
 
     try {
       const croppedFile = await generateCroppedImage(imgRef.current, completedCrop);
-      processImageFile(croppedFile);
+      handleImageUpload(croppedFile);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
+      console.error('Crop operation failed:', error);
       setError("Failed to crop image. Please try again.");
     }
   };
@@ -601,24 +668,63 @@ export default function UploadImagePage() {
   };
 
   /**
-   * Handle upload area focus and keyboard events
+   * Handle rotation of the image
    */
+  const rotateImage = () => {
+    // Rotate 90 degrees clockwise each time
+    setRotationAngle((prevAngle) => (prevAngle + 90) % 360);
+  };
+
+  /**
+   * Reset rotation angle
+   */
+  const resetRotation = () => {
+    setRotationAngle(0);
+  };
+
+  /**
+   * Handle clipboard paste functionality
+   */
+  const handlePaste = useCallback((event: ClipboardEvent) => {
+    if (!isUploadAreaFocused && !clipboardFocused) return;
+
+    const items = event.clipboardData?.items;
+    if (!items) return;
+
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i];
+      if (item.type.startsWith("image/")) {
+        const file = item.getAsFile();
+        if (file) {
+          handleImageUpload(file);
+          event.preventDefault();
+          break;
+        }
+      }
+    }
+  }, [isUploadAreaFocused, clipboardFocused]);
+
   const handleUploadAreaClick = () => {
     setIsUploadAreaFocused(true);
     uploadAreaRef.current?.focus();
   };
 
-  const handleUploadAreaDoubleClick = () => {
-    fileInputRef.current?.click();
-  };
-
-  const handleBrowseClick = (event: React.MouseEvent) => {
-    event.stopPropagation();
-    fileInputRef.current?.click();
-  };
-
   const handleUploadAreaBlur = () => {
     setIsUploadAreaFocused(false);
+  };
+
+  const handleClipboardAreaClick = () => {
+    setClipboardFocused(true);
+    // Keep the previous focus handler for upload area
+    setIsUploadAreaFocused(false);
+    // Focus the clipboard area element to ensure paste events work
+    if (uploadAreaRef.current) {
+      uploadAreaRef.current.focus();
+    }
+  };
+
+  const handleClipboardAreaBlur = () => {
+    setClipboardFocused(false);
   };
 
   const handleKeyDown = (event: React.KeyboardEvent) => {
@@ -638,158 +744,473 @@ export default function UploadImagePage() {
     return () => {
       document.removeEventListener("paste", handleGlobalPaste);
     };
-  }, [isUploadAreaFocused, clipboardFocused]); // Add clipboardFocused to dependency array
+  }, [isUploadAreaFocused, clipboardFocused, handlePaste]); // Add proper dependency array
 
-  /**
-   * Send image to AI for processing and automatically create session
-   */
-  const processImage = async () => {
-    if (!selectedImage) {
-      setError("Please select an image first");
-      return;
+  const removeImage = () => {
+    setSelectedImage(null);
+    setImagePreview(null);
+    setSteps([]);
+    setBotResult(null);
+    setProcessedData(null);
+    setError('');
+    setShowIframe(false);
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    setCompletedCrop(null);
+    setRotationAngle(0);
+    setShareUrl(null);
+    setShareCopied(false);
+    setIsStreaming(false);
+    setStreamingMessages([]);
+    setShowDesktopLayout(false);
+    setQuestionSummary(null);
+    setIsLoadingSummary(false);
+    if (fileInputRef.current) {
+      fileInputRef.current.value = "";
     }
-
-    // Check authentication first
-    if (status === 'unauthenticated') {
-      setError("You need to sign in to use this feature. Please login to continue.");
-      return;
-    }
-
-    // Check if user has credits (use real-time credits if available)
-    const currentCredits = realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0);
-    if (currentCredits <= 0) {
-      setError("No credits remaining. Please upgrade your account or wait for credits to reset.");
-      return;
-    }
-
-    setProcessing(true);
-    setShowThinkingDropdown(true); // Show thinking dropdown immediately
-    setError(null);
-
-    try {
-      // Step 1: Upload image to Cloudinary first
-      const uploadFormData = new FormData();
-      uploadFormData.append("image", selectedImage);
-
-      const uploadResponse = await fetch("/api/upload", {
-        method: "POST",
-        body: uploadFormData,
-      });
-
-      const uploadResult = await uploadResponse.json();
-
-      if (!uploadResponse.ok) {
-        throw new Error(uploadResult.error || "Failed to upload image");
-      }
-
-      // Store the Cloudinary URL
-      setImageUrl(uploadResult.imageUrl);
-
-      // Step 2: Process image with AI
-      const aiFormData = new FormData();
-      aiFormData.append("image", selectedImage);
-
-      const response = await fetch("/api/process-image", {
-        method: "POST",
-        body: aiFormData,
-      });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to process image");
-      }
-
-      setProcessedData(result.data);
-
-      // Update both session and real-time credits with the new credits remaining
-      if (result.creditsRemaining !== undefined) {
-        setRealTimeCredits(result.creditsRemaining);
-        if (session?.user) {
-          (session.user as any).credits = result.creditsRemaining;
-        }
-      }
-
-      // Step 3: Automatically create chatbot session with imageUrl
-      await createChatbotSession(result.data, uploadResult.imageUrl);
-    } catch (err) {
-      setError(err instanceof Error ? err.message : "Unknown error occurred");
-    } finally {
-      setProcessing(false);
-      // Refresh credits after processing to ensure UI is up to date
-      setTimeout(() => {
-        fetchUserCredits();
-      }, 1000);
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
     }
   };
 
-  /**
-   * Create chatbot session automatically after AI processing
-   */
-  const createChatbotSession = async (data: ProcessedData, imageUrl: string) => {
+  // Step analysis function
+  const analyzeImageSteps = async () => {
+    if (!selectedImage) {
+      setError('Please upload an image first');
+      return;
+    }
+
+    if (status === 'unauthenticated') {
+      setError('You need to sign in to use this feature');
+      return;
+    }
+
+    const currentCredits = realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0);
+    if (currentCredits <= 0) {
+      setError('No credits remaining. Please upgrade your account or wait for credits to reset.');
+      return;
+    }
+
+    // First get the question summary
+    await getQuestionSummary();
+
+    // Then get the main steps
+    setIsLoadingMainSteps(true);
+    setError('');
+    setSteps([]);
+
     try {
-      const response = await fetch("/api/upload-json", {
-        method: "POST",
+      const imageBase64 = await convertImageToBase64(selectedImage);
+      
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          imageData: imageBase64,
+          type: 'main'
+        }),
       });
 
-      const result = await response.json();
+      const data: BreakdownResponse = await response.json();
 
-      if (!response.ok) {
-        throw new Error(result.error || "Failed to create chatbot");
+      if (data.success && data.content) {
+        const stepContents = parseStepsFromContent(data.content);
+        const newSteps: Step[] = stepContents.map(content => ({
+          id: generateUniqueId(),
+          content,
+          subSteps: [],
+          isExpanded: false,
+          isLoadingSubSteps: false,
+        }));
+        setSteps(newSteps);
+        
+        // Update credits
+        await fetchUserCredits();
+      } else {
+        setError(data.error || 'Failed to analyze the image');
       }
+    } catch (err) {
+      setError('Network error occurred or failed to process image');
+    } finally {
+      setIsLoadingMainSteps(false);
+    }
+  };
 
-      setBotResult({
-        chatbotLink: result.chatbotLink,
-        sessionId: result.sessionId,
+  const convertImageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const getQuestionSummary = async () => {
+    if (!selectedImage) return;
+
+    setIsLoadingSummary(true);
+    setQuestionSummary(null);
+
+    try {
+      const imageBase64 = await convertImageToBase64(selectedImage);
+      
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: imageBase64,
+          type: 'summary'
+        }),
       });
 
-      // Step 4: Save upload data for sharing
-      await saveUploadForSharing(imageUrl, result.sessionId);
+      const data: BreakdownResponse = await response.json();
+
+      if (data.success && data.content) {
+        setQuestionSummary(data.content);
+      } else {
+        console.error('Failed to get question summary:', data.error);
+        // Don't show error for summary failure, just continue without it
+      }
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to create chatbot session"
+      console.error('Network error getting summary:', err);
+      // Don't show error for summary failure, just continue without it
+    } finally {
+      setIsLoadingSummary(false);
+    }
+  };
+
+  // Step interaction functions
+  const handleGetSubSteps = async (stepId: string) => {
+    setSteps(prevSteps =>
+      prevSteps.map(step =>
+        step.id === stepId
+          ? { ...step, isLoadingSubSteps: true }
+          : step
+      )
+    );
+
+    const step = steps.find(s => s.id === stepId);
+    if (!step) return;
+
+    try {
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          stepContext: step.content,
+          type: 'sub'
+        }),
+      });
+
+      const data: BreakdownResponse = await response.json();
+
+      if (data.success && data.content) {
+        const subStepContents = parseStepsFromContent(data.content);
+        const newSubSteps: SubStep[] = subStepContents.map(content => ({
+          id: generateUniqueId(),
+          content,
+          theory: undefined,
+          isExpanded: false,
+          isLoadingTheory: false,
+        }));
+
+        setSteps(prevSteps =>
+          prevSteps.map(step =>
+            step.id === stepId
+              ? {
+                  ...step,
+                  subSteps: newSubSteps,
+                  isExpanded: true,
+                  isLoadingSubSteps: false,
+                }
+              : step
+          )
+        );
+      } else {
+        setError(data.error || 'Failed to get sub-steps');
+        setSteps(prevSteps =>
+          prevSteps.map(step =>
+            step.id === stepId
+              ? { ...step, isLoadingSubSteps: false }
+              : step
+          )
+        );
+      }
+    } catch (err) {
+      setError('Network error occurred');
+      setSteps(prevSteps =>
+        prevSteps.map(step =>
+          step.id === stepId
+            ? { ...step, isLoadingSubSteps: false }
+            : step
+        )
       );
     }
   };
 
-  /**
-   * Save upload data for sharing functionality
-   */
-  const saveUploadForSharing = async (imageUrl: string, sessionId: string) => {
+  const handleGetTheory = async (stepId: string, subStepId: string) => {
+    setSteps(prevSteps =>
+      prevSteps.map(step =>
+        step.id === stepId
+          ? {
+              ...step,
+              subSteps: step.subSteps.map(subStep =>
+                subStep.id === subStepId
+                  ? { ...subStep, isLoadingTheory: true }
+                  : subStep
+              ),
+            }
+          : step
+      )
+    );
+
+    const step = steps.find(s => s.id === stepId);
+    const subStep = step?.subSteps.find(s => s.id === subStepId);
+    if (!subStep) return;
+
     try {
-      const response = await fetch("/api/save-upload", {
-        method: "POST",
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
         headers: {
-          "Content-Type": "application/json",
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageUrl,
-          sessionId,
+          stepContext: subStep.content,
+          type: 'theory'
         }),
       });
 
-      const result = await response.json();
+      const data: BreakdownResponse = await response.json();
 
-      if (response.ok) {
-        setShareId(result.id);
-        setShareUrl(result.shareUrl);
+      if (data.success && data.content) {
+        setSteps(prevSteps =>
+          prevSteps.map(step =>
+            step.id === stepId
+              ? {
+                  ...step,
+                  subSteps: step.subSteps.map(subStep =>
+                    subStep.id === subStepId
+                      ? {
+                          ...subStep,
+                          theory: data.content,
+                          isExpanded: true,
+                          isLoadingTheory: false,
+                        }
+                      : subStep
+                  ),
+                }
+              : step
+          )
+        );
       } else {
-        console.error("Failed to save upload for sharing:", result.error);
-        // Don't show error to user since this is a secondary feature
+        setError(data.error || 'Failed to get theory explanation');
+        setSteps(prevSteps =>
+          prevSteps.map(step =>
+            step.id === stepId
+              ? {
+                  ...step,
+                  subSteps: step.subSteps.map(subStep =>
+                    subStep.id === subStepId
+                      ? { ...subStep, isLoadingTheory: false }
+                      : subStep
+                  ),
+                }
+              : step
+          )
+        );
       }
     } catch (err) {
-      console.error("Error saving upload for sharing:", err);
-      // Don't show error to user since this is a secondary feature
+      setError('Network error occurred');
+      setSteps(prevSteps =>
+        prevSteps.map(step =>
+          step.id === stepId
+            ? {
+                ...step,
+                subSteps: step.subSteps.map(subStep =>
+                  subStep.id === subStepId
+                    ? { ...subStep, isLoadingTheory: false }
+                    : subStep
+                ),
+              }
+            : step
+        )
+      );
     }
   };
 
-  /**
-   * Copy share link to clipboard
-   */
+  const toggleStepExpansion = (stepId: string) => {
+    setSteps(prevSteps =>
+      prevSteps.map(step =>
+        step.id === stepId
+          ? { ...step, isExpanded: !step.isExpanded }
+          : step
+      )
+    );
+  };
+
+  const toggleSubStepExpansion = (stepId: string, subStepId: string) => {
+    setSteps(prevSteps =>
+      prevSteps.map(step =>
+        step.id === stepId
+          ? {
+              ...step,
+              subSteps: step.subSteps.map(subStep =>
+                subStep.id === subStepId
+                  ? { ...subStep, isExpanded: !subStep.isExpanded }
+                  : subStep
+              ),
+            }
+          : step
+      )
+    );
+  };
+
+  const handleStepClick = (stepId: string) => {
+    const step = steps.find(s => s.id === stepId);
+    if (step && step.subSteps.length > 0) {
+      toggleStepExpansion(stepId);
+    } else if (step && step.subSteps.length === 0 && !step.isLoadingSubSteps) {
+      handleGetSubSteps(stepId);
+    }
+  };
+
+  const handleSubStepClick = (stepId: string, subStepId: string) => {
+    const step = steps.find(s => s.id === stepId);
+    const subStep = step?.subSteps.find(s => s.id === subStepId);
+    if (subStep && subStep.theory) {
+      toggleSubStepExpansion(stepId, subStepId);
+    } else if (subStep && !subStep.theory && !subStep.isLoadingTheory) {
+      handleGetTheory(stepId, subStepId);
+    }
+  };
+
+  // Interactive learning functions with streaming
+  const startInteractiveLearningWithStreaming = async () => {
+    if (!selectedImage || steps.length === 0) {
+      setError('Please analyze the image first to generate steps');
+      return;
+    }
+
+    // Start streaming and API call simultaneously
+    setIsStreaming(true);
+    setStreamingMessages([]);
+    setError('');
+    setProcessing(true);
+
+    const streamingTexts = [
+      "Analyzing image content and mathematical expressions...",
+      "Identifying key problem components and variable relationships...", 
+      "Processing question structure and determining solution pathway...",
+      "Generating adaptive learning framework for personalized guidance...",
+      "Calibrating interactive response system for optimal learning experience...",
+      "Finalizing AI tutor configuration and knowledge base integration...",
+      "Establishing secure learning session and preparing interface..."
+    ];
+
+    // Start API call immediately
+    const apiPromise = (async () => {
+      try {
+        // Step 1: Process image for chatbot
+        const aiFormData = new FormData();
+        aiFormData.append("image", selectedImage);
+
+        const response = await fetch("/api/process-image", {
+          method: "POST",
+          body: aiFormData,
+        });
+
+        const result = await response.json();
+
+        if (!response.ok) {
+          throw new Error(result.error || "Failed to process image");
+        }
+
+        setProcessedData(result.data);
+
+        // Step 2: Create chatbot session
+        const chatbotResponse = await fetch("/api/upload-json", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(result.data),
+        });
+
+        const chatbotResult = await chatbotResponse.json();
+
+        if (!chatbotResponse.ok) {
+          throw new Error(chatbotResult.error || "Failed to create chatbot");
+        }
+
+        // Update credits
+        if (result.creditsRemaining !== undefined) {
+          setRealTimeCredits(result.creditsRemaining);
+        }
+        
+        await fetchUserCredits();
+
+        return {
+          chatbotLink: chatbotResult.chatbotLink,
+          sessionId: chatbotResult.sessionId,
+        };
+      } catch (err) {
+        throw err;
+      }
+    })();
+
+    // Start streaming messages with cancellation support
+    const streamingPromise = (async () => {
+      for (let i = 0; i < streamingTexts.length; i++) {
+        // Check if API has finished
+        const apiFinished = await Promise.race([
+          apiPromise.then(() => true),
+          new Promise(resolve => setTimeout(() => resolve(false), 10))
+        ]);
+        
+        if (apiFinished) {
+          break; // Stop streaming if API finished
+        }
+
+        const delay = i === 0 ? 800 : (i < 3 ? 1200 : 1000);
+        await new Promise(resolve => setTimeout(resolve, delay));
+        
+        setStreamingMessages(prev => [...prev, {
+          id: `msg-${i}`,
+          content: streamingTexts[i],
+          timestamp: Date.now()
+        }]);
+      }
+    })();
+
+    // Wait for API to complete (streaming will stop automatically when API finishes)
+    try {
+      const result = await apiPromise;
+      
+      // Stop streaming and show success
+      setIsStreaming(false);
+      setBotResult(result);
+      
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to start interactive learning");
+      setIsStreaming(false);
+    } finally {
+      setProcessing(false);
+    }
+  };
+
+  const launchDesktopLayout = () => {
+    if (!isMobile) {
+      setShowDesktopLayout(true);
+    }
+    setShowIframe(true);
+  };
+
   const copyShareLink = async () => {
     if (!shareUrl) return;
     
@@ -800,112 +1221,6 @@ export default function UploadImagePage() {
     } catch (err) {
       console.error("Failed to copy share link:", err);
     }
-  };
-
-  /**
-   * Copy text to clipboard with feedback
-   */
-  const copyToClipboard = async (text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    } catch (err) {
-      console.error("Failed to copy:", err);
-    }
-  };
-
-  /**
-   * Download processed data as JSON file
-   */
-  const downloadJSON = () => {
-    if (!processedData) return;
-
-    const dataStr = JSON.stringify(processedData, null, 2);
-    const dataBlob = new Blob([dataStr], { type: "application/json" });
-    const url = URL.createObjectURL(dataBlob);
-    const link = document.createElement("a");
-    link.href = url;
-    link.download = "ai-generated-questions.json";
-    link.click();
-    URL.revokeObjectURL(url);
-  };
-
-  /**
-   * Reset all states to initial values
-   */
-  const reset = () => {
-    setSelectedImage(null);
-    setImagePreview(null);
-    setProcessedData(null);
-    setError(null);
-    setBotResult(null);
-    setCopied(false);
-    setShowIframe(false);
-    setShowFullQuestion(false);
-    setIsUploadAreaFocused(false);
-    setClipboardFocused(false); // Reset clipboard focus state
-    setShowThinkingDropdown(false);
-    setShowCropModal(false);
-    setCropImageSrc(null);
-    setCompletedCrop(null);
-    setRotationAngle(0); // Reset rotation angle
-    // Reset sharing state
-    setShareId(null);
-    setShareUrl(null);
-    setShareCopied(false);
-    setImageUrl(null);
-    if (fileInputRef.current) {
-      fileInputRef.current.value = "";
-    }
-    if (cameraInputRef.current) {
-      cameraInputRef.current.value = "";
-    }
-  };
-
-  /**
-   * Open LearnBot in new tab
-   */
-  const openInNewTab = () => {
-    if (botResult) {
-      window.open(botResult.chatbotLink, "_blank");
-    }
-  };
-
-  /**
-   * Show LearnBot in iframe within the same page
-   */
-  const showInIframe = () => {
-    setShowIframe(true);
-  };
-
-  /**
-   * Handle rotation of the image
-   */
-  const rotateImage = () => {
-    // Rotate 90 degrees clockwise each time
-    setRotationAngle((prevAngle) => (prevAngle + 90) % 360);
-  };
-
-  /**
-   * Reset rotation angle
-   */
-  const resetRotation = () => {
-    setRotationAngle(0);
-  };
-
-  const handleClipboardAreaClick = () => {
-    setClipboardFocused(true);
-    // Keep the previous focus handler for upload area
-    setIsUploadAreaFocused(false);
-    // Focus the clipboard area element to ensure paste events work
-    if (uploadAreaRef.current) {
-      uploadAreaRef.current.focus();
-    }
-  };
-
-  const handleClipboardAreaBlur = () => {
-    setClipboardFocused(false);
   };
 
   // Show login wall if not authenticated
@@ -936,12 +1251,12 @@ export default function UploadImagePage() {
             >
               <div className="flex items-center justify-center gap-3">
                 <div className="p-3 bg-primary/10 rounded-xl">
-                  <Sparkles className="h-8 w-8 text-primary" />
+                  <Brain className="h-8 w-8 text-primary" />
                 </div>
-                <h1 className="text-4xl font-bold">AI Question Breakdown</h1>
+                <h1 className="text-4xl font-bold">Interactive Learning Assistant</h1>
               </div>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Upload an image of any academic question and our AI will break it down into scaffolded learning steps
+                Upload a problem image, get step-by-step breakdown, and learn interactively with AI guidance
               </p>
             </motion.div>
 
@@ -955,29 +1270,33 @@ export default function UploadImagePage() {
               >
                 <div className="bg-card rounded-xl p-6 border shadow-sm text-center space-y-4">
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                    <Bot className="w-8 h-8 text-primary" />
+                    <Brain className="w-8 h-8 text-primary" />
                   </div>
                   
                   <div className="space-y-2">
-                    <h2 className="text-xl font-bold">AI Learning Bot</h2>
+                    <h2 className="text-xl font-bold">AI Step-by-Step Learning</h2>
                     <p className="text-muted-foreground text-sm">
-                      Get personalized, step-by-step guidance through any academic question with our interactive AI tutor
+                      Break down complex problems into manageable steps with interactive AI guidance
                     </p>
                   </div>
 
                   <div className="bg-muted/30 p-3 rounded-lg">
                     <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
                       <Sparkles size={14} />
-                      <span>Interactive Learning Features:</span>
+                      <span>Advanced Learning Features:</span>
                     </div>
                     <ul className="text-xs space-y-1 text-left">
                       <li className="flex items-center gap-2">
                         <CheckCircle size={12} className="text-green-500" />
-                        <span>Question breakdown & analysis</span>
+                        <span>AI-powered step breakdown</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle size={12} className="text-green-500" />
-                        <span>Step-by-step problem solving</span>
+                        <span>Interactive sub-step exploration</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>Theory explanations on demand</span>
                       </li>
                       <li className="flex items-center gap-2">
                         <CheckCircle size={12} className="text-green-500" />
@@ -1013,7 +1332,7 @@ export default function UploadImagePage() {
                   transition={{ duration: 0.6, ease: "easeOut" }}
                   className="space-y-6"
                 >
-                  <SplineSceneBasic />
+                  <RobotUIWrapper />
                 </motion.div>
 
                 {/* Right: Login and info */}
@@ -1026,33 +1345,37 @@ export default function UploadImagePage() {
                   <div className="bg-card rounded-xl p-6 border shadow-sm space-y-6">
                     <div className="text-center space-y-4">
                       <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                        <Bot className="w-8 h-8 text-primary" />
+                        <Brain className="w-8 h-8 text-primary" />
                       </div>
                       
                       <div className="space-y-2">
-                        <h2 className="text-2xl font-bold">AI Learning Bot</h2>
+                        <h2 className="text-2xl font-bold">AI Step-by-Step Learning</h2>
                         <p className="text-muted-foreground">
-                          Transform any question into an interactive learning experience with our AI tutor
+                          Transform complex problems into digestible steps with our advanced AI learning assistant
                         </p>
                       </div>
 
                       <div className="bg-muted/30 p-4 rounded-lg text-left">
                         <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
                           <Sparkles size={16} />
-                          <span>What you get with AI Learning:</span>
+                          <span>What you get with Interactive Learning:</span>
                         </div>
                         <ul className="text-sm space-y-2">
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
-                            <span>Intelligent question breakdown & analysis</span>
+                            <span>Intelligent problem breakdown into steps</span>
                           </li>
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
-                            <span>Step-by-step guided problem solving</span>
+                            <span>Interactive sub-step exploration</span>
                           </li>
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
-                            <span>Interactive chatbot for personalized help</span>
+                            <span>Theory explanations on demand</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>Personalized AI tutoring sessions</span>
                           </li>
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
@@ -1090,30 +1413,31 @@ export default function UploadImagePage() {
 
       <main className="flex-1 pt-16">
         <div className="container mx-auto max-w-7xl p-6 space-y-8">
-          {/* Header Section */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="text-center space-y-4"
+          {/* Header */}
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className="text-center mb-8 sm:mb-12"
           >
-            <div className="flex items-center justify-center gap-3">
-              <div className="p-3 bg-primary/10 rounded-xl">
-                <Sparkles className="h-8 w-8 text-primary" />
+            <div className="flex items-center justify-center mb-4 sm:mb-6">
+              <div className="p-2 sm:p-3 bg-primary/10 rounded-xl sm:rounded-2xl border border-primary/20 backdrop-blur-sm">
+                <Brain className="w-6 h-6 sm:w-8 sm:h-8 text-primary" />
               </div>
-              <h1 className="text-4xl font-bold">AI Question Breakdown</h1>
             </div>
-            <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-              Upload an image of any academic question and our AI will break it
-              down into scaffolded learning steps
+            <h1 className="text-2xl sm:text-4xl md:text-5xl lg:text-6xl font-bold mb-3 sm:mb-4 bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text text-transparent px-2">
+              Interactive Learning Assistant
+            </h1>
+            <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4">
+              Upload a problem image, get step-by-step breakdown, and learn interactively with AI guidance
             </p>
           </motion.div>
 
-          {/* User Profile Section - Top position for logged-in users */}
+          {/* User Profile Section */}
           <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
             className="max-w-md mx-auto"
           >
             <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
@@ -1131,7 +1455,7 @@ export default function UploadImagePage() {
               >
                 {/* Animated Bot - Desktop only */}
                 <div className="block">
-                  <SplineSceneBasic />
+                  <RobotUIWrapper />
                 </div>
               </motion.div>
             )}
@@ -1143,12 +1467,17 @@ export default function UploadImagePage() {
               transition={{ duration: 0.6, ease: "easeOut", delay: isMobile ? 0 : 0.2 }}
               className={`space-y-6 ${isMobile ? 'order-1' : 'order-2 lg:order-2'}`}
             >
-              <div className="bg-card rounded-xl p-6 border shadow-sm h-[580px] flex flex-col">
-                <h2 className="text-2xl font-semibold mb-4 flex items-center gap-2">
-                  <ImageIcon className="w-6 h-6 text-primary" />
-                  Upload Question Image
-                </h2>
-
+              {/* Image Upload Section */}
+              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg h-[580px] flex flex-col">
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  </div>
+                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                    Upload Problem Image
+                  </h2>
+                </div>
+                
                 {/* Image Upload Area */}
                 <div className="flex-1 flex flex-col">
                   {imagePreview ? (
@@ -1165,6 +1494,13 @@ export default function UploadImagePage() {
                         )}{" "}
                         MB)
                       </p>
+                      <button
+                        onClick={removeImage}
+                        className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
+                      >
+                        <X className="inline mr-2 h-4 w-4" />
+                        Remove Image
+                      </button>
                     </div>
                   ) : (
                     <>
@@ -1189,7 +1525,7 @@ export default function UploadImagePage() {
 
                           {/* Upload Button - Smaller */}
                           <button
-                            onClick={handleBrowseClick}
+                            onClick={() => fileInputRef.current?.click()}
                             className="flex items-center justify-center gap-3 p-4 bg-muted/30 border-2 border-dashed border-border rounded-lg transition-all hover:border-primary/50 hover:bg-muted/40"
                           >
                             <Upload className="w-6 h-6 text-muted-foreground" />
@@ -1206,7 +1542,7 @@ export default function UploadImagePage() {
                             ref={fileInputRef}
                             type="file"
                             accept="image/*"
-                            onChange={handleImageSelect}
+                            onChange={handleFileSelect}
                             className="hidden"
                           />
                           <input
@@ -1223,7 +1559,7 @@ export default function UploadImagePage() {
                         <div className="flex-1 grid grid-cols-2 gap-4">
                           {/* Upload Area */}
                           <div
-                            onClick={handleBrowseClick}
+                            onClick={() => fileInputRef.current?.click()}
                             className="border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center hover:border-primary/50 hover:bg-primary/5"
                             role="button"
                             aria-label="Upload image area - click to select file"
@@ -1232,7 +1568,7 @@ export default function UploadImagePage() {
                               ref={fileInputRef}
                               type="file"
                               accept="image/*"
-                              onChange={handleImageSelect}
+                              onChange={handleFileSelect}
                               className="hidden"
                             />
 
@@ -1301,412 +1637,708 @@ export default function UploadImagePage() {
                   )}
                 </div>
 
-                {/* Action Buttons */}
-                <div className="flex gap-3 mt-4">
-                  <Button
-                    onClick={processImage}
-                    disabled={!selectedImage || processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                    className="flex-1"
-                    size="lg"
-                  >
-                    {processing ? (
-                      <ShiningText text="AI is thinking..." />
-                    ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
-                      <>
-                        <XCircle className="mr-2 h-4 w-4" />
-                        No Credits Remaining
-                      </>
-                    ) : (
-                      <>
-                        <Sparkles className="mr-2 h-4 w-4" />
-                        Breakdown Problem
-                      </>
-                    )}
-                  </Button>
-
-                  <Button onClick={reset} variant="outline" size="lg">
-                    <RefreshCw className="h-4 w-4" />
-                  </Button>
-                </div>
-
-                {/* Enhanced Thinking Dropdown */}
-                <AnimatePresence>
-                  {processing && showThinkingDropdown && (
-                    <motion.div
-                      initial={{ height: 0, opacity: 0 }}
-                      animate={{ height: "auto", opacity: 1 }}
-                      exit={{ height: 0, opacity: 0 }}
-                      transition={{
-                        duration: 0.3,
-                        ease: "easeOut",
-                      }}
-                      className="mt-4 relative overflow-hidden"
+                {/* Action Button */}
+                {imagePreview && (
+                  <div className="flex gap-3 mt-4">
+                    <Button
+                      onClick={analyzeImageSteps}
+                      disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                      className="flex-1"
+                      size="lg"
                     >
-                      <div className="bg-gradient-to-br from-primary/5 via-blue-50/50 to-purple-50/30 dark:from-primary/10 dark:via-blue-950/20 dark:to-purple-950/10 border border-primary/20 rounded-xl p-4 shadow-lg backdrop-blur-sm">
-                        <div className="space-y-3">
-                          {/* Header with animated icon */}
-                          <div className="flex items-center gap-3">
-                            <motion.div
-                              animate={{ rotate: 360 }}
-                              transition={{
-                                duration: 2,
-                                repeat: Infinity,
-                                ease: "linear",
-                              }}
-                              className="p-2 bg-primary/10 rounded-full"
-                            >
-                              <Bot className="w-4 h-4 text-primary" />
-                            </motion.div>
-                            <div className="flex-1">
-                              <h4 className="text-sm font-semibold text-foreground flex items-center gap-2">
-                                AI Processing
-                                <motion.div
-                                  animate={{ opacity: [1, 0.5, 1] }}
-                                  transition={{
-                                    duration: 1.5,
-                                    repeat: Infinity,
-                                    ease: "easeInOut",
-                                  }}
-                                  className="flex gap-1"
-                                >
-                                  <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                  <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                  <div className="w-1 h-1 bg-primary rounded-full"></div>
-                                </motion.div>
-                              </h4>
-                            </div>
-                          </div>
+                      {isLoadingMainSteps ? (
+                        <ShiningText text="AI is analyzing..." />
+                      ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          No Credits Remaining
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Analyze & Break Down Steps
+                        </>
+                      )}
+                    </Button>
 
-                          {/* Compact thinking content */}
-                          <div className="bg-background/60 backdrop-blur-sm rounded-lg p-3 border border-border/30">
-                            <div className="max-h-24 overflow-y-auto scrollbar-thin scrollbar-thumb-primary/20">
-                              <ResponseStream
-                                textStream="🔍 Analyzing the image and question to extract relevant content and structure. 📘 Identifying key concepts, equations, and visual elements. 🧠 Evaluating problem complexity and learning goals. 🧩 Organizing information into clear, teachable steps. 🔗 Mapping related concepts and prerequisite knowledge.  Generating adaptive, step-by-step guidance tailored to your needs. 🤖 Initializing the AI tutor to support your learning journey. ⚙️ Optimizing clarity, progression, and engagement. ✅ Almost ready to begin."
-                                mode="fade"
-                                className="text-xs text-muted-foreground/90 leading-relaxed"
-                                fadeDuration={400}
-                              />
-                            </div>
-                          </div>
-
-                          {/* Progress indicator */}
-                          <div className="space-y-2">
-                            <div className="flex justify-between items-center text-xs">
-                              <span className="text-muted-foreground/80">
-                                Progress
-                              </span>
-                              <motion.span
-                                className="text-primary font-medium"
-                                key={Math.random()} // Force re-render for animation
-                              >
-                                {processing ? "Processing..." : "Complete!"}
-                              </motion.span>
-                            </div>
-                            <div className="w-full bg-muted/30 rounded-full h-1.5 overflow-hidden">
-                              <motion.div
-                                className="h-full bg-gradient-to-r from-primary/60 to-primary rounded-full"
-                                initial={{ width: "0%" }}
-                                animate={{ width: processing ? "85%" : "100%" }}
-                                transition={{
-                                  duration: processing ? 8 : 0.5,
-                                  ease: "easeOut",
-                                }}
-                              />
-                            </div>
-                          </div>
-                        </div>
-
-                        {/* Animated background elements */}
-                        <div className="absolute top-0 right-0 w-16 h-16 bg-gradient-to-br from-primary/5 to-transparent rounded-full blur-xl"></div>
-                        <div className="absolute bottom-0 left-0 w-12 h-12 bg-gradient-to-tr from-blue-500/5 to-transparent rounded-full blur-lg"></div>
-                      </div>
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-
-                {/* Error Display */}
-                {error && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 flex items-center gap-2 p-3 text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg"
-                  >
-                    <XCircle className="h-4 w-4" />
-                    {error}
-                  </motion.div>
-                )}
-
-                {/* No Credits Notice */}
-                {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
-                  >
-                    <div className="flex items-start gap-3">
-                      <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
-                      <div className="flex-1">
-                        <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
-                        <p className="text-yellow-700 mb-3">
-                          You've used all your credits for this account. Get more credits to continue using the AI Question Breakdown feature.
-                        </p>
-                        <div className="flex gap-2">
-                          <Link 
-                            href="/features/premium"
-                            className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
-                          >
-                            Upgrade to Pro
-                          </Link>
-                        </div>
-                      </div>
-                    </div>
-                  </motion.div>
+                    <Button onClick={removeImage} variant="outline" size="lg">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
                 )}
               </div>
             </motion.div>
           </div>
 
-          {/* Results Section - Full Width Below */}
-          {(processedData || botResult) && (
-            <div className="space-y-6">
-              {/* Prominent Bot Activation Section - PRIMARY */}
-              {botResult && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
-                >
-                  <div className="text-center space-y-6">
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <Bot className="w-8 h-8 text-green-600" />
-                      </div>
-                      <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
-                        Learning Bot Ready!
-                      </h2>
-                    </div>
+          {/* Error Display */}
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="bg-destructive/10 border border-destructive/20 text-destructive px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl mb-6 sm:mb-8 backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <XCircle size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+                  <span className="text-sm sm:text-base">{error}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                      Your personalized AI tutor is ready to guide you through
-                      the solution step by step. Start your interactive learning
-                      journey now!
-                    </p>
-
-                    {/* Prominent Action Button */}
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ duration: 0.2, ease: "easeOut" }}
-                    >
-                      <Button
-                        onClick={showInIframe}
-                        size="lg"
-                        className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 sm:px-12 py-4 text-lg sm:text-xl font-semibold rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl w-full sm:w-auto max-w-full"
-                      >
-                        <Play className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                        <span className="text-center leading-tight">
-                          Start Learning
-                          <br className="sm:hidden" />
-                          <span className="sm:inline"> with AI Bot</span>
-                        </span>
-                      </Button>
-                    </motion.div>
-
-                    {/* Share Button Section */}
-                    {shareUrl && (
-                      <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
-                        className="pt-6 border-t border-border/30"
-                      >
-                        <div className="text-center space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Share this learning session with others
-                          </p>
-                          <Button
-                            onClick={copyShareLink}
-                            variant="outline"
-                            size="lg"
-                            className="w-full sm:w-auto"
-                          >
-                            <Share2 className="mr-2 h-4 w-4" />
-                            {shareCopied ? "Link Copied!" : "Copy Share Link"}
-                          </Button>
-                          {shareCopied && (
-                            <motion.p
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                              className="text-sm text-green-600 font-medium"
-                            >
-                              ✓ Share link copied to clipboard!
-                            </motion.p>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* Additional Options */}
-                    <div className="grid md:grid-cols-2 gap-4 mt-8">
-                      {/* <div className="space-y-3">
-                        <label className="block text-sm font-medium">
-                          Session ID
-                        </label>
-                        <div className="flex gap-2">
-                          <input
-                            type="text"
-                            value={botResult.sessionId}
-                            readOnly
-                            className="flex-1 px-3 py-2 bg-background border border-border rounded-lg text-sm"
-                          />
-                          <Button
-                            onClick={() => copyToClipboard(botResult.sessionId)}
-                            variant="outline"
-                            size="icon"
-                          >
-                            <Copy className="h-4 w-4" />
-                          </Button>
-                        </div>
-                      </div> */}
-
-                      {/* <div className="space-y-3">
-                        <label className="block text-sm font-medium">
-                          Direct Link
-                        </label>
-                        <div className="flex gap-2">
-                          <Button
-                            onClick={openInNewTab}
-                            variant="outline"
-                            className="flex-1"
-                          >
-                            <ExternalLink className="mr-2 h-4 w-4" />
-                            Open in New Tab
-                          </Button>
-                        </div>
-                      </div> */}
-                    </div>
-
-                    {/* Copy Success Message */}
-                    {copied && (
-                      <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        transition={{ duration: 0.3, ease: "easeOut" }}
-                        className="text-center text-sm text-green-600 font-medium"
-                      >
-                        ✓ Copied to clipboard!
-                      </motion.div>
-                    )}
+          {/* Question Summary Display */}
+          <AnimatePresence>
+            {(questionSummary || isLoadingSummary) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+                className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 mb-6 sm:mb-8 backdrop-blur-sm shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
+                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   </div>
-                </motion.div>
-              )}
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      Question Analysis
+                    </h3>
+                    {isLoadingSummary ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="animate-spin w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700 dark:text-blue-300 text-sm">
+                          Analyzing question...
+                        </span>
+                      </div>
+                    ) : questionSummary ? (
+                      <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
+                        <SimpleMathRenderer 
+                          content={questionSummary} 
+                          className="text-blue-800 dark:text-blue-200 leading-relaxed" 
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
-              {/* Generated Questions - SECONDARY (Collapsible) */}
-              {processedData && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, ease: "easeOut" }}
-                  className="bg-card/50 rounded-xl border border-dashed border-border/60 overflow-hidden"
-                >
-                  {/* Collapsible Header */}
-                  <button
-                    onClick={() =>
-                      setShowGeneratedQuestions(!showGeneratedQuestions)
-                    }
-                    className="w-full p-4 flex items-center justify-between hover:bg-muted/30 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <FileText className="w-5 h-5 text-muted-foreground" />
-                      <h3 className="text-lg font-medium text-muted-foreground">
-                        View Generated Questions (
-                        {processedData.questions.length})
-                      </h3>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm text-muted-foreground">
-                        {showGeneratedQuestions ? "Hide" : "Show"}
-                      </span>
-                      {showGeneratedQuestions ? (
-                        <ChevronUp className="w-4 h-4 text-muted-foreground" />
-                      ) : (
-                        <ChevronDown className="w-4 h-4 text-muted-foreground" />
-                      )}
-                    </div>
-                  </button>
-
-                  {/* Collapsible Content */}
-                  <AnimatePresence>
-                    {showGeneratedQuestions && (
-                      <motion.div
-                        initial={{ height: 0, opacity: 0 }}
-                        animate={{ height: "auto", opacity: 1 }}
-                        exit={{ height: 0, opacity: 0 }}
-                        transition={{ duration: 0.3 }}
-                        className="border-t border-border/30"
-                      >
-                        <div className="p-4 space-y-4">
-                          <div className="space-y-3 max-h-80 overflow-y-auto">
-                            {processedData.questions.map((question, index) => (
-                              <div
-                                key={index}
-                                className="p-3 bg-background/60 rounded-lg border border-border/40"
-                              >
-                                <h4 className="font-medium mb-1 text-sm">
-                                  Question {index + 1}
-                                </h4>
-                                <p className="text-xs text-muted-foreground mb-2 leading-relaxed">
-                                  {question}
-                                </p>
-                                <div className="text-xs text-muted-foreground/80">
-                                  Topics:{" "}
-                                  {processedData.concept_tags[index].join(", ")}
-                                </div>
-                              </div>
-                            ))}
-                          </div>
-
-                          <div className="flex gap-3 pt-3 border-t border-border/30">
-                            <Button
-                              onClick={downloadJSON}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <Download className="mr-2 h-3 w-3" />
-                              Download JSON
-                            </Button>
-                            <Button
-                              onClick={() => setShowGeneratedQuestions(false)}
-                              variant="ghost"
-                              size="sm"
-                            >
-                              <ChevronUp className="mr-2 h-3 w-3" />
-                              Collapse
-                            </Button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </AnimatePresence>
-                </motion.div>
-              )}
-            </div>
+          {/* No Credits Notice */}
+          {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
+            >
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
+                  <p className="text-yellow-700 mb-3">
+                    You've used all your credits for this account. Get more credits to continue using the AI Step Breakdown feature.
+                  </p>
+                  <div className="flex gap-2">
+                    <Link 
+                      href="/features/premium"
+                      className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
+                    >
+                      Upgrade to Pro
+                    </Link>
+                  </div>
+                </div>
+              </div>
+            </motion.div>
           )}
 
-          {/* Iframe Section - Overlay */}
-          {showIframe && botResult && processedData && (
+          {/* Steps Display */}
+          <AnimatePresence>
+            {steps.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
+                  showDesktopLayout ? 'hidden md:block' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  </div>
+                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                    Step-by-Step Breakdown
+                  </h2>
+                </div>
+                
+                <div className="space-y-3 sm:space-y-4">
+                  {steps.map((step, stepIndex) => (
+                    <motion.div 
+                      key={step.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: stepIndex * 0.1 }}
+                      className="border border-border rounded-lg sm:rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm step-container"
+                    >
+                      {/* Main Step */}
+                      <div className="bg-muted/20 border-b border-border">
+                        <div className="p-3 sm:p-4 md:p-6">
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            <motion.button
+                              animate={{ rotate: step.isExpanded ? 90 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                              disabled={step.subSteps.length === 0 && !step.isLoadingSubSteps}
+                              onClick={() => handleStepClick(step.id)}
+                            >
+                              <ChevronRight size={18} className="sm:w-5 sm:h-5" />
+                            </motion.button>
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => handleStepClick(step.id)}
+                            >
+                              <SimpleMathRenderer 
+                                content={step.content} 
+                                className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base" 
+                              />
+                            </div>
+                            {/* Mobile: Compact action button */}
+                            <div className="flex-shrink-0 self-start sm:hidden">
+                              <button
+                                onClick={() => handleGetSubSteps(step.id)}
+                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-primary/20 disabled:border-muted"
+                              >
+                                {step.isLoadingSubSteps ? (
+                                  <Loader2 className="animate-spin w-4 h-4" />
+                                ) : step.subSteps.length > 0 ? (
+                                  <CheckCircle size={16} />
+                                ) : (
+                                  <Plus size={16} />
+                                )}
+                              </button>
+                            </div>
+                            {/* Desktop: Full action button */}
+                            <div className="flex-shrink-0 self-start hidden sm:block">
+                              <button
+                                onClick={() => handleGetSubSteps(step.id)}
+                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted whitespace-nowrap"
+                              >
+                                {step.isLoadingSubSteps ? (
+                                  <Loader2 className="animate-spin w-4 h-4" />
+                                ) : step.subSteps.length > 0 ? (
+                                  <CheckCircle size={14} className="sm:w-4 sm:h-4" />
+                                ) : (
+                                  <Plus size={14} className="sm:w-4 sm:h-4" />
+                                )}
+                                {step.subSteps.length > 0 ? 'Expanded' : 'Further Breakdown'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub Steps */}
+                      <AnimatePresence>
+                        {step.isExpanded && step.subSteps.length > 0 && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
+                          >
+                            {step.subSteps.map((subStep, subStepIndex) => (
+                              <motion.div 
+                                key={subStep.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: subStepIndex * 0.05 }}
+                                className="border-b border-border/50 last:border-b-0 step-container"
+                              >
+                                {/* Sub Step Header */}
+                                <div className="bg-card/20">
+                                  <div className="p-3 sm:p-4 md:p-6 pl-6 sm:pl-8 md:pl-12">
+                                    <div className="flex items-start gap-3 sm:gap-4">
+                                      <motion.button
+                                        animate={{ rotate: subStep.isExpanded ? 90 : 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                                        disabled={!subStep.theory && !subStep.isLoadingTheory}
+                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                      >
+                                        <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                      </motion.button>
+                                      <div 
+                                        className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                      >
+                                        <SimpleMathRenderer 
+                                          content={subStep.content} 
+                                          className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base" 
+                                        />
+                                      </div>
+                                      {/* Mobile: Compact theory button */}
+                                      <div className="flex-shrink-0 self-start sm:hidden">
+                                        <button
+                                          onClick={() => handleGetTheory(step.id, subStep.id)}
+                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-secondary/20 disabled:border-muted"
+                                        >
+                                          {subStep.isLoadingTheory ? (
+                                            <Loader2 className="animate-spin w-4 h-4" />
+                                          ) : subStep.theory ? (
+                                            <CheckCircle size={14} />
+                                          ) : (
+                                            <FileText size={14} />
+                                          )}
+                                        </button>
+                                      </div>
+                                      {/* Desktop: Full theory button */}
+                                      <div className="flex-shrink-0 self-start hidden sm:block">
+                                        <button
+                                          onClick={() => handleGetTheory(step.id, subStep.id)}
+                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted whitespace-nowrap"
+                                        >
+                                          {subStep.isLoadingTheory ? (
+                                            <Loader2 className="animate-spin w-3 h-3 sm:w-[14px] sm:h-[14px]" />
+                                          ) : subStep.theory ? (
+                                            <CheckCircle size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                          ) : (
+                                            <FileText size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                          )}
+                                          {subStep.theory ? 'Theory Loaded' : 'Get Explanation'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Theory Explanation */}
+                                <AnimatePresence>
+                                  {subStep.isExpanded && subStep.theory && (
+                                    <motion.div 
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.3 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="p-3 sm:p-4 md:p-6 pl-8 sm:pl-12 md:pl-16 bg-primary/5 border-l-2 sm:border-l-4 border-primary/30">
+                                        <div className="bg-card/40 rounded-lg p-3 sm:p-4 border border-border/50">
+                                          <SimpleMathRenderer 
+                                            content={subStep.theory} 
+                                            className="text-muted-foreground leading-relaxed text-sm sm:text-base" 
+                                          />
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Interactive Learning Button - CENTERED */}
+                {steps.length > 0 && !botResult && !isStreaming && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                    className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40"
+                  >
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                          <Bot className="w-6 h-6 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
+                          Ready for Interactive Learning?
+                        </h3>
+                      </div>
+                      
+                      <p className="text-muted-foreground text-center">
+                        Now that you have the step breakdown, launch the AI tutor for personalized guidance through the solution!
+                      </p>
+                      
+                      <div className="flex justify-center">
+                        <button
+                          onClick={startInteractiveLearningWithStreaming}
+                          disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
+                        >
+                          {processing ? (
+                            <>
+                              <Loader2 className="animate-spin w-5 h-5" />
+                              <ShiningText text="Preparing AI Tutor..." />
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-5 h-5" />
+                              Launch Interactive Learning
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Streaming Messages Display */}
+          <AnimatePresence>
+            {isStreaming && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6 }}
+                className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
+              >
+                <div className="text-center space-y-6">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                      <Bot className="w-8 h-8 text-green-600" />
+                    </div>
+                    <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
+                      Preparing AI Tutor
+                    </h2>
+                  </div>
+
+                  <div className="space-y-3 max-w-md mx-auto">
+                    {streamingMessages.map((message, index) => (
+                      <motion.div
+                        key={message.id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                        className="flex items-center gap-3 text-left"
+                      >
+                        <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+                        <ResponseStream 
+                          textStream={message.content}
+                          className="text-muted-foreground"
+                        />
+                      </motion.div>
+                    ))}
+                  </div>
+
+                  {processing && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <Loader2 className="animate-spin w-5 h-5 text-green-600" />
+                      <span className="text-green-600 font-medium">Finalizing setup...</span>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Bot Result Display */}
+          {botResult && !showDesktopLayout && (
             <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, ease: "easeOut" }}
-              className="bg-card rounded-xl border shadow-lg overflow-hidden w-full"
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
+            >
+              <div className="text-center space-y-6">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                    <Bot className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
+                    AI Tutor Ready!
+                  </h2>
+                </div>
+
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Your personalized AI tutor is ready to guide you through the solution step by step. 
+                  Start your interactive learning journey now!
+                </p>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Button
+                    onClick={launchDesktopLayout}
+                    size="lg"
+                    className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 sm:px-12 py-4 text-lg sm:text-xl font-semibold rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl w-full sm:w-auto max-w-full"
+                  >
+                    <Play className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                    <span className="text-center leading-tight">
+                      Start Learning
+                      <br className="sm:hidden" />
+                      <span className="sm:inline"> with AI Bot</span>
+                    </span>
+                  </Button>
+                </motion.div>
+
+                {/* Share functionality */}
+                {shareUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="pt-6 border-t border-border/30"
+                  >
+                    <div className="text-center space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Share this learning session with others
+                      </p>
+                      <Button
+                        onClick={copyShareLink}
+                        variant="outline"
+                        size="lg"
+                        className="w-full sm:w-auto"
+                      >
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {shareCopied ? "Link Copied!" : "Copy Share Link"}
+                      </Button>
+                      {shareCopied && (
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                          className="text-sm text-green-600 font-medium"
+                        >
+                          ✓ Share link copied to clipboard!
+                        </motion.p>
+                      )}
+                    </div>
+                  </motion.div>
+                )}
+              </div>
+            </motion.div>
+          )}
+
+          {/* Desktop Layout - Split View */}
+          <AnimatePresence>
+            {showDesktopLayout && botResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+                className="hidden md:block"
+              >
+                {/* Desktop Split Layout */}
+                <div className="grid grid-cols-2 gap-6 h-[800px]">
+                  {/* Left Side - Question + Steps */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    {/* Question Image */}
+                    <div className="bg-card rounded-xl border shadow-sm h-[300px]">
+                      <div className="p-4 border-b">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <ImageIcon className="w-5 h-5 text-primary" />
+                          Question
+                        </h3>
+                      </div>
+                      <div className="p-4 h-[calc(100%-64px)] flex flex-col">
+                        {imagePreview && (
+                          <>
+                            <div className="border rounded-lg bg-muted/20 overflow-hidden relative flex-1">
+                              <TransformWrapper
+                                initialScale={1}
+                                minScale={0.3}
+                                maxScale={5}
+                                centerOnInit={true}
+                                wheel={{ step: 0.1 }}
+                              >
+                                {({ zoomIn, zoomOut, resetTransform }: any) => (
+                                  <>
+                                    {/* Zoom Controls */}
+                                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                                      <Button
+                                        onClick={() => zoomIn()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Zoom In"
+                                      >
+                                        <ZoomIn className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => zoomOut()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Zoom Out"
+                                      >
+                                        <ZoomOut className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => resetTransform()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Reset View"
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => setShowFullQuestion(true)}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Full Screen"
+                                      >
+                                        <Maximize2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <TransformComponent>
+                                      <img
+                                        src={imagePreview}
+                                        alt="Question"
+                                        className="w-full h-full object-contain rounded-lg"
+                                      />
+                                    </TransformComponent>
+                                  </>
+                                )}
+                              </TransformWrapper>
+                            </div>
+                            
+                            {/* Full Screen Button */}
+                            <div className="mt-3">
+                              <Button
+                                onClick={() => setShowFullQuestion(true)}
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-sm"
+                              >
+                                <Maximize2 className="mr-2 h-4 w-4" />
+                                View Full Screen
+                              </Button>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Steps List */}
+                    <div className="bg-card rounded-xl border shadow-sm h-[480px] flex flex-col">
+                      <div className="p-4 border-b">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Target className="w-5 h-5 text-primary" />
+                          Step-by-Step Solution
+                        </h3>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="space-y-3">
+                          {steps.map((step, stepIndex) => (
+                            <motion.div
+                              key={step.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3, delay: stepIndex * 0.05 }}
+                              className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold text-primary mt-1">
+                                  {stepIndex + 1}
+                                </div>
+                                <div className="flex-1">
+                                  <SimpleMathRenderer
+                                    content={step.content}
+                                    className="text-foreground leading-relaxed text-sm"
+                                  />
+                                  
+                                  {/* Sub-steps */}
+                                  {step.subSteps.length > 0 && (
+                                    <div className="mt-2 ml-4 space-y-2">
+                                      {step.subSteps.map((subStep, subIndex) => (
+                                        <div key={subStep.id} className="flex items-start gap-2">
+                                          <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
+                                            {String.fromCharCode(97 + subIndex)}
+                                          </div>
+                                          <SimpleMathRenderer
+                                            content={subStep.content}
+                                            className="text-muted-foreground text-xs leading-relaxed"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  </motion.div>
+
+                  {/* Right Side - AI Bot Iframe */}
+                  <motion.div
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="bg-card rounded-xl border shadow-sm overflow-hidden"
+                  >
+                    <div className="p-4 border-b bg-card">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Bot className="w-5 h-5 text-primary" />
+                          AI Interactive Tutor
+                        </h3>
+                        <Button
+                          onClick={() => setShowDesktopLayout(false)}
+                          variant="outline"
+                          size="sm"
+                        >
+                          <X className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="h-[calc(100%-64px)]">
+                      <iframe
+                        src={botResult.chatbotLink}
+                        className="w-full h-full border-0"
+                        title="AI Tutor Interactive Session"
+                        scrolling="yes"
+                        allow="fullscreen"
+                      />
+                    </div>
+                  </motion.div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Mobile Interactive Learning Iframe (unchanged) */}
+          {showIframe && botResult && !showDesktopLayout && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-card rounded-xl border shadow-lg overflow-hidden w-full md:hidden"
             >
               {/* Header with controls */}
               <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
                 <h2 className="text-lg lg:text-xl font-semibold flex items-center gap-2">
-                  <FileText className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
+                  <Bot className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
                   <span className="hidden sm:inline">Interactive Learning Session</span>
                   <span className="sm:hidden">Learning Session</span>
                 </h2>
@@ -1718,7 +2350,7 @@ export default function UploadImagePage() {
                     className="hidden sm:flex"
                   >
                     <Maximize2 className="mr-2 h-4 w-4" />
-                    Full Screen Question
+                    View Original Question
                   </Button>
                   <Button
                     onClick={() => setShowFullQuestion(true)}
@@ -1738,16 +2370,16 @@ export default function UploadImagePage() {
                 </div>
               </div>
 
-              {/* Responsive Layout - Mobile-First Design */}
+              {/* Responsive Layout */}
               <div className="flex flex-col lg:flex-row">
-                {/* Question Panel - Compact on mobile, standard on desktop */}
+                {/* Question Panel */}
                 <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r bg-card lg:h-[700px]">
                   <div className="p-3 lg:p-4 flex flex-col lg:h-full">
                     <h3 className="font-semibold text-base lg:text-lg mb-2 lg:mb-3">
                       Original Question
                     </h3>
 
-                    {/* Zoomable Image Container - More compact on mobile */}
+                    {/* Image Container */}
                     <div
                       className="border rounded-lg bg-muted/20 overflow-hidden relative"
                       style={{ 
@@ -1763,7 +2395,7 @@ export default function UploadImagePage() {
                           centerOnInit={true}
                           wheel={{ step: 0.1 }}
                         >
-                          {({ zoomIn, zoomOut, resetTransform }) => (
+                          {({ zoomIn, zoomOut, resetTransform }: any) => (
                             <>
                               {/* Zoom Controls */}
                               <div className="absolute top-2 lg:top-4 right-2 lg:right-4 z-10 flex gap-1">
@@ -1808,7 +2440,7 @@ export default function UploadImagePage() {
                       )}
                     </div>
 
-                    {/* Full Screen Button - More compact on mobile */}
+                    {/* Full Screen Button */}
                     <div className="mt-2 lg:mt-4">
                       <Button
                         onClick={() => setShowFullQuestion(true)}
@@ -1822,12 +2454,12 @@ export default function UploadImagePage() {
                       </Button>
                     </div>
 
-                    {/* Question Analysis - More compact on mobile */}
+                    {/* Question Analysis */}
                     {processedData && (
                       <motion.div
                         initial={{ opacity: 0 }}
                         animate={{ opacity: 1 }}
-                        transition={{ duration: 0.4, ease: "easeOut" }}
+                        transition={{ duration: 0.4 }}
                         className="mt-2 lg:mt-4 p-3 lg:p-4 bg-muted/30 rounded-lg border border-border/40 flex-1 lg:flex-none lg:max-h-[200px] lg:overflow-y-auto"
                       >
                         <div className="space-y-2 lg:space-y-3">
@@ -1861,13 +2493,13 @@ export default function UploadImagePage() {
                   </div>
                 </div>
 
-                {/* Bot Panel - Optimized for mobile with maximum available height */}
+                {/* Bot Panel */}
                 <div className="w-full lg:w-2/3 flex-1">
                   <div className="h-[calc(100vh-200px)] min-h-[600px] lg:h-[700px]">
                     <iframe
                       src={botResult.chatbotLink}
                       className="w-full h-full border-0"
-                      title="LearnBot Interactive Session"
+                      title="AI Tutor Interactive Session"
                       scrolling="yes"
                       allow="fullscreen"
                     />
@@ -1877,214 +2509,174 @@ export default function UploadImagePage() {
             </motion.div>
           )}
 
-          {/* How it Works Section */}
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ duration: 0.6, ease: "easeOut" }}
-            className="bg-card rounded-xl p-6 border shadow-sm"
-          >
-            <h2 className="text-xl font-semibold mb-4">How it Works</h2>
-            <div className="grid md:grid-cols-3 gap-6">
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                  <Upload className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-medium">1. Upload Image</h3>
-                <p className="text-sm text-muted-foreground">
-                  Upload an image of any academic question or problem
-                </p>
-              </div>
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                  <Sparkles className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-medium">2. AI Processing</h3>
-                <p className="text-sm text-muted-foreground">
-                  Our AI breaks down the problem into scaffolded learning steps
-                </p>
-              </div>
-              <div className="text-center space-y-2">
-                <div className="w-12 h-12 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
-                  <FileText className="w-6 h-6 text-primary" />
-                </div>
-                <h3 className="font-medium">3. Interactive Learning</h3>
-                <p className="text-sm text-muted-foreground">
-                  Get a personalized chatbot to guide you through the solution
-                </p>
-              </div>
-            </div>
-          </motion.div>
-        </div>
-
-        {/* Full Screen Question Modal */}
-        <AnimatePresence>
-          {showFullQuestion && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-              onClick={() => setShowFullQuestion(false)}
-            >
+          {/* Full Screen Question Modal */}
+          <AnimatePresence>
+            {showFullQuestion && (
               <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.9 }}
-                className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto"
-                onClick={(e) => e.stopPropagation()}
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={() => setShowFullQuestion(false)}
               >
-                <div className="flex items-center justify-between mb-4">
-                  <h3 className="text-xl font-semibold">Original Question</h3>
-                  <Button
-                    onClick={() => setShowFullQuestion(false)}
-                    variant="outline"
-                    size="icon"
-                  >
-                    <X className="h-4 w-4" />
-                  </Button>
-                </div>
-                {imagePreview && (
-                  <img
-                    src={imagePreview}
-                    alt="Full Screen Question"
-                    className="w-full rounded-lg"
-                  />
-                )}
-              </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
-
-        {/* Crop Modal with Rotation */}
-        <AnimatePresence>
-          {showCropModal && cropImageSrc && (
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <motion.div
-                initial={{ scale: 0.9 }}
-                animate={{ scale: 1 }}
-                exit={{ scale: 0.9 }}
-                className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="space-y-4">
-                  {/* Header */}
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CropIcon className="w-5 h-5 text-primary" />
-                      <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
-                    </div>
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.9 }}
+                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Original Question</h3>
                     <Button
-                      onClick={handleCropCancel}
+                      onClick={() => setShowFullQuestion(false)}
                       variant="outline"
                       size="icon"
                     >
                       <X className="h-4 w-4" />
                     </Button>
                   </div>
-
-                  {/* Instructions */}
-                  <p className="text-sm text-muted-foreground">
-                    Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
-                  </p>
-
-                  {/* Rotation Controls */}
-                  <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
-                    <Button
-                      onClick={resetRotation}
-                      variant="outline"
-                      size="sm"
-                      disabled={rotationAngle === 0}
-                    >
-                      <RotateCcw className="mr-2 h-4 w-4" />
-                      Reset
-                    </Button>
-                    
-                    <div className="flex items-center gap-2">
-                      <span className="text-sm font-medium">{rotationAngle}°</span>
-                    </div>
-                    
-                    <Button
-                      onClick={rotateImage}
-                      variant="outline"
-                      size="sm"
-                    >
-                      <RotateCw className="mr-2 h-4 w-4" />
-                      Rotate 90°
-                    </Button>
-                  </div>
-
-                  {/* Crop Area */}
-                  <div className="flex justify-center">
-                    <div className="max-w-full max-h-[60vh] overflow-auto">
-                      <ReactCrop
-                        crop={crop}
-                        onChange={(c) => setCrop(c)}
-                        onComplete={(c) => setCompletedCrop(c)}
-                        aspect={undefined}
-                        minWidth={50}
-                        minHeight={50}
-                      >
-                        <img
-                          ref={imgRef}
-                          src={cropImageSrc}
-                          alt="Crop preview"
-                          className="max-w-full h-auto"
-                          style={{ transform: `rotate(${rotationAngle}deg)` }}
-                          onLoad={() => {
-                            // Auto-select most of the image initially
-                            if (imgRef.current) {
-                              const { width, height } = imgRef.current;
-                              setCrop({
-                                unit: 'px',
-                                width: width * 0.9,
-                                height: height * 0.9,
-                                x: width * 0.05,
-                                y: height * 0.05,
-                              });
-                            }
-                          }}
-                        />
-                      </ReactCrop>
-                    </div>
-                  </div>
-
-                  {/* Action Buttons */}
-                  <div className="flex gap-3 justify-end">
-                    <Button
-                      onClick={handleCropCancel}
-                      variant="outline"
-                    >
-                      Cancel
-                    </Button>
-                    <Button
-                      onClick={handleCropComplete}
-                      disabled={!completedCrop}
-                      className="bg-primary hover:bg-primary/90"
-                    >
-                      <CropIcon className="mr-2 h-4 w-4" />
-                      Crop & Upload
-                    </Button>
-                  </div>
-                </div>
+                  {imagePreview && (
+                    <img
+                      src={imagePreview}
+                      alt="Full Screen Question"
+                      className="w-full rounded-lg"
+                    />
+                  )}
+                </motion.div>
               </motion.div>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            )}
+          </AnimatePresence>
 
-        {/* Hidden canvas for image processing */}
-        <canvas
-          ref={canvasRef}
-          className="hidden"
-        />
+          {/* Crop Modal with Rotation */}
+          <AnimatePresence>
+            {showCropModal && cropImageSrc && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.9 }}
+                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="space-y-4">
+                    {/* Header */}
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <CropIcon className="w-5 h-5 text-primary" />
+                        <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
+                      </div>
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                        size="icon"
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    {/* Instructions */}
+                    <p className="text-sm text-muted-foreground">
+                      Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+                    </p>
+
+                    {/* Rotation Controls */}
+                    <div className="flex items-center justify-center gap-4 p-2 bg-muted/30 rounded-lg">
+                      <Button
+                        onClick={resetRotation}
+                        variant="outline"
+                        size="sm"
+                        disabled={rotationAngle === 0}
+                      >
+                        <RotateCcw className="mr-2 h-4 w-4" />
+                        Reset
+                      </Button>
+                      
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium">{rotationAngle}°</span>
+                      </div>
+                      
+                      <Button
+                        onClick={rotateImage}
+                        variant="outline"
+                        size="sm"
+                      >
+                        <RotateCw className="mr-2 h-4 w-4" />
+                        Rotate 90°
+                      </Button>
+                    </div>
+
+                    {/* Crop Area */}
+                    <div className="flex justify-center">
+                      <div className="max-w-full max-h-[60vh] overflow-auto">
+                        <ReactCrop
+                          crop={crop}
+                          onChange={(c) => setCrop(c)}
+                          onComplete={(c) => setCompletedCrop(c)}
+                          aspect={undefined}
+                          minWidth={50}
+                          minHeight={50}
+                        >
+                          <img
+                            ref={imgRef}
+                                src={cropImageSrc || ''}
+                            alt="Crop preview"
+                            className="max-w-full h-auto"
+                            style={{ transform: `rotate(${rotationAngle}deg)` }}
+                            onLoad={() => {
+                              // Auto-select most of the image initially
+                              if (imgRef.current) {
+                                const { width, height } = imgRef.current;
+                                setCrop({
+                                  unit: 'px',
+                                  width: width * 0.9,
+                                  height: height * 0.9,
+                                  x: width * 0.05,
+                                  y: height * 0.05,
+                                });
+                              }
+                            }}
+                          />
+                        </ReactCrop>
+                      </div>
+                    </div>
+
+                    {/* Action Buttons */}
+                    <div className="flex gap-3 justify-end">
+                      <Button
+                        onClick={handleCropCancel}
+                        variant="outline"
+                      >
+                        Cancel
+                      </Button>
+                      <Button
+                        onClick={handleCropComplete}
+                        disabled={!completedCrop}
+                        className="bg-primary hover:bg-primary/90"
+                      >
+                        <CropIcon className="mr-2 h-4 w-4" />
+                        Crop & Upload
+                      </Button>
+                    </div>
+                  </div>
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Hidden canvas for image processing */}
+          <canvas
+            ref={canvasRef}
+            className="hidden"
+          />
+        </div>
       </main>
-
       <Footer />
     </div>
   );

@@ -22,7 +22,7 @@ export async function POST(request: NextRequest) {
     if (type === 'summary' || type === 'theory') {
       model = "gpt-4o-mini"; // Use gpt-4o-mini for theory and summary
     } else if (type === 'main' || type === 'sub') {
-      model = "o4-mini"; // Use o1-mini for breakdown (main and sub steps)
+      model = "o4-mini"; // Use o4-mini for breakdown (main and sub steps)
     }
 
     console.log(`[Breakdown API] Using model: ${model} for type: ${type}`);
@@ -183,7 +183,7 @@ Provide only the concise explanation, nothing else.`;
       model: model,
       messages: messages,
       ...(model === "o4-mini" ? {
-        max_completion_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000
+        // max_completion_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000
       } : {
         max_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000,
         temperature: 0.3
