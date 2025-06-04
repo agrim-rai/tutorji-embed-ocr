@@ -848,6 +848,30 @@ export default function StepsBot() {
       return;
     }
 
+    // Deduct one credit first
+    try {
+      const deductResponse = await fetch('/api/user/credits', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: 1 }),
+      });
+
+      const deductResult = await deductResponse.json();
+
+      if (!deductResponse.ok) {
+        setError(deductResult.error || 'Failed to deduct credit');
+        return;
+      }
+
+      // Update real-time credits
+      setRealTimeCredits(deductResult.credits);
+    } catch (err) {
+      setError('Failed to process credit deduction');
+      return;
+    }
+
     // First get the question summary
     await getQuestionSummary();
 
@@ -1159,6 +1183,15 @@ export default function StepsBot() {
     // Start API call immediately
     const apiPromise = (async () => {
       try {
+        // Step 0: Add one credit to compensate for the deduction in process-image API
+        await fetch('/api/user/credits', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ amount: 1 }),
+        });
+
         // Step 1: Process image for chatbot
         const aiFormData = new FormData();
         aiFormData.append("image", selectedImage);

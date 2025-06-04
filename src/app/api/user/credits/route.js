@@ -96,4 +96,66 @@ export async function POST(request) {
       { status: 500 }
     );
   }
+}
+
+export async function PATCH(request) {
+  try {
+    // Get the current session
+    const session = await getServerSession(authOptions);
+    
+    if (!session || !session.user?.email) {
+      return NextResponse.json(
+        { error: 'Unauthorized - Please sign in' },
+        { status: 401 }
+      );
+    }
+
+    // Connect to database
+    await dbConnect();
+
+    // Parse request body
+    const { amount } = await request.json();
+    
+    if (typeof amount !== 'number' || amount <= 0) {
+      return NextResponse.json(
+        { error: 'Invalid amount - must be a positive number' },
+        { status: 400 }
+      );
+    }
+
+    // Find user and deduct credits
+    const user = await User.findOne({ email: session.user.email });
+    
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found' },
+        { status: 404 }
+      );
+    }
+
+    // Check if user has enough credits
+    if ((user.credits || 0) < amount) {
+      return NextResponse.json(
+        { error: 'Insufficient credits' },
+        { status: 400 }
+      );
+    }
+
+    // Deduct credits
+    user.credits = (user.credits || 0) - amount;
+    await user.save();
+
+    return NextResponse.json({
+      success: true,
+      credits: user.credits,
+      message: `Successfully deducted ${amount} credit(s)`
+    });
+
+  } catch (error) {
+    console.error('Error deducting user credits:', error);
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    );
+  }
 } 

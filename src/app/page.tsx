@@ -848,6 +848,30 @@ export default function StepsBot() {
       return;
     }
 
+    // Deduct one credit first
+    try {
+      const deductResponse = await fetch('/api/user/credits', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ amount: 1 }),
+      });
+
+      const deductResult = await deductResponse.json();
+
+      if (!deductResponse.ok) {
+        setError(deductResult.error || 'Failed to deduct credit');
+        return;
+      }
+
+      // Update real-time credits
+      setRealTimeCredits(deductResult.credits);
+    } catch (err) {
+      setError('Failed to process credit deduction');
+      return;
+    }
+
     // First get the question summary
     await getQuestionSummary();
 
