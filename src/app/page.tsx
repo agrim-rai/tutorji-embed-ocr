@@ -1159,6 +1159,15 @@ export default function StepsBot() {
     // Start API call immediately
     const apiPromise = (async () => {
       try {
+        // Step 0: Add one credit to compensate for the deduction in process-image API
+        await fetch('/api/user/credits', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ amount: 1 }),
+        });
+
         // Step 1: Process image for chatbot
         const aiFormData = new FormData();
         aiFormData.append("image", selectedImage);

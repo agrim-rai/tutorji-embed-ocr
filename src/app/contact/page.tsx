@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
-import { ChevronDown, Phone, Mail, Send, CheckCircle2, AlertTriangle, Clock, HeadphonesIcon, MessageCircle, Building, Zap } from 'lucide-react';
+import { ChevronDown, Phone, Mail, Send, CheckCircle2, AlertTriangle, Clock, HeadphonesIcon, MessageCircle, Building, Zap, Lightbulb } from 'lucide-react';
 
 const CONTACT_SUBJECTS = [
   { value: 'General Inquiry', label: 'General Inquiry', icon: '💬', description: 'General questions about TutorJi' },
@@ -212,6 +212,28 @@ export default function ContactPage() {
                   <p className="text-xs text-blue-700 dark:text-blue-300 mt-2">
                     Expected response time: 2-3 working days
                   </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Suggestions Banner */}
+            <div className="bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-900/20 dark:to-pink-900/20 border border-purple-200 dark:border-purple-800 rounded-lg p-4 mb-8">
+              <div className="flex items-start gap-3">
+                <Lightbulb className="w-5 h-5 text-purple-600 mt-0.5 flex-shrink-0" />
+                <div>
+                  <h3 className="font-semibold text-purple-900 dark:text-purple-100 mb-1">
+                    Have a suggestion or feature request?
+                  </h3>
+                  <p className="text-sm text-purple-800 dark:text-purple-200 mb-3">
+                    If you have ideas for new features, improvements, or feedback to help us make TutorJi better, we'd love to hear from you!
+                  </p>
+                  <a
+                    href="/suggest"
+                    className="inline-flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 bg-purple-100 dark:bg-purple-800/50 px-3 py-2 rounded-md transition-colors"
+                  >
+                    <Lightbulb className="w-4 h-4" />
+                    Share Your Ideas
+                  </a>
                 </div>
               </div>
             </div>

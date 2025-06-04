@@ -92,6 +92,18 @@ interface SubStep {
 interface BreakdownResponse {
   success: boolean;
   content?: string;
+  data?: {
+    steps?: Array<{
+      id: number;
+      title: string;
+      description: string;
+    }>;
+    subSteps?: Array<{
+      id: number;
+      title: string;
+      description: string;
+    }>;
+  };
   error?: string;
 }
 
@@ -138,7 +150,7 @@ const UserProfile: React.FC<{
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/stepsbot' });
+    await signIn('google', { callbackUrl: '/' });
   };
   
   // If not authenticated, show login prompt
@@ -350,7 +362,7 @@ export default function StepsBot() {
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/stepsbot' });
+    await signIn('google', { callbackUrl: '/' });
   };
 
   // Check if screen is mobile
@@ -438,6 +450,15 @@ export default function StepsBot() {
   // Utility functions
   const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
+  const convertImageToBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => resolve(reader.result as string);
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
   const parseStepsFromContent = (content: string): string[] => {
     if (!content || !content.trim()) return [];
     
@@ -472,6 +493,42 @@ export default function StepsBot() {
     }
     
     return [content.trim()];
+  };
+
+  const getQuestionSummary = async () => {
+    if (!selectedImage) return;
+
+    setIsLoadingSummary(true);
+    setQuestionSummary(null);
+
+    try {
+      const imageBase64 = await convertImageToBase64(selectedImage);
+      
+      const response = await fetch('/api/breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageData: imageBase64,
+          type: 'summary'
+        }),
+      });
+
+      const data: BreakdownResponse = await response.json();
+
+      if (data.success && data.content) {
+        setQuestionSummary(data.content);
+      } else {
+        console.error('Failed to get question summary:', data.error);
+        // Don't show error for summary failure, just continue without it
+      }
+    } catch (err) {
+      console.error('Network error getting summary:', err);
+      // Don't show error for summary failure, just continue without it
+    } finally {
+      setIsLoadingSummary(false);
+    }
   };
 
   // Image handling functions
@@ -815,15 +872,31 @@ export default function StepsBot() {
 
       const data: BreakdownResponse = await response.json();
 
-      if (data.success && data.content) {
-        const stepContents = parseStepsFromContent(data.content);
-        const newSteps: Step[] = stepContents.map(content => ({
-          id: generateUniqueId(),
-          content,
-          subSteps: [],
-          isExpanded: false,
-          isLoadingSubSteps: false,
-        }));
+      if (data.success) {
+        let newSteps: Step[] = [];
+        
+        // Handle new structured JSON response
+        if (data.data?.steps) {
+          newSteps = data.data.steps.map(step => ({
+            id: generateUniqueId(),
+            content: `${step.title}\n\n${step.description}`,
+            subSteps: [],
+            isExpanded: false,
+            isLoadingSubSteps: false,
+          }));
+        } 
+        // Fallback to old content parsing for backward compatibility
+        else if (data.content) {
+          const stepContents = parseStepsFromContent(data.content);
+          newSteps = stepContents.map(content => ({
+            id: generateUniqueId(),
+            content,
+            subSteps: [],
+            isExpanded: false,
+            isLoadingSubSteps: false,
+          }));
+        }
+        
         setSteps(newSteps);
         
         // Update credits
@@ -835,51 +908,6 @@ export default function StepsBot() {
       setError('Network error occurred or failed to process image');
     } finally {
       setIsLoadingMainSteps(false);
-    }
-  };
-
-  const convertImageToBase64 = (file: File): Promise<string> => {
-    return new Promise((resolve, reject) => {
-      const reader = new FileReader();
-      reader.onload = () => resolve(reader.result as string);
-      reader.onerror = reject;
-      reader.readAsDataURL(file);
-    });
-  };
-
-  const getQuestionSummary = async () => {
-    if (!selectedImage) return;
-
-    setIsLoadingSummary(true);
-    setQuestionSummary(null);
-
-    try {
-      const imageBase64 = await convertImageToBase64(selectedImage);
-      
-      const response = await fetch('/api/breakdown', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          imageData: imageBase64,
-          type: 'summary'
-        }),
-      });
-
-      const data: BreakdownResponse = await response.json();
-
-      if (data.success && data.content) {
-        setQuestionSummary(data.content);
-      } else {
-        console.error('Failed to get question summary:', data.error);
-        // Don't show error for summary failure, just continue without it
-      }
-    } catch (err) {
-      console.error('Network error getting summary:', err);
-      // Don't show error for summary failure, just continue without it
-    } finally {
-      setIsLoadingSummary(false);
     }
   };
 
@@ -910,15 +938,30 @@ export default function StepsBot() {
 
       const data: BreakdownResponse = await response.json();
 
-      if (data.success && data.content) {
-        const subStepContents = parseStepsFromContent(data.content);
-        const newSubSteps: SubStep[] = subStepContents.map(content => ({
-          id: generateUniqueId(),
-          content,
-          theory: undefined,
-          isExpanded: false,
-          isLoadingTheory: false,
-        }));
+      if (data.success) {
+        let newSubSteps: SubStep[] = [];
+        
+        // Handle new structured JSON response
+        if (data.data?.subSteps) {
+          newSubSteps = data.data.subSteps.map(subStep => ({
+            id: generateUniqueId(),
+            content: `${subStep.title}\n\n${subStep.description}`,
+            theory: undefined,
+            isExpanded: false,
+            isLoadingTheory: false,
+          }));
+        } 
+        // Fallback to old content parsing for backward compatibility
+        else if (data.content) {
+          const subStepContents = parseStepsFromContent(data.content);
+          newSubSteps = subStepContents.map(content => ({
+            id: generateUniqueId(),
+            content,
+            theory: undefined,
+            isExpanded: false,
+            isLoadingTheory: false,
+          }));
+        }
 
         setSteps(prevSteps =>
           prevSteps.map(step =>
