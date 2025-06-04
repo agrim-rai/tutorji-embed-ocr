@@ -23,7 +23,7 @@ export function Navbar() {
         </div>
 
         <div className="flex items-center gap-4 px-4 py-2">
-          <Link href="mailto:support@tutorji.in">
+          <Link href="/contact">
             <Button variant="outline" size="sm">
               Contact
             </Button>

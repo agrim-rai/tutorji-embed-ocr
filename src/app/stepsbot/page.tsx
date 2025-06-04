@@ -348,6 +348,11 @@ export default function StepsBot() {
   const imgRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
+  // Handle direct Google sign in
+  const handleSignIn = async () => {
+    await signIn('google', { callbackUrl: '/stepsbot' });
+  };
+
   // Check if screen is mobile
   useEffect(() => {
     const checkMobile = () => {
@@ -739,7 +744,7 @@ export default function StepsBot() {
     return () => {
       document.removeEventListener("paste", handleGlobalPaste);
     };
-  }, [isUploadAreaFocused, clipboardFocused]); // Add proper dependency array
+  }, [isUploadAreaFocused, clipboardFocused, handlePaste]); // Add proper dependency array
 
   const removeImage = () => {
     setSelectedImage(null);
@@ -1218,10 +1223,195 @@ export default function StepsBot() {
     }
   };
 
+  // Show login wall if not authenticated
+  if (status === 'loading') {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-background">
+        <div className="text-center space-y-4">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto text-primary" />
+          <p className="text-muted-foreground">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // For unauthenticated users, show different layouts for desktop vs mobile
+  if (status === 'unauthenticated') {
+    return (
+      <div className="min-h-screen flex flex-col bg-background">
+        <Navbar />
+        <main className="flex-1 pt-16">
+          <div className="container mx-auto max-w-7xl p-6 space-y-8">
+            {/* Header Section */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, ease: "easeOut" }}
+              className="text-center space-y-4"
+            >
+              <div className="flex items-center justify-center gap-3">
+                <div className="p-3 bg-primary/10 rounded-xl">
+                  <Brain className="h-8 w-8 text-primary" />
+                </div>
+                <h1 className="text-4xl font-bold">Interactive Learning Assistant</h1>
+              </div>
+              <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
+                Upload a problem image, get step-by-step breakdown, and learn interactively with AI guidance
+              </p>
+            </motion.div>
+
+            {isMobile ? (
+              /* Mobile: Login box only */
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
+                className="max-w-md mx-auto"
+              >
+                <div className="bg-card rounded-xl p-6 border shadow-sm text-center space-y-4">
+                  <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                    <Brain className="w-8 h-8 text-primary" />
+                  </div>
+                  
+                  <div className="space-y-2">
+                    <h2 className="text-xl font-bold">AI Step-by-Step Learning</h2>
+                    <p className="text-muted-foreground text-sm">
+                      Break down complex problems into manageable steps with interactive AI guidance
+                    </p>
+                  </div>
+
+                  <div className="bg-muted/30 p-3 rounded-lg">
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground mb-2">
+                      <Sparkles size={14} />
+                      <span>Advanced Learning Features:</span>
+                    </div>
+                    <ul className="text-xs space-y-1 text-left">
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>AI-powered step breakdown</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>Interactive sub-step exploration</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>Theory explanations on demand</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>Personalized AI tutoring chat</span>
+                      </li>
+                      <li className="flex items-center gap-2">
+                        <CheckCircle size={12} className="text-green-500" />
+                        <span>25 free credits to get started</span>
+                      </li>
+                    </ul>
+                  </div>
+
+                  <button
+                    onClick={handleSignIn}
+                    className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-6 py-3 font-medium transition-colors inline-flex items-center justify-center gap-2"
+                  >
+                    <User size={18} />
+                    Sign In to Start Learning
+                  </button>
+
+                  <p className="text-xs text-muted-foreground">
+                    Sign in with Google • Get started instantly
+                  </p>
+                </div>
+              </motion.div>
+            ) : (
+              /* Desktop: Robot UI + Login box side by side */
+              <div className="grid lg:grid-cols-2 gap-8">
+                {/* Left: Animated Bot */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut" }}
+                  className="space-y-6"
+                >
+                  <RobotUIWrapper />
+                </motion.div>
+
+                {/* Right: Login and info */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  transition={{ duration: 0.6, ease: "easeOut", delay: 0.2 }}
+                  className="space-y-6 flex flex-col justify-center"
+                >
+                  <div className="bg-card rounded-xl p-6 border shadow-sm space-y-6">
+                    <div className="text-center space-y-4">
+                      <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
+                        <Brain className="w-8 h-8 text-primary" />
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <h2 className="text-2xl font-bold">AI Step-by-Step Learning</h2>
+                        <p className="text-muted-foreground">
+                          Transform complex problems into digestible steps with our advanced AI learning assistant
+                        </p>
+                      </div>
+
+                      <div className="bg-muted/30 p-4 rounded-lg text-left">
+                        <div className="flex items-center gap-3 text-sm text-muted-foreground mb-3">
+                          <Sparkles size={16} />
+                          <span>What you get with Interactive Learning:</span>
+                        </div>
+                        <ul className="text-sm space-y-2">
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>Intelligent problem breakdown into steps</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>Interactive sub-step exploration</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>Theory explanations on demand</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>Personalized AI tutoring sessions</span>
+                          </li>
+                          <li className="flex items-center gap-2">
+                            <CheckCircle size={16} className="text-green-500" />
+                            <span>25 free credits to get started</span>
+                          </li>
+                        </ul>
+                      </div>
+
+                      <button
+                        onClick={handleSignIn}
+                        className="w-full bg-primary hover:bg-primary/90 text-primary-foreground rounded-lg px-6 py-3 font-medium transition-colors inline-flex items-center justify-center gap-2"
+                      >
+                        <User size={18} />
+                        Sign In to Start Learning
+                      </button>
+
+                      <p className="text-xs text-muted-foreground">
+                        Sign in with Google to get started instantly
+                      </p>
+                    </div>
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </div>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-background text-foreground">
+    <div className="min-h-screen flex flex-col bg-background">
       <Navbar />
-      <main className="pt-16">
+
+      <main className="flex-1 pt-16">
         <div className="container mx-auto max-w-7xl p-6 space-y-8">
           {/* Header */}
           <motion.div 
@@ -1243,1135 +1433,1120 @@ export default function StepsBot() {
             </p>
           </motion.div>
 
-          {/* Authentication Check */}
-          {status === 'unauthenticated' && (
+          {/* User Profile Section */}
+          <motion.div
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.1 }}
+            className="max-w-md mx-auto"
+          >
+            <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
+          </motion.div>
+
+          {/* Main Content Grid */}
+          <div className={`grid gap-8 ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
+            {/* Left Side - Animated Bot (Desktop only) */}
+            {!isMobile && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ duration: 0.6, ease: "easeOut" }}
+                className="space-y-6 order-1 lg:order-1"
+              >
+                {/* Animated Bot - Desktop only */}
+                <div className="block">
+                  <RobotUIWrapper />
+                </div>
+              </motion.div>
+            )}
+
+            {/* Right Side - Upload Section */}
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, delay: 0.2 }}
-              className="max-w-md mx-auto"
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              transition={{ duration: 0.6, ease: "easeOut", delay: isMobile ? 0 : 0.2 }}
+              className={`space-y-6 ${isMobile ? 'order-1' : 'order-2 lg:order-2'}`}
             >
-              <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
+              {/* Image Upload Section */}
+              <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg h-[580px] flex flex-col">
+                <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                    <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  </div>
+                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                    Upload Problem Image
+                  </h2>
+                </div>
+                
+                {/* Image Upload Area */}
+                <div className="flex-1 flex flex-col">
+                  {imagePreview ? (
+                    <div className="space-y-4 h-full flex flex-col justify-center border-2 border-dashed rounded-lg p-6 text-center transition-all bg-muted/30">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="max-w-full max-h-48 mx-auto rounded-lg shadow-md object-contain"
+                      />
+                      <p className="text-sm text-muted-foreground">
+                        {selectedImage?.name} (
+                        {((selectedImage?.size || 0) / 1024 / 1024).toFixed(
+                          2
+                        )}{" "}
+                        MB)
+                      </p>
+                      <button
+                        onClick={removeImage}
+                        className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
+                      >
+                        <X className="inline mr-2 h-4 w-4" />
+                        Remove Image
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      {isMobile ? (
+                        /* Mobile: Two buttons layout with crop and rotate options */
+                        <div className="flex-1 flex flex-col gap-4 justify-center">
+                          {/* Take Photo Button - Larger */}
+                          <button
+                            onClick={triggerCameraInput}
+                            className="flex flex-col items-center gap-3 p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30 rounded-xl transition-all hover:from-primary/15 hover:to-primary/10 hover:border-primary/40 active:scale-95"
+                          >
+                            <div className="p-4 bg-primary/10 rounded-full">
+                              <Camera className="w-10 h-10 text-primary" />
+                            </div>
+                            <div className="text-center">
+                              <h3 className="text-xl font-semibold text-foreground">Take Photo</h3>
+                              <p className="text-sm text-muted-foreground">
+                                Capture, crop & rotate question
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Upload Button - Smaller */}
+                          <button
+                            onClick={() => fileInputRef.current?.click()}
+                            className="flex items-center justify-center gap-3 p-4 bg-muted/30 border-2 border-dashed border-border rounded-lg transition-all hover:border-primary/50 hover:bg-muted/40"
+                          >
+                            <Upload className="w-6 h-6 text-muted-foreground" />
+                            <div className="text-left">
+                              <p className="text-sm font-medium">Upload Image</p>
+                              <p className="text-xs text-muted-foreground">
+                                Select, crop & rotate
+                              </p>
+                            </div>
+                          </button>
+
+                          {/* Hidden inputs */}
+                          <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/*"
+                            onChange={handleFileSelect}
+                            className="hidden"
+                          />
+                          <input
+                            ref={cameraInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            onChange={handleCameraCapture}
+                            className="hidden"
+                          />
+                        </div>
+                      ) : (
+                        /* Desktop: Split upload and paste areas */
+                        <div className="flex-1 grid grid-cols-2 gap-4">
+                          {/* Upload Area */}
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            className="border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center hover:border-primary/50 hover:bg-primary/5"
+                            role="button"
+                            aria-label="Upload image area - click to select file"
+                          >
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileSelect}
+                              className="hidden"
+                            />
+
+                            <div className="space-y-4">
+                              <Upload className="w-12 h-12 text-muted-foreground mx-auto" />
+                              <div>
+                                <p className="text-lg font-medium">
+                                  Upload Image
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Click to browse or drag & drop
+                                </p>
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {/* Paste Area */}
+                          <div
+                            ref={uploadAreaRef}
+                            onDrop={handleDrop}
+                            onDragOver={handleDragOver}
+                            onClick={handleClipboardAreaClick}
+                            onBlur={handleClipboardAreaBlur}
+                            onKeyDown={handleKeyDown}
+                            className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center outline-none ${
+                              clipboardFocused
+                                ? "border-primary/70 bg-primary/5 ring-2 ring-primary/20"
+                                : "border-border hover:border-primary/50"
+                            }`}
+                            tabIndex={0}
+                            role="button"
+                            aria-label="Paste image area - click and paste from clipboard"
+                          >
+                            <div className="space-y-4">
+                              <Clipboard className="w-12 h-12 text-muted-foreground mx-auto" />
+                              <div>
+                                <p className="text-lg font-medium">
+                                  Paste from Clipboard
+                                </p>
+                                <p className="text-sm text-muted-foreground">
+                                  Click here and press{" "}
+                                  <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
+                                    {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'}
+                                  </kbd>
+                                </p>
+                                {clipboardFocused && (
+                                  <p className="text-xs text-primary font-medium mt-2">
+                                    Ready for paste! Press {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'} now
+                                  </p>
+                                )}
+                              </div>
+                            </div>
+                          </div>
+                          
+                          {session && (
+                            <div className="col-span-2 text-center">
+                              <span className="text-xs text-muted-foreground">
+                                <span className="font-medium">1 credit will be used</span> for each question breakdown. 
+                                You have {realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)} credits remaining.
+                              </span>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+
+                {/* Action Button */}
+                {imagePreview && (
+                  <div className="flex gap-3 mt-4">
+                    <Button
+                      onClick={analyzeImageSteps}
+                      disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                      className="flex-1"
+                      size="lg"
+                    >
+                      {isLoadingMainSteps ? (
+                        <ShiningText text="AI is analyzing..." />
+                      ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
+                        <>
+                          <XCircle className="mr-2 h-4 w-4" />
+                          No Credits Remaining
+                        </>
+                      ) : (
+                        <>
+                          <Sparkles className="mr-2 h-4 w-4" />
+                          Analyze & Break Down Steps
+                        </>
+                      )}
+                    </Button>
+
+                    <Button onClick={removeImage} variant="outline" size="lg">
+                      <RefreshCw className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </motion.div>
+          </div>
+
+          {/* Error Display */}
+          <AnimatePresence>
+            {error && (
+              <motion.div 
+                initial={{ opacity: 0, y: -10 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -10 }}
+                transition={{ duration: 0.3 }}
+                className="bg-destructive/10 border border-destructive/20 text-destructive px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl mb-6 sm:mb-8 backdrop-blur-sm"
+              >
+                <div className="flex items-center gap-2">
+                  <XCircle size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+                  <span className="text-sm sm:text-base">{error}</span>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Question Summary Display */}
+          <AnimatePresence>
+            {(questionSummary || isLoadingSummary) && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.5 }}
+                className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 mb-6 sm:mb-8 backdrop-blur-sm shadow-sm"
+              >
+                <div className="flex items-start gap-3">
+                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
+                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
+                      Question Analysis
+                    </h3>
+                    {isLoadingSummary ? (
+                      <div className="flex items-center gap-2">
+                        <Loader2 className="animate-spin w-4 h-4 text-blue-600" />
+                        <span className="text-blue-700 dark:text-blue-300 text-sm">
+                          Analyzing question...
+                        </span>
+                      </div>
+                    ) : questionSummary ? (
+                      <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
+                        <SimpleMathRenderer 
+                          content={questionSummary} 
+                          className="text-blue-800 dark:text-blue-200 leading-relaxed" 
+                        />
+                      </div>
+                    ) : null}
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* No Credits Notice */}
+          {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
+            <motion.div
+              initial={{ opacity: 0, y: 10 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
+            >
+              <div className="flex items-start gap-3">
+                <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
+                <div className="flex-1">
+                  <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
+                  <p className="text-yellow-700 mb-3">
+                    You've used all your credits for this account. Get more credits to continue using the AI Step Breakdown feature.
+                  </p>
+                  <div className="flex gap-2">
+                    <Link 
+                      href="/features/premium"
+                      className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
+                    >
+                      Upgrade to Pro
+                    </Link>
+                  </div>
+                </div>
+              </div>
             </motion.div>
           )}
 
-          {/* Main content for authenticated users */}
-          {status === 'authenticated' && (
-            <>
-              {/* User Profile Section */}
+          {/* Steps Display */}
+          <AnimatePresence>
+            {steps.length > 0 && (
+              <motion.div 
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
+                className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
+                  showDesktopLayout ? 'hidden md:block' : ''
+                }`}
+              >
+                <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
+                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
+                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                  </div>
+                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                    Step-by-Step Breakdown
+                  </h2>
+                </div>
+                
+                <div className="space-y-3 sm:space-y-4">
+                  {steps.map((step, stepIndex) => (
+                    <motion.div 
+                      key={step.id}
+                      initial={{ opacity: 0, x: -20 }}
+                      animate={{ opacity: 1, x: 0 }}
+                      transition={{ duration: 0.5, delay: stepIndex * 0.1 }}
+                      className="border border-border rounded-lg sm:rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm step-container"
+                    >
+                      {/* Main Step */}
+                      <div className="bg-muted/20 border-b border-border">
+                        <div className="p-3 sm:p-4 md:p-6">
+                          <div className="flex items-start gap-3 sm:gap-4">
+                            <motion.button
+                              animate={{ rotate: step.isExpanded ? 90 : 0 }}
+                              transition={{ duration: 0.2 }}
+                              className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                              disabled={step.subSteps.length === 0 && !step.isLoadingSubSteps}
+                              onClick={() => handleStepClick(step.id)}
+                            >
+                              <ChevronRight size={18} className="sm:w-5 sm:h-5" />
+                            </motion.button>
+                            <div 
+                              className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                              onClick={() => handleStepClick(step.id)}
+                            >
+                              <SimpleMathRenderer 
+                                content={step.content} 
+                                className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base" 
+                              />
+                            </div>
+                            {/* Mobile: Compact action button */}
+                            <div className="flex-shrink-0 self-start sm:hidden">
+                              <button
+                                onClick={() => handleGetSubSteps(step.id)}
+                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-primary/20 disabled:border-muted"
+                              >
+                                {step.isLoadingSubSteps ? (
+                                  <Loader2 className="animate-spin w-4 h-4" />
+                                ) : step.subSteps.length > 0 ? (
+                                  <CheckCircle size={16} />
+                                ) : (
+                                  <Plus size={16} />
+                                )}
+                              </button>
+                            </div>
+                            {/* Desktop: Full action button */}
+                            <div className="flex-shrink-0 self-start hidden sm:block">
+                              <button
+                                onClick={() => handleGetSubSteps(step.id)}
+                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted whitespace-nowrap"
+                              >
+                                {step.isLoadingSubSteps ? (
+                                  <Loader2 className="animate-spin w-4 h-4" />
+                                ) : step.subSteps.length > 0 ? (
+                                  <CheckCircle size={14} className="sm:w-4 sm:h-4" />
+                                ) : (
+                                  <Plus size={14} className="sm:w-4 sm:h-4" />
+                                )}
+                                {step.subSteps.length > 0 ? 'Expanded' : 'Further Breakdown'}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Sub Steps */}
+                      <AnimatePresence>
+                        {step.isExpanded && step.subSteps.length > 0 && (
+                          <motion.div 
+                            initial={{ height: 0, opacity: 0 }}
+                            animate={{ height: 'auto', opacity: 1 }}
+                            exit={{ height: 0, opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className="overflow-hidden"
+                          >
+                            {step.subSteps.map((subStep, subStepIndex) => (
+                              <motion.div 
+                                key={subStep.id}
+                                initial={{ opacity: 0, x: -10 }}
+                                animate={{ opacity: 1, x: 0 }}
+                                transition={{ duration: 0.3, delay: subStepIndex * 0.05 }}
+                                className="border-b border-border/50 last:border-b-0 step-container"
+                              >
+                                {/* Sub Step Header */}
+                                <div className="bg-card/20">
+                                  <div className="p-3 sm:p-4 md:p-6 pl-6 sm:pl-8 md:pl-12">
+                                    <div className="flex items-start gap-3 sm:gap-4">
+                                      <motion.button
+                                        animate={{ rotate: subStep.isExpanded ? 90 : 0 }}
+                                        transition={{ duration: 0.2 }}
+                                        className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                                        disabled={!subStep.theory && !subStep.isLoadingTheory}
+                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                      >
+                                        <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                      </motion.button>
+                                      <div 
+                                        className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
+                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                      >
+                                        <SimpleMathRenderer 
+                                          content={subStep.content} 
+                                          className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base" 
+                                        />
+                                      </div>
+                                      {/* Mobile: Compact theory button */}
+                                      <div className="flex-shrink-0 self-start sm:hidden">
+                                        <button
+                                          onClick={() => handleGetTheory(step.id, subStep.id)}
+                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-secondary/20 disabled:border-muted"
+                                        >
+                                          {subStep.isLoadingTheory ? (
+                                            <Loader2 className="animate-spin w-4 h-4" />
+                                          ) : subStep.theory ? (
+                                            <CheckCircle size={14} />
+                                          ) : (
+                                            <FileText size={14} />
+                                          )}
+                                        </button>
+                                      </div>
+                                      {/* Desktop: Full theory button */}
+                                      <div className="flex-shrink-0 self-start hidden sm:block">
+                                        <button
+                                          onClick={() => handleGetTheory(step.id, subStep.id)}
+                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted whitespace-nowrap"
+                                        >
+                                          {subStep.isLoadingTheory ? (
+                                            <Loader2 className="animate-spin w-3 h-3 sm:w-[14px] sm:h-[14px]" />
+                                          ) : subStep.theory ? (
+                                            <CheckCircle size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                          ) : (
+                                            <FileText size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                          )}
+                                          {subStep.theory ? 'Theory Loaded' : 'Get Explanation'}
+                                        </button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                </div>
+
+                                {/* Theory Explanation */}
+                                <AnimatePresence>
+                                  {subStep.isExpanded && subStep.theory && (
+                                    <motion.div 
+                                      initial={{ height: 0, opacity: 0 }}
+                                      animate={{ height: 'auto', opacity: 1 }}
+                                      exit={{ height: 0, opacity: 0 }}
+                                      transition={{ duration: 0.3 }}
+                                      className="overflow-hidden"
+                                    >
+                                      <div className="p-3 sm:p-4 md:p-6 pl-8 sm:pl-12 md:pl-16 bg-primary/5 border-l-2 sm:border-l-4 border-primary/30">
+                                        <div className="bg-card/40 rounded-lg p-3 sm:p-4 border border-border/50">
+                                          <SimpleMathRenderer 
+                                            content={subStep.theory} 
+                                            className="text-muted-foreground leading-relaxed text-sm sm:text-base" 
+                                          />
+                                        </div>
+                                      </div>
+                                    </motion.div>
+                                  )}
+                                </AnimatePresence>
+                              </motion.div>
+                            ))}
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </motion.div>
+                  ))}
+                </div>
+
+                {/* Interactive Learning Button - CENTERED */}
+                {steps.length > 0 && !botResult && !isStreaming && (
+                  <motion.div 
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.2 }}
+                    className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40"
+                  >
+                    <div className="text-center space-y-4">
+                      <div className="flex items-center justify-center gap-3">
+                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                          <Bot className="w-6 h-6 text-green-600" />
+                        </div>
+                        <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
+                          Ready for Interactive Learning?
+                        </h3>
+                      </div>
+                      
+                      <p className="text-muted-foreground text-center">
+                        Now that you have the step breakdown, launch the AI tutor for personalized guidance through the solution!
+                      </p>
+                      
+                      <div className="flex justify-center">
+                        <button
+                          onClick={startInteractiveLearningWithStreaming}
+                          disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
+                        >
+                          {processing ? (
+                            <>
+                              <Loader2 className="animate-spin w-5 h-5" />
+                              <ShiningText text="Preparing AI Tutor..." />
+                            </>
+                          ) : (
+                            <>
+                              <Play className="w-5 h-5" />
+                              Launch Interactive Learning
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </motion.div>
+                )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Streaming Messages Display */}
+          <AnimatePresence>
+            {isStreaming && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.6, delay: 0.1 }}
-                className="max-w-md mx-auto"
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6 }}
+                className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
               >
-                <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
-              </motion.div>
-
-              {/* Main Content Grid */}
-              <div className={`grid gap-8 ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
-                {/* Left Side - Animated Bot (Desktop only) */}
-                {!isMobile && (
-                  <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ duration: 0.6, ease: "easeOut" }}
-                    className="space-y-6 order-1 lg:order-1"
-                  >
-                    {/* Animated Bot - Desktop only */}
-                    <div className="block">
-                      <RobotUIWrapper />
+                <div className="text-center space-y-6">
+                  <div className="flex items-center justify-center gap-3">
+                    <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                      <Bot className="w-8 h-8 text-green-600" />
                     </div>
-                  </motion.div>
-                )}
-
-                {/* Right Side - Upload Section */}
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  transition={{ duration: 0.6, ease: "easeOut", delay: isMobile ? 0 : 0.2 }}
-                  className={`space-y-6 ${isMobile ? 'order-1' : 'order-2 lg:order-2'}`}
-                >
-                  {/* Image Upload Section */}
-                  <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg h-[580px] flex flex-col">
-                    <div className="flex items-center gap-2 sm:gap-3 mb-4 sm:mb-6">
-                      <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                        <ImageIcon className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                      </div>
-                      <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
-                        Upload Problem Image
-                      </h2>
-                    </div>
-                    
-                    {/* Image Upload Area */}
-                    <div className="flex-1 flex flex-col">
-                      {imagePreview ? (
-                        <div className="space-y-4 h-full flex flex-col justify-center border-2 border-dashed rounded-lg p-6 text-center transition-all bg-muted/30">
-                          <img
-                            src={imagePreview}
-                            alt="Preview"
-                            className="max-w-full max-h-48 mx-auto rounded-lg shadow-md object-contain"
-                          />
-                          <p className="text-sm text-muted-foreground">
-                            {selectedImage?.name} (
-                            {((selectedImage?.size || 0) / 1024 / 1024).toFixed(
-                              2
-                            )}{" "}
-                            MB)
-                          </p>
-                          <button
-                            onClick={removeImage}
-                            className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
-                          >
-                            <X className="inline mr-2 h-4 w-4" />
-                            Remove Image
-                          </button>
-                        </div>
-                      ) : (
-                        <>
-                          {isMobile ? (
-                            /* Mobile: Two buttons layout with crop and rotate options */
-                            <div className="flex-1 flex flex-col gap-4 justify-center">
-                              {/* Take Photo Button - Larger */}
-                              <button
-                                onClick={triggerCameraInput}
-                                className="flex flex-col items-center gap-3 p-8 bg-gradient-to-br from-primary/10 to-primary/5 border-2 border-primary/30 rounded-xl transition-all hover:from-primary/15 hover:to-primary/10 hover:border-primary/40 active:scale-95"
-                              >
-                                <div className="p-4 bg-primary/10 rounded-full">
-                                  <Camera className="w-10 h-10 text-primary" />
-                                </div>
-                                <div className="text-center">
-                                  <h3 className="text-xl font-semibold text-foreground">Take Photo</h3>
-                                  <p className="text-sm text-muted-foreground">
-                                    Capture, crop & rotate question
-                                  </p>
-                                </div>
-                              </button>
-
-                              {/* Upload Button - Smaller */}
-                              <button
-                                onClick={() => fileInputRef.current?.click()}
-                                className="flex items-center justify-center gap-3 p-4 bg-muted/30 border-2 border-dashed border-border rounded-lg transition-all hover:border-primary/50 hover:bg-muted/40"
-                              >
-                                <Upload className="w-6 h-6 text-muted-foreground" />
-                                <div className="text-left">
-                                  <p className="text-sm font-medium">Upload Image</p>
-                                  <p className="text-xs text-muted-foreground">
-                                    Select, crop & rotate
-                                  </p>
-                                </div>
-                              </button>
-
-                              {/* Hidden inputs */}
-                              <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/*"
-                                onChange={handleFileSelect}
-                                className="hidden"
-                              />
-                              <input
-                                ref={cameraInputRef}
-                                type="file"
-                                accept="image/*"
-                                capture="environment"
-                                onChange={handleCameraCapture}
-                                className="hidden"
-                              />
-                            </div>
-                          ) : (
-                            /* Desktop: Split upload and paste areas */
-                            <div className="flex-1 grid grid-cols-2 gap-4">
-                              {/* Upload Area */}
-                              <div
-                                onClick={() => fileInputRef.current?.click()}
-                                className="border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center hover:border-primary/50 hover:bg-primary/5"
-                                role="button"
-                                aria-label="Upload image area - click to select file"
-                              >
-                                <input
-                                  ref={fileInputRef}
-                                  type="file"
-                                  accept="image/*"
-                                  onChange={handleFileSelect}
-                                  className="hidden"
-                                />
-
-                                <div className="space-y-4">
-                                  <Upload className="w-12 h-12 text-muted-foreground mx-auto" />
-                                  <div>
-                                    <p className="text-lg font-medium">
-                                      Upload Image
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Click to browse or drag & drop
-                                    </p>
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {/* Paste Area */}
-                              <div
-                                ref={uploadAreaRef}
-                                onDrop={handleDrop}
-                                onDragOver={handleDragOver}
-                                onClick={handleClipboardAreaClick}
-                                onBlur={handleClipboardAreaBlur}
-                                onKeyDown={handleKeyDown}
-                                className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer bg-muted/30 flex flex-col justify-center outline-none ${
-                                  clipboardFocused
-                                    ? "border-primary/70 bg-primary/5 ring-2 ring-primary/20"
-                                    : "border-border hover:border-primary/50"
-                                }`}
-                                tabIndex={0}
-                                role="button"
-                                aria-label="Paste image area - click and paste from clipboard"
-                              >
-                                <div className="space-y-4">
-                                  <Clipboard className="w-12 h-12 text-muted-foreground mx-auto" />
-                                  <div>
-                                    <p className="text-lg font-medium">
-                                      Paste from Clipboard
-                                    </p>
-                                    <p className="text-sm text-muted-foreground">
-                                      Click here and press{" "}
-                                      <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                                        {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'}
-                                      </kbd>
-                                    </p>
-                                    {clipboardFocused && (
-                                      <p className="text-xs text-primary font-medium mt-2">
-                                        Ready for paste! Press {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'} now
-                                      </p>
-                                    )}
-                                  </div>
-                                </div>
-                              </div>
-                              
-                              {session && (
-                                <div className="col-span-2 text-center">
-                                  <span className="text-xs text-muted-foreground">
-                                    <span className="font-medium">1 credit will be used</span> for each question breakdown. 
-                                    You have {realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)} credits remaining.
-                                  </span>
-                                </div>
-                              )}
-                            </div>
-                          )}
-                        </>
-                      )}
-                    </div>
-
-                    {/* Action Button */}
-                    {imagePreview && (
-                      <div className="flex gap-3 mt-4">
-                        <Button
-                          onClick={analyzeImageSteps}
-                          disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                          className="flex-1"
-                          size="lg"
-                        >
-                          {isLoadingMainSteps ? (
-                            <ShiningText text="AI is analyzing..." />
-                          ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
-                            <>
-                              <XCircle className="mr-2 h-4 w-4" />
-                              No Credits Remaining
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles className="mr-2 h-4 w-4" />
-                              Analyze & Break Down Steps
-                            </>
-                          )}
-                        </Button>
-
-                        <Button onClick={removeImage} variant="outline" size="lg">
-                          <RefreshCw className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    )}
+                    <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
+                      Preparing AI Tutor
+                    </h2>
                   </div>
-                </motion.div>
-              </div>
 
-              {/* Error Display */}
-              <AnimatePresence>
-                {error && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: -10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -10 }}
-                    transition={{ duration: 0.3 }}
-                    className="bg-destructive/10 border border-destructive/20 text-destructive px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl mb-6 sm:mb-8 backdrop-blur-sm"
-                  >
-                    <div className="flex items-center gap-2">
-                      <XCircle size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
-                      <span className="text-sm sm:text-base">{error}</span>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Question Summary Display */}
-              <AnimatePresence>
-                {(questionSummary || isLoadingSummary) && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.5 }}
-                    className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 mb-6 sm:mb-8 backdrop-blur-sm shadow-sm"
-                  >
-                    <div className="flex items-start gap-3">
-                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
-                        <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                      </div>
-                      <div className="flex-1 min-w-0">
-                        <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                          Question Analysis
-                        </h3>
-                        {isLoadingSummary ? (
-                          <div className="flex items-center gap-2">
-                            <Loader2 className="animate-spin w-4 h-4 text-blue-600" />
-                            <span className="text-blue-700 dark:text-blue-300 text-sm">
-                              Analyzing question...
-                            </span>
-                          </div>
-                        ) : questionSummary ? (
-                          <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
-                            <SimpleMathRenderer 
-                              content={questionSummary} 
-                              className="text-blue-800 dark:text-blue-200 leading-relaxed" 
-                            />
-                          </div>
-                        ) : null}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* No Credits Notice */}
-              {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
-                <motion.div
-                  initial={{ opacity: 0, y: 10 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
-                >
-                  <div className="flex items-start gap-3">
-                    <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
-                    <div className="flex-1">
-                      <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
-                      <p className="text-yellow-700 mb-3">
-                        You've used all your credits for this account. Get more credits to continue using the AI Step Breakdown feature.
-                      </p>
-                      <div className="flex gap-2">
-                        <Link 
-                          href="/features/premium"
-                          className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
-                        >
-                          Upgrade to Pro
-                        </Link>
-                      </div>
-                    </div>
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Steps Display */}
-              <AnimatePresence>
-                {steps.length > 0 && (
-                  <motion.div 
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.6 }}
-                    className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
-                      showDesktopLayout ? 'hidden md:block' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-                      <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                        <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
-                      </div>
-                      <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
-                        Step-by-Step Breakdown
-                      </h2>
-                    </div>
-                    
-                    <div className="space-y-3 sm:space-y-4">
-                      {steps.map((step, stepIndex) => (
-                        <motion.div 
-                          key={step.id}
-                          initial={{ opacity: 0, x: -20 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ duration: 0.5, delay: stepIndex * 0.1 }}
-                          className="border border-border rounded-lg sm:rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm step-container"
-                        >
-                          {/* Main Step */}
-                          <div className="bg-muted/20 border-b border-border">
-                            <div className="p-3 sm:p-4 md:p-6">
-                              <div className="flex items-start gap-3 sm:gap-4">
-                                <motion.button
-                                  animate={{ rotate: step.isExpanded ? 90 : 0 }}
-                                  transition={{ duration: 0.2 }}
-                                  className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
-                                  disabled={step.subSteps.length === 0 && !step.isLoadingSubSteps}
-                                  onClick={() => handleStepClick(step.id)}
-                                >
-                                  <ChevronRight size={18} className="sm:w-5 sm:h-5" />
-                                </motion.button>
-                                <div 
-                                  className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
-                                  onClick={() => handleStepClick(step.id)}
-                                >
-                                  <SimpleMathRenderer 
-                                    content={step.content} 
-                                    className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base" 
-                                  />
-                                </div>
-                                {/* Mobile: Compact action button */}
-                                <div className="flex-shrink-0 self-start sm:hidden">
-                                  <button
-                                    onClick={() => handleGetSubSteps(step.id)}
-                                    disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
-                                    className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-primary/20 disabled:border-muted"
-                                  >
-                                    {step.isLoadingSubSteps ? (
-                                      <Loader2 className="animate-spin w-4 h-4" />
-                                    ) : step.subSteps.length > 0 ? (
-                                      <CheckCircle size={16} />
-                                    ) : (
-                                      <Plus size={16} />
-                                    )}
-                                  </button>
-                                </div>
-                                {/* Desktop: Full action button */}
-                                <div className="flex-shrink-0 self-start hidden sm:block">
-                                  <button
-                                    onClick={() => handleGetSubSteps(step.id)}
-                                    disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
-                                    className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted whitespace-nowrap"
-                                  >
-                                    {step.isLoadingSubSteps ? (
-                                      <Loader2 className="animate-spin w-4 h-4" />
-                                    ) : step.subSteps.length > 0 ? (
-                                      <CheckCircle size={14} className="sm:w-4 sm:h-4" />
-                                    ) : (
-                                      <Plus size={14} className="sm:w-4 sm:h-4" />
-                                    )}
-                                    {step.subSteps.length > 0 ? 'Expanded' : 'Further Breakdown'}
-                                  </button>
-                                </div>
-                              </div>
-                            </div>
-                          </div>
-
-                          {/* Sub Steps */}
-                          <AnimatePresence>
-                            {step.isExpanded && step.subSteps.length > 0 && (
-                              <motion.div 
-                                initial={{ height: 0, opacity: 0 }}
-                                animate={{ height: 'auto', opacity: 1 }}
-                                exit={{ height: 0, opacity: 0 }}
-                                transition={{ duration: 0.3 }}
-                                className="overflow-hidden"
-                              >
-                                {step.subSteps.map((subStep, subStepIndex) => (
-                                  <motion.div 
-                                    key={subStep.id}
-                                    initial={{ opacity: 0, x: -10 }}
-                                    animate={{ opacity: 1, x: 0 }}
-                                    transition={{ duration: 0.3, delay: subStepIndex * 0.05 }}
-                                    className="border-b border-border/50 last:border-b-0 step-container"
-                                  >
-                                    {/* Sub Step Header */}
-                                    <div className="bg-card/20">
-                                      <div className="p-3 sm:p-4 md:p-6 pl-6 sm:pl-8 md:pl-12">
-                                        <div className="flex items-start gap-3 sm:gap-4">
-                                          <motion.button
-                                            animate={{ rotate: subStep.isExpanded ? 90 : 0 }}
-                                            transition={{ duration: 0.2 }}
-                                            className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
-                                            disabled={!subStep.theory && !subStep.isLoadingTheory}
-                                            onClick={() => handleSubStepClick(step.id, subStep.id)}
-                                          >
-                                            <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
-                                          </motion.button>
-                                          <div 
-                                            className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
-                                            onClick={() => handleSubStepClick(step.id, subStep.id)}
-                                          >
-                                            <SimpleMathRenderer 
-                                              content={subStep.content} 
-                                              className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base" 
-                                            />
-                                          </div>
-                                          {/* Mobile: Compact theory button */}
-                                          <div className="flex-shrink-0 self-start sm:hidden">
-                                            <button
-                                              onClick={() => handleGetTheory(step.id, subStep.id)}
-                                              disabled={subStep.isLoadingTheory || !!subStep.theory}
-                                              className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-secondary/20 disabled:border-muted"
-                                            >
-                                              {subStep.isLoadingTheory ? (
-                                                <Loader2 className="animate-spin w-4 h-4" />
-                                              ) : subStep.theory ? (
-                                                <CheckCircle size={14} />
-                                              ) : (
-                                                <FileText size={14} />
-                                              )}
-                                            </button>
-                                          </div>
-                                          {/* Desktop: Full theory button */}
-                                          <div className="flex-shrink-0 self-start hidden sm:block">
-                                            <button
-                                              onClick={() => handleGetTheory(step.id, subStep.id)}
-                                              disabled={subStep.isLoadingTheory || !!subStep.theory}
-                                              className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted whitespace-nowrap"
-                                            >
-                                              {subStep.isLoadingTheory ? (
-                                                <Loader2 className="animate-spin w-3 h-3 sm:w-[14px] sm:h-[14px]" />
-                                              ) : subStep.theory ? (
-                                                <CheckCircle size={12} className="sm:w-[14px] sm:h-[14px]" />
-                                              ) : (
-                                                <FileText size={12} className="sm:w-[14px] sm:h-[14px]" />
-                                              )}
-                                              {subStep.theory ? 'Theory Loaded' : 'Get Explanation'}
-                                            </button>
-                                          </div>
-                                        </div>
-                                      </div>
-                                    </div>
-
-                                    {/* Theory Explanation */}
-                                    <AnimatePresence>
-                                      {subStep.isExpanded && subStep.theory && (
-                                        <motion.div 
-                                          initial={{ height: 0, opacity: 0 }}
-                                          animate={{ height: 'auto', opacity: 1 }}
-                                          exit={{ height: 0, opacity: 0 }}
-                                          transition={{ duration: 0.3 }}
-                                          className="overflow-hidden"
-                                        >
-                                          <div className="p-3 sm:p-4 md:p-6 pl-8 sm:pl-12 md:pl-16 bg-primary/5 border-l-2 sm:border-l-4 border-primary/30">
-                                            <div className="bg-card/40 rounded-lg p-3 sm:p-4 border border-border/50">
-                                              <SimpleMathRenderer 
-                                                content={subStep.theory} 
-                                                className="text-muted-foreground leading-relaxed text-sm sm:text-base" 
-                                              />
-                                            </div>
-                                          </div>
-                                        </motion.div>
-                                      )}
-                                    </AnimatePresence>
-                                  </motion.div>
-                                ))}
-                              </motion.div>
-                            )}
-                          </AnimatePresence>
-                        </motion.div>
-                      ))}
-                    </div>
-
-                    {/* Interactive Learning Button - CENTERED */}
-                    {steps.length > 0 && !botResult && !isStreaming && (
-                      <motion.div 
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4, delay: 0.2 }}
-                        className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40"
-                      >
-                        <div className="text-center space-y-4">
-                          <div className="flex items-center justify-center gap-3">
-                            <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                              <Bot className="w-6 h-6 text-green-600" />
-                            </div>
-                            <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
-                              Ready for Interactive Learning?
-                            </h3>
-                          </div>
-                          
-                          <p className="text-muted-foreground text-center">
-                            Now that you have the step breakdown, launch the AI tutor for personalized guidance through the solution!
-                          </p>
-                          
-                          <div className="flex justify-center">
-                            <button
-                              onClick={startInteractiveLearningWithStreaming}
-                              disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                              className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
-                            >
-                              {processing ? (
-                                <>
-                                  <Loader2 className="animate-spin w-5 h-5" />
-                                  <ShiningText text="Preparing AI Tutor..." />
-                                </>
-                              ) : (
-                                <>
-                                  <Play className="w-5 h-5" />
-                                  Launch Interactive Learning
-                                </>
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      </motion.div>
-                    )}
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Streaming Messages Display */}
-              <AnimatePresence>
-                {isStreaming && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 20 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0, y: -20 }}
-                    transition={{ duration: 0.6 }}
-                    className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
-                  >
-                    <div className="text-center space-y-6">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                          <Bot className="w-8 h-8 text-green-600" />
-                        </div>
-                        <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
-                          Preparing AI Tutor
-                        </h2>
-                      </div>
-
-                      <div className="space-y-3 max-w-md mx-auto">
-                        {streamingMessages.map((message, index) => (
-                          <motion.div
-                            key={message.id}
-                            initial={{ opacity: 0, x: -20 }}
-                            animate={{ opacity: 1, x: 0 }}
-                            transition={{ duration: 0.5, delay: index * 0.1 }}
-                            className="flex items-center gap-3 text-left"
-                          >
-                            <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                            <ResponseStream 
-                              textStream={message.content}
-                              className="text-muted-foreground"
-                            />
-                          </motion.div>
-                        ))}
-                      </div>
-
-                      {processing && (
-                        <motion.div
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          className="flex items-center justify-center gap-2"
-                        >
-                          <Loader2 className="animate-spin w-5 h-5 text-green-600" />
-                          <span className="text-green-600 font-medium">Finalizing setup...</span>
-                        </motion.div>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
-              </AnimatePresence>
-
-              {/* Bot Result Display */}
-              {botResult && !showDesktopLayout && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                  className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
-                >
-                  <div className="text-center space-y-6">
-                    <div className="flex items-center justify-center gap-3">
-                      <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
-                        <Bot className="w-8 h-8 text-green-600" />
-                      </div>
-                      <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
-                        AI Tutor Ready!
-                      </h2>
-                    </div>
-
-                    <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                      Your personalized AI tutor is ready to guide you through the solution step by step. 
-                      Start your interactive learning journey now!
-                    </p>
-
-                    <motion.div
-                      whileHover={{ scale: 1.02 }}
-                      whileTap={{ scale: 0.98 }}
-                      transition={{ duration: 0.2 }}
-                    >
-                      <Button
-                        onClick={launchDesktopLayout}
-                        size="lg"
-                        className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 sm:px-12 py-4 text-lg sm:text-xl font-semibold rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl w-full sm:w-auto max-w-full"
-                      >
-                        <Play className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
-                        <span className="text-center leading-tight">
-                          Start Learning
-                          <br className="sm:hidden" />
-                          <span className="sm:inline"> with AI Bot</span>
-                        </span>
-                      </Button>
-                    </motion.div>
-
-                    {/* Share functionality */}
-                    {shareUrl && (
+                  <div className="space-y-3 max-w-md mx-auto">
+                    {streamingMessages.map((message, index) => (
                       <motion.div
-                        initial={{ opacity: 0, y: 10 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        transition={{ duration: 0.4 }}
-                        className="pt-6 border-t border-border/30"
-                      >
-                        <div className="text-center space-y-3">
-                          <p className="text-sm text-muted-foreground">
-                            Share this learning session with others
-                          </p>
-                          <Button
-                            onClick={copyShareLink}
-                            variant="outline"
-                            size="lg"
-                            className="w-full sm:w-auto"
-                          >
-                            <Share2 className="mr-2 h-4 w-4" />
-                            {shareCopied ? "Link Copied!" : "Copy Share Link"}
-                          </Button>
-                          {shareCopied && (
-                            <motion.p
-                              initial={{ opacity: 0 }}
-                              animate={{ opacity: 1 }}
-                              transition={{ duration: 0.3 }}
-                              className="text-sm text-green-600 font-medium"
-                            >
-                              ✓ Share link copied to clipboard!
-                            </motion.p>
-                          )}
-                        </div>
-                      </motion.div>
-                    )}
-                  </div>
-                </motion.div>
-              )}
-
-              {/* Desktop Layout - Split View */}
-              <AnimatePresence>
-                {showDesktopLayout && botResult && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                    className="hidden md:block"
-                  >
-                    {/* Desktop Split Layout */}
-                    <div className="grid grid-cols-2 gap-6 h-[800px]">
-                      {/* Left Side - Question + Steps */}
-                      <motion.div
+                        key={message.id}
                         initial={{ opacity: 0, x: -20 }}
                         animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.1 }}
-                        className="space-y-4 overflow-hidden"
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                        className="flex items-center gap-3 text-left"
                       >
-                        {/* Question Image */}
-                        <div className="bg-card rounded-xl border shadow-sm h-[300px]">
-                          <div className="p-4 border-b">
-                            <h3 className="font-semibold text-lg flex items-center gap-2">
-                              <ImageIcon className="w-5 h-5 text-primary" />
-                              Question
-                            </h3>
-                          </div>
-                          <div className="p-4 h-[calc(100%-64px)] flex flex-col">
-                            {imagePreview && (
-                              <>
-                                <div className="border rounded-lg bg-muted/20 overflow-hidden relative flex-1">
-                                  <TransformWrapper
-                                    initialScale={1}
-                                    minScale={0.3}
-                                    maxScale={5}
-                                    centerOnInit={true}
-                                    wheel={{ step: 0.1 }}
-                                  >
-                                    {({ zoomIn, zoomOut, resetTransform }: any) => (
-                                      <>
-                                        {/* Zoom Controls */}
-                                        <div className="absolute top-2 right-2 z-10 flex gap-1">
-                                          <Button
-                                            onClick={() => zoomIn()}
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                            title="Zoom In"
-                                          >
-                                            <ZoomIn className="h-3 w-3" />
-                                          </Button>
-                                          <Button
-                                            onClick={() => zoomOut()}
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                            title="Zoom Out"
-                                          >
-                                            <ZoomOut className="h-3 w-3" />
-                                          </Button>
-                                          <Button
-                                            onClick={() => resetTransform()}
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                            title="Reset View"
-                                          >
-                                            <RotateCcw className="h-3 w-3" />
-                                          </Button>
-                                          <Button
-                                            onClick={() => setShowFullQuestion(true)}
-                                            variant="outline"
-                                            size="icon"
-                                            className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                            title="Full Screen"
-                                          >
-                                            <Maximize2 className="h-3 w-3" />
-                                          </Button>
-                                        </div>
-                                        <TransformComponent>
-                                          <img
-                                            src={imagePreview}
-                                            alt="Question"
-                                            className="w-full h-full object-contain rounded-lg"
-                                          />
-                                        </TransformComponent>
-                                      </>
-                                    )}
-                                  </TransformWrapper>
-                                </div>
-                                
-                                {/* Full Screen Button */}
-                                <div className="mt-3">
-                                  <Button
-                                    onClick={() => setShowFullQuestion(true)}
-                                    variant="outline"
-                                    size="sm"
-                                    className="w-full text-sm"
-                                  >
-                                    <Maximize2 className="mr-2 h-4 w-4" />
-                                    View Full Screen
-                                  </Button>
-                                </div>
-                              </>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Steps List */}
-                        <div className="bg-card rounded-xl border shadow-sm h-[480px] flex flex-col">
-                          <div className="p-4 border-b">
-                            <h3 className="font-semibold text-lg flex items-center gap-2">
-                              <Target className="w-5 h-5 text-primary" />
-                              Step-by-Step Solution
-                            </h3>
-                          </div>
-                          <div className="flex-1 overflow-y-auto p-4">
-                            <div className="space-y-3">
-                              {steps.map((step, stepIndex) => (
-                                <motion.div
-                                  key={step.id}
-                                  initial={{ opacity: 0, y: 10 }}
-                                  animate={{ opacity: 1, y: 0 }}
-                                  transition={{ duration: 0.3, delay: stepIndex * 0.05 }}
-                                  className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
-                                >
-                                  <div className="flex items-start gap-3">
-                                    <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold text-primary mt-1">
-                                      {stepIndex + 1}
-                                    </div>
-                                    <div className="flex-1">
-                                      <SimpleMathRenderer
-                                        content={step.content}
-                                        className="text-foreground leading-relaxed text-sm"
-                                      />
-                                      
-                                      {/* Sub-steps */}
-                                      {step.subSteps.length > 0 && (
-                                        <div className="mt-2 ml-4 space-y-2">
-                                          {step.subSteps.map((subStep, subIndex) => (
-                                            <div key={subStep.id} className="flex items-start gap-2">
-                                              <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
-                                                {String.fromCharCode(97 + subIndex)}
-                                              </div>
-                                              <SimpleMathRenderer
-                                                content={subStep.content}
-                                                className="text-muted-foreground text-xs leading-relaxed"
-                                              />
-                                            </div>
-                                          ))}
-                                        </div>
-                                      )}
-                                    </div>
-                                  </div>
-                                </motion.div>
-                              ))}
-                            </div>
-                          </div>
-                        </div>
+                        <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
+                        <ResponseStream 
+                          textStream={message.content}
+                          className="text-muted-foreground"
+                        />
                       </motion.div>
+                    ))}
+                  </div>
 
-                      {/* Right Side - AI Bot Iframe */}
-                      <motion.div
-                        initial={{ opacity: 0, x: 20 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ duration: 0.6, delay: 0.2 }}
-                        className="bg-card rounded-xl border shadow-sm overflow-hidden"
+                  {processing && (
+                    <motion.div
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      className="flex items-center justify-center gap-2"
+                    >
+                      <Loader2 className="animate-spin w-5 h-5 text-green-600" />
+                      <span className="text-green-600 font-medium">Finalizing setup...</span>
+                    </motion.div>
+                  )}
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Bot Result Display */}
+          {botResult && !showDesktopLayout && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl p-8 border-2 border-green-200 dark:border-green-800/40 shadow-lg"
+            >
+              <div className="text-center space-y-6">
+                <div className="flex items-center justify-center gap-3">
+                  <div className="p-3 bg-green-100 dark:bg-green-900/30 rounded-full">
+                    <Bot className="w-8 h-8 text-green-600" />
+                  </div>
+                  <h2 className="text-3xl font-bold text-green-800 dark:text-green-400">
+                    AI Tutor Ready!
+                  </h2>
+                </div>
+
+                <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
+                  Your personalized AI tutor is ready to guide you through the solution step by step. 
+                  Start your interactive learning journey now!
+                </p>
+
+                <motion.div
+                  whileHover={{ scale: 1.02 }}
+                  whileTap={{ scale: 0.98 }}
+                  transition={{ duration: 0.2 }}
+                >
+                  <Button
+                    onClick={launchDesktopLayout}
+                    size="lg"
+                    className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 text-white px-6 sm:px-12 py-4 text-lg sm:text-xl font-semibold rounded-2xl shadow-xl transition-all duration-300 hover:shadow-2xl w-full sm:w-auto max-w-full"
+                  >
+                    <Play className="mr-2 sm:mr-3 h-5 w-5 sm:h-6 sm:w-6 flex-shrink-0" />
+                    <span className="text-center leading-tight">
+                      Start Learning
+                      <br className="sm:hidden" />
+                      <span className="sm:inline"> with AI Bot</span>
+                    </span>
+                  </Button>
+                </motion.div>
+
+                {/* Share functionality */}
+                {shareUrl && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4 }}
+                    className="pt-6 border-t border-border/30"
+                  >
+                    <div className="text-center space-y-3">
+                      <p className="text-sm text-muted-foreground">
+                        Share this learning session with others
+                      </p>
+                      <Button
+                        onClick={copyShareLink}
+                        variant="outline"
+                        size="lg"
+                        className="w-full sm:w-auto"
                       >
-                        <div className="p-4 border-b bg-card">
-                          <div className="flex items-center justify-between">
-                            <h3 className="font-semibold text-lg flex items-center gap-2">
-                              <Bot className="w-5 h-5 text-primary" />
-                              AI Interactive Tutor
-                            </h3>
-                            <Button
-                              onClick={() => setShowDesktopLayout(false)}
-                              variant="outline"
-                              size="sm"
-                            >
-                              <X className="h-4 w-4" />
-                            </Button>
-                          </div>
-                        </div>
-                        <div className="h-[calc(100%-64px)]">
-                          <iframe
-                            src={botResult.chatbotLink}
-                            className="w-full h-full border-0"
-                            title="AI Tutor Interactive Session"
-                            scrolling="yes"
-                            allow="fullscreen"
-                          />
-                        </div>
-                      </motion.div>
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {shareCopied ? "Link Copied!" : "Copy Share Link"}
+                      </Button>
+                      {shareCopied && (
+                        <motion.p
+                          initial={{ opacity: 0 }}
+                          animate={{ opacity: 1 }}
+                          transition={{ duration: 0.3 }}
+                          className="text-sm text-green-600 font-medium"
+                        >
+                          ✓ Share link copied to clipboard!
+                        </motion.p>
+                      )}
                     </div>
                   </motion.div>
                 )}
-              </AnimatePresence>
+              </div>
+            </motion.div>
+          )}
 
-              {/* Mobile Interactive Learning Iframe (unchanged) */}
-              {showIframe && botResult && !showDesktopLayout && (
-                <motion.div
-                  initial={{ opacity: 0, y: 20 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.6 }}
-                  className="bg-card rounded-xl border shadow-lg overflow-hidden w-full md:hidden"
-                >
-                  {/* Header with controls */}
-                  <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
-                    <h2 className="text-lg lg:text-xl font-semibold flex items-center gap-2">
-                      <Bot className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
-                      <span className="hidden sm:inline">Interactive Learning Session</span>
-                      <span className="sm:hidden">Learning Session</span>
-                    </h2>
-                    <div className="flex gap-2">
-                      <Button
-                        onClick={() => setShowFullQuestion(true)}
-                        variant="outline"
-                        size="sm"
-                        className="hidden sm:flex"
-                      >
-                        <Maximize2 className="mr-2 h-4 w-4" />
-                        View Original Question
-                      </Button>
-                      <Button
-                        onClick={() => setShowFullQuestion(true)}
-                        variant="outline"
-                        size="sm"
-                        className="sm:hidden"
-                      >
-                        <Maximize2 className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        onClick={() => setShowIframe(false)}
-                        variant="outline"
-                        size="sm"
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-                  </div>
-
-                  {/* Responsive Layout */}
-                  <div className="flex flex-col lg:flex-row">
-                    {/* Question Panel */}
-                    <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r bg-card lg:h-[700px]">
-                      <div className="p-3 lg:p-4 flex flex-col lg:h-full">
-                        <h3 className="font-semibold text-base lg:text-lg mb-2 lg:mb-3">
-                          Original Question
+          {/* Desktop Layout - Split View */}
+          <AnimatePresence>
+            {showDesktopLayout && botResult && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+                className="hidden md:block"
+              >
+                {/* Desktop Split Layout */}
+                <div className="grid grid-cols-2 gap-6 h-[800px]">
+                  {/* Left Side - Question + Steps */}
+                  <motion.div
+                    initial={{ opacity: 0, x: -20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.1 }}
+                    className="space-y-4 overflow-hidden"
+                  >
+                    {/* Question Image */}
+                    <div className="bg-card rounded-xl border shadow-sm h-[300px]">
+                      <div className="p-4 border-b">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <ImageIcon className="w-5 h-5 text-primary" />
+                          Question
                         </h3>
-
-                        {/* Image Container */}
-                        <div
-                          className="border rounded-lg bg-muted/20 overflow-hidden relative"
-                          style={{ 
-                            minHeight: isMobile ? "180px" : "250px", 
-                            maxHeight: isMobile ? "220px" : "350px" 
-                          }}
-                        >
-                          {selectedImage && imagePreview && (
-                            <TransformWrapper
-                              initialScale={1}
-                              minScale={0.3}
-                              maxScale={5}
-                              centerOnInit={true}
-                              wheel={{ step: 0.1 }}
-                            >
-                              {({ zoomIn, zoomOut, resetTransform }: any) => (
-                                <>
-                                  {/* Zoom Controls */}
-                                  <div className="absolute top-2 lg:top-4 right-2 lg:right-4 z-10 flex gap-1">
-                                    <Button
-                                      onClick={() => zoomIn()}
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                      title="Zoom In"
-                                    >
-                                      <ZoomIn className="h-3 w-3 lg:h-4 lg:w-4" />
-                                    </Button>
-                                    <Button
-                                      onClick={() => zoomOut()}
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                      title="Zoom Out"
-                                    >
-                                      <ZoomOut className="h-3 w-3 lg:h-4 lg:w-4" />
-                                    </Button>
-                                    <Button
-                                      onClick={() => resetTransform()}
-                                      variant="outline"
-                                      size="icon"
-                                      className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
-                                      title="Reset View"
-                                    >
-                                      <RotateCcw className="h-3 w-3 lg:h-4 lg:w-4" />
-                                    </Button>
-                                  </div>
-                                  <TransformComponent>
-                                    <img
-                                      src={imagePreview}
-                                      alt="Original Question"
-                                      className="w-full h-full object-contain rounded-lg"
-                                    />
-                                  </TransformComponent>
-                                </>
-                              )}
-                            </TransformWrapper>
-                          )}
-                        </div>
-
-                        {/* Full Screen Button */}
-                        <div className="mt-2 lg:mt-4">
-                          <Button
-                            onClick={() => setShowFullQuestion(true)}
-                            variant="outline"
-                            size="sm"
-                            className="w-full text-xs lg:text-sm"
-                          >
-                            <Maximize2 className="mr-1 lg:mr-2 h-3 w-3 lg:h-4 lg:w-4" />
-                            <span className="hidden sm:inline">View Full Screen</span>
-                            <span className="sm:hidden">Full Screen</span>
-                          </Button>
-                        </div>
-
-                        {/* Question Analysis */}
-                        {processedData && (
-                          <motion.div
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.4 }}
-                            className="mt-2 lg:mt-4 p-3 lg:p-4 bg-muted/30 rounded-lg border border-border/40 flex-1 lg:flex-none lg:max-h-[200px] lg:overflow-y-auto"
-                          >
-                            <div className="space-y-2 lg:space-y-3">
-                              <div className="flex items-start gap-2">
-                                <FileText className="w-3 h-3 lg:w-4 lg:h-4 text-primary mt-0.5 flex-shrink-0" />
-                                <div className="space-y-1 lg:space-y-2 text-xs lg:text-sm">
-                                  <p className="text-foreground font-medium">
-                                    Analysis
-                                  </p>
-                                  <p className="text-muted-foreground leading-relaxed">
-                                    <span className="font-medium">Topics:</span>{" "}
-                                    {processedData.concept_tags
-                                      .flat()
-                                      .slice(0, isMobile ? 2 : 3)
-                                      .join(", ")}
-                                    {processedData.concept_tags.flat().length > (isMobile ? 2 : 3) &&
-                                      "..."}
-                                  </p>
-                                  <p className="text-muted-foreground leading-relaxed">
-                                    Broken into{" "}
-                                    <span className="font-medium text-primary">
-                                      {processedData.questions.length} questions
-                                    </span>{" "}
-                                    for step-by-step learning.
-                                  </p>
-                                </div>
-                              </div>
+                      </div>
+                      <div className="p-4 h-[calc(100%-64px)] flex flex-col">
+                        {imagePreview && (
+                          <>
+                            <div className="border rounded-lg bg-muted/20 overflow-hidden relative flex-1">
+                              <TransformWrapper
+                                initialScale={1}
+                                minScale={0.3}
+                                maxScale={5}
+                                centerOnInit={true}
+                                wheel={{ step: 0.1 }}
+                              >
+                                {({ zoomIn, zoomOut, resetTransform }: any) => (
+                                  <>
+                                    {/* Zoom Controls */}
+                                    <div className="absolute top-2 right-2 z-10 flex gap-1">
+                                      <Button
+                                        onClick={() => zoomIn()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Zoom In"
+                                      >
+                                        <ZoomIn className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => zoomOut()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Zoom Out"
+                                      >
+                                        <ZoomOut className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => resetTransform()}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Reset View"
+                                      >
+                                        <RotateCcw className="h-3 w-3" />
+                                      </Button>
+                                      <Button
+                                        onClick={() => setShowFullQuestion(true)}
+                                        variant="outline"
+                                        size="icon"
+                                        className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                        title="Full Screen"
+                                      >
+                                        <Maximize2 className="h-3 w-3" />
+                                      </Button>
+                                    </div>
+                                    <TransformComponent>
+                                      <img
+                                        src={imagePreview}
+                                        alt="Question"
+                                        className="w-full h-full object-contain rounded-lg"
+                                      />
+                                    </TransformComponent>
+                                  </>
+                                )}
+                              </TransformWrapper>
                             </div>
-                          </motion.div>
+                            
+                            {/* Full Screen Button */}
+                            <div className="mt-3">
+                              <Button
+                                onClick={() => setShowFullQuestion(true)}
+                                variant="outline"
+                                size="sm"
+                                className="w-full text-sm"
+                              >
+                                <Maximize2 className="mr-2 h-4 w-4" />
+                                View Full Screen
+                              </Button>
+                            </div>
+                          </>
                         )}
                       </div>
                     </div>
 
-                    {/* Bot Panel */}
-                    <div className="w-full lg:w-2/3 flex-1">
-                      <div className="h-[calc(100vh-200px)] min-h-[600px] lg:h-[700px]">
-                        <iframe
-                          src={botResult.chatbotLink}
-                          className="w-full h-full border-0"
-                          title="AI Tutor Interactive Session"
-                          scrolling="yes"
-                          allow="fullscreen"
-                        />
+                    {/* Steps List */}
+                    <div className="bg-card rounded-xl border shadow-sm h-[480px] flex flex-col">
+                      <div className="p-4 border-b">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Target className="w-5 h-5 text-primary" />
+                          Step-by-Step Solution
+                        </h3>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4">
+                        <div className="space-y-3">
+                          {steps.map((step, stepIndex) => (
+                            <motion.div
+                              key={step.id}
+                              initial={{ opacity: 0, y: 10 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              transition={{ duration: 0.3, delay: stepIndex * 0.05 }}
+                              className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
+                            >
+                              <div className="flex items-start gap-3">
+                                <div className="w-6 h-6 bg-primary/10 rounded-full flex items-center justify-center text-sm font-semibold text-primary mt-1">
+                                  {stepIndex + 1}
+                                </div>
+                                <div className="flex-1">
+                                  <SimpleMathRenderer
+                                    content={step.content}
+                                    className="text-foreground leading-relaxed text-sm"
+                                  />
+                                  
+                                  {/* Sub-steps */}
+                                  {step.subSteps.length > 0 && (
+                                    <div className="mt-2 ml-4 space-y-2">
+                                      {step.subSteps.map((subStep, subIndex) => (
+                                        <div key={subStep.id} className="flex items-start gap-2">
+                                          <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
+                                            {String.fromCharCode(97 + subIndex)}
+                                          </div>
+                                          <SimpleMathRenderer
+                                            content={subStep.content}
+                                            className="text-muted-foreground text-xs leading-relaxed"
+                                          />
+                                        </div>
+                                      ))}
+                                    </div>
+                                  )}
+                                </div>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
                       </div>
                     </div>
-                  </div>
-                </motion.div>
-              )}
+                  </motion.div>
 
-              {/* Full Screen Question Modal */}
-              <AnimatePresence>
-                {showFullQuestion && (
+                  {/* Right Side - AI Bot Iframe */}
                   <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    exit={{ opacity: 0 }}
-                    className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
-                    onClick={() => setShowFullQuestion(false)}
+                    initial={{ opacity: 0, x: 20 }}
+                    animate={{ opacity: 1, x: 0 }}
+                    transition={{ duration: 0.6, delay: 0.2 }}
+                    className="bg-card rounded-xl border shadow-sm overflow-hidden"
                   >
-                    <motion.div
-                      initial={{ scale: 0.9 }}
-                      animate={{ scale: 1 }}
-                      exit={{ scale: 0.9 }}
-                      className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto"
-                      onClick={(e) => e.stopPropagation()}
-                    >
-                      <div className="flex items-center justify-between mb-4">
-                        <h3 className="text-xl font-semibold">Original Question</h3>
+                    <div className="p-4 border-b bg-card">
+                      <div className="flex items-center justify-between">
+                        <h3 className="font-semibold text-lg flex items-center gap-2">
+                          <Bot className="w-5 h-5 text-primary" />
+                          AI Interactive Tutor
+                        </h3>
                         <Button
-                          onClick={() => setShowFullQuestion(false)}
+                          onClick={() => setShowDesktopLayout(false)}
                           variant="outline"
-                          size="icon"
+                          size="sm"
                         >
                           <X className="h-4 w-4" />
                         </Button>
                       </div>
-                      {imagePreview && (
-                        <img
-                          src={imagePreview}
-                          alt="Full Screen Question"
-                          className="w-full rounded-lg"
-                        />
-                      )}
-                    </motion.div>
+                    </div>
+                    <div className="h-[calc(100%-64px)]">
+                      <iframe
+                        src={botResult.chatbotLink}
+                        className="w-full h-full border-0"
+                        title="AI Tutor Interactive Session"
+                        scrolling="yes"
+                        allow="fullscreen"
+                      />
+                    </div>
                   </motion.div>
-                )}
-              </AnimatePresence>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Mobile Interactive Learning Iframe (unchanged) */}
+          {showIframe && botResult && !showDesktopLayout && (
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="bg-card rounded-xl border shadow-lg overflow-hidden w-full md:hidden"
+            >
+              {/* Header with controls */}
+              <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
+                <h2 className="text-lg lg:text-xl font-semibold flex items-center gap-2">
+                  <Bot className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
+                  <span className="hidden sm:inline">Interactive Learning Session</span>
+                  <span className="sm:hidden">Learning Session</span>
+                </h2>
+                <div className="flex gap-2">
+                  <Button
+                    onClick={() => setShowFullQuestion(true)}
+                    variant="outline"
+                    size="sm"
+                    className="hidden sm:flex"
+                  >
+                    <Maximize2 className="mr-2 h-4 w-4" />
+                    View Original Question
+                  </Button>
+                  <Button
+                    onClick={() => setShowFullQuestion(true)}
+                    variant="outline"
+                    size="sm"
+                    className="sm:hidden"
+                  >
+                    <Maximize2 className="h-4 w-4" />
+                  </Button>
+                  <Button
+                    onClick={() => setShowIframe(false)}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <X className="h-4 w-4" />
+                  </Button>
+                </div>
+              </div>
+
+              {/* Responsive Layout */}
+              <div className="flex flex-col lg:flex-row">
+                {/* Question Panel */}
+                <div className="w-full lg:w-1/3 border-b lg:border-b-0 lg:border-r bg-card lg:h-[700px]">
+                  <div className="p-3 lg:p-4 flex flex-col lg:h-full">
+                    <h3 className="font-semibold text-base lg:text-lg mb-2 lg:mb-3">
+                      Original Question
+                    </h3>
+
+                    {/* Image Container */}
+                    <div
+                      className="border rounded-lg bg-muted/20 overflow-hidden relative"
+                      style={{ 
+                        minHeight: isMobile ? "180px" : "250px", 
+                        maxHeight: isMobile ? "220px" : "350px" 
+                      }}
+                    >
+                      {selectedImage && imagePreview && (
+                        <TransformWrapper
+                          initialScale={1}
+                          minScale={0.3}
+                          maxScale={5}
+                          centerOnInit={true}
+                          wheel={{ step: 0.1 }}
+                        >
+                          {({ zoomIn, zoomOut, resetTransform }: any) => (
+                            <>
+                              {/* Zoom Controls */}
+                              <div className="absolute top-2 lg:top-4 right-2 lg:right-4 z-10 flex gap-1">
+                                <Button
+                                  onClick={() => zoomIn()}
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                  title="Zoom In"
+                                >
+                                  <ZoomIn className="h-3 w-3 lg:h-4 lg:w-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => zoomOut()}
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                  title="Zoom Out"
+                                >
+                                  <ZoomOut className="h-3 w-3 lg:h-4 lg:w-4" />
+                                </Button>
+                                <Button
+                                  onClick={() => resetTransform()}
+                                  variant="outline"
+                                  size="icon"
+                                  className="h-6 w-6 lg:h-8 lg:w-8 bg-background/90 backdrop-blur-sm hover:bg-background"
+                                  title="Reset View"
+                                >
+                                  <RotateCcw className="h-3 w-3 lg:h-4 lg:w-4" />
+                                </Button>
+                              </div>
+                              <TransformComponent>
+                                <img
+                                  src={imagePreview}
+                                  alt="Original Question"
+                                  className="w-full h-full object-contain rounded-lg"
+                                />
+                              </TransformComponent>
+                            </>
+                          )}
+                        </TransformWrapper>
+                      )}
+                    </div>
+
+                    {/* Full Screen Button */}
+                    <div className="mt-2 lg:mt-4">
+                      <Button
+                        onClick={() => setShowFullQuestion(true)}
+                        variant="outline"
+                        size="sm"
+                        className="w-full text-xs lg:text-sm"
+                      >
+                        <Maximize2 className="mr-1 lg:mr-2 h-3 w-3 lg:h-4 lg:w-4" />
+                        <span className="hidden sm:inline">View Full Screen</span>
+                        <span className="sm:hidden">Full Screen</span>
+                      </Button>
+                    </div>
+
+                    {/* Question Analysis */}
+                    {processedData && (
+                      <motion.div
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: 1 }}
+                        transition={{ duration: 0.4 }}
+                        className="mt-2 lg:mt-4 p-3 lg:p-4 bg-muted/30 rounded-lg border border-border/40 flex-1 lg:flex-none lg:max-h-[200px] lg:overflow-y-auto"
+                      >
+                        <div className="space-y-2 lg:space-y-3">
+                          <div className="flex items-start gap-2">
+                            <FileText className="w-3 h-3 lg:w-4 lg:h-4 text-primary mt-0.5 flex-shrink-0" />
+                            <div className="space-y-1 lg:space-y-2 text-xs lg:text-sm">
+                              <p className="text-foreground font-medium">
+                                Analysis
+                              </p>
+                              <p className="text-muted-foreground leading-relaxed">
+                                <span className="font-medium">Topics:</span>{" "}
+                                {processedData.concept_tags
+                                  .flat()
+                                  .slice(0, isMobile ? 2 : 3)
+                                  .join(", ")}
+                                {processedData.concept_tags.flat().length > (isMobile ? 2 : 3) &&
+                                  "..."}
+                              </p>
+                              <p className="text-muted-foreground leading-relaxed">
+                                Broken into{" "}
+                                <span className="font-medium text-primary">
+                                  {processedData.questions.length} questions
+                                </span>{" "}
+                                for step-by-step learning.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+                      </motion.div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bot Panel */}
+                <div className="w-full lg:w-2/3 flex-1">
+                  <div className="h-[calc(100vh-200px)] min-h-[600px] lg:h-[700px]">
+                    <iframe
+                      src={botResult.chatbotLink}
+                      className="w-full h-full border-0"
+                      title="AI Tutor Interactive Session"
+                      scrolling="yes"
+                      allow="fullscreen"
+                    />
+                  </div>
+                </div>
+              </div>
+            </motion.div>
+          )}
+
+          {/* Full Screen Question Modal */}
+          <AnimatePresence>
+            {showFullQuestion && (
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+                onClick={() => setShowFullQuestion(false)}
+              >
+                <motion.div
+                  initial={{ scale: 0.9 }}
+                  animate={{ scale: 1 }}
+                  exit={{ scale: 0.9 }}
+                  className="bg-card rounded-xl p-6 max-w-4xl max-h-[90vh] overflow-auto"
+                  onClick={(e) => e.stopPropagation()}
+                >
+                  <div className="flex items-center justify-between mb-4">
+                    <h3 className="text-xl font-semibold">Original Question</h3>
+                    <Button
+                      onClick={() => setShowFullQuestion(false)}
+                      variant="outline"
+                      size="icon"
+                    >
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  {imagePreview && (
+                    <img
+                      src={imagePreview}
+                      alt="Full Screen Question"
+                      className="w-full rounded-lg"
+                    />
+                  )}
+                </motion.div>
+              </motion.div>
+            )}
+          </AnimatePresence>
 
           {/* Crop Modal with Rotation */}
           <AnimatePresence>
@@ -2500,8 +2675,6 @@ export default function StepsBot() {
             ref={canvasRef}
             className="hidden"
           />
-            </>
-          )}
         </div>
       </main>
       <Footer />

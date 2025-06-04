@@ -211,6 +211,8 @@ const StepsPage: React.FC = () => {
   };
 
   const handleGetSubSteps = async (stepId: string) => {
+    console.log(`[Frontend] Getting sub-steps for step ID: ${stepId}`);
+    
     setSteps(prevSteps =>
       prevSteps.map(step =>
         step.id === stepId
@@ -220,7 +222,12 @@ const StepsPage: React.FC = () => {
     );
 
     const step = steps.find(s => s.id === stepId);
-    if (!step) return;
+    if (!step) {
+      console.error(`[Frontend] Step not found: ${stepId}`);
+      return;
+    }
+
+    console.log(`[Frontend] Step content: ${step.content.substring(0, 100)}...`);
 
     try {
       const response = await fetch('/api/breakdown', {
@@ -235,9 +242,12 @@ const StepsPage: React.FC = () => {
       });
 
       const data: BreakdownResponse = await response.json();
+      console.log(`[Frontend] Sub-steps API response:`, data);
 
       if (data.success && data.content) {
         const subStepContents = parseStepsFromContent(data.content);
+        console.log(`[Frontend] Parsed sub-steps:`, subStepContents);
+        
         const newSubSteps: SubStep[] = subStepContents.map(content => ({
           id: generateUniqueId(),
           content,
@@ -259,6 +269,7 @@ const StepsPage: React.FC = () => {
           )
         );
       } else {
+        console.error(`[Frontend] Sub-steps API failed:`, data.error, data.errorDetails);
         setError(data.error || 'Failed to get sub-steps');
         setSteps(prevSteps =>
           prevSteps.map(step =>
@@ -269,6 +280,7 @@ const StepsPage: React.FC = () => {
         );
       }
     } catch (err) {
+      console.error(`[Frontend] Network error getting sub-steps:`, err);
       setError('Network error occurred');
       setSteps(prevSteps =>
         prevSteps.map(step =>

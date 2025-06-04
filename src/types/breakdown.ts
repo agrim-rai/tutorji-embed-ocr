@@ -17,6 +17,9 @@ export interface Step {
 export interface BreakdownResponse {
   success: boolean;
   content?: string;
-  type?: 'main' | 'sub' | 'theory';
+  type?: 'main' | 'sub' | 'theory' | 'summary';
   error?: string;
+  model?: string;
+  errorDetails?: string;
+  timestamp?: string;
 } 

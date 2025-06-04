@@ -6,11 +6,26 @@ const openai = new OpenAI({
 });
 
 export async function POST(request: NextRequest) {
+  let model = '';
+  let requestType = '';
+  
   try {
     const { problem, type, stepContext, imageData } = await request.json();
+    requestType = type;
+
+    console.log(`[Breakdown API] Request type: ${type}, has imageData: ${!!imageData}, has stepContext: ${!!stepContext}`);
 
     let prompt = '';
     let messages: any[] = [];
+    
+    // Choose model based on request type
+    if (type === 'summary' || type === 'theory') {
+      model = "gpt-4o-mini"; // Use gpt-4o-mini for theory and summary
+    } else if (type === 'main' || type === 'sub') {
+      model = "o4-mini"; // Use o1-mini for breakdown (main and sub steps)
+    }
+
+    console.log(`[Breakdown API] Using model: ${model} for type: ${type}`);
     
     if (type === 'summary') {
       if (imageData) {
@@ -165,23 +180,58 @@ Provide only the concise explanation, nothing else.`;
     }
 
     const completion = await openai.chat.completions.create({
-      model: "gpt-4o-mini",
+      model: model,
       messages: messages,
-      max_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000,
-      temperature: 0.3,
+      ...(model === "o4-mini" ? {
+        max_completion_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000
+      } : {
+        max_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000,
+        temperature: 0.3
+      }),
     });
 
     const content = completion.choices[0].message.content;
+    console.log(`[Breakdown API] Success - Model: ${model}, Type: ${type}, Content length: ${content?.length || 0}`);
 
     return NextResponse.json({ 
       success: true, 
       content: content,
-      type: type 
+      type: type,
+      model: model // Include model name in response for testing
     });
   } catch (error) {
-    console.error('OpenAI API Error:', error);
+    console.error('[Breakdown API] Error occurred:', error);
+    console.log(`[Breakdown API] Error context - Model: ${model}, Type: ${requestType}`);
+    
+    // Enhanced error handling for model configuration testing
+    let errorMessage = 'Failed to process request';
+    let errorDetails = '';
+    
+    if (error instanceof Error) {
+      errorMessage = error.message;
+      console.log(`[Breakdown API] Error message: ${errorMessage}`);
+      
+      // Check for specific OpenAI API errors
+      if (error.message.includes('model') || error.message.includes('Model')) {
+        errorDetails = `Model configuration error. Attempted to use model: ${model}`;
+      } else if (error.message.includes('API key')) {
+        errorDetails = 'API key configuration error';
+      } else if (error.message.includes('rate limit') || error.message.includes('quota')) {
+        errorDetails = 'API quota or rate limit exceeded';
+      } else {
+        errorDetails = `General API error with model: ${model}`;
+      }
+    }
+    
     return NextResponse.json(
-      { success: false, error: 'Failed to process request' },
+      { 
+        success: false, 
+        error: errorMessage,
+        errorDetails: errorDetails,
+        model: model,
+        type: requestType,
+        timestamp: new Date().toISOString()
+      },
       { status: 500 }
     );
   }

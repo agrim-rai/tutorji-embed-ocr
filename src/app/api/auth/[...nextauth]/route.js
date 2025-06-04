@@ -56,7 +56,7 @@ const handler = NextAuth({
             // Update token with existing user data
             token.userId = existingUser._id.toString();
             token.credits = existingUser.credits;
-            console.log('User found in database:', existingUser.email);
+            console.log('User found in db:', existingUser.email);
           } else {
             // Create a new user if not found
             console.log('Creating new user:', user.email);
