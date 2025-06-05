@@ -109,9 +109,9 @@ interface BreakdownResponse {
       title: string;
       description: string;
     }>;
-    basicConcepts?: string;
     cruxOfProblem?: string;
     formulaeUsed?: string;
+    termDefinitions?: string;
   };
   error?: string;
 }
@@ -403,9 +403,9 @@ export default function StepsBot() {
   const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
   const [questionSummary, setQuestionSummary] = useState<string | null>(null);
   const [summaryData, setSummaryData] = useState<{
-    basicConcepts?: string;
     cruxOfProblem?: string;
     formulaeUsed?: string;
+    termDefinitions?: string;
   } | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
@@ -621,11 +621,11 @@ export default function StepsBot() {
 
       if (data.success) {
         // Handle new structured JSON response
-        if (data.data?.basicConcepts || data.data?.cruxOfProblem || data.data?.formulaeUsed) {
+        if (data.data?.cruxOfProblem || data.data?.formulaeUsed || data.data?.termDefinitions) {
           setSummaryData({
-            basicConcepts: data.data.basicConcepts,
             cruxOfProblem: data.data.cruxOfProblem,
             formulaeUsed: data.data.formulaeUsed,
+            termDefinitions: data.data.termDefinitions,
           });
         }
         // Fallback to old content format for backward compatibility
@@ -1975,18 +1975,6 @@ export default function StepsBot() {
                       </div>
                     ) : summaryData ? (
                       <div className="space-y-3">
-                        {/* Basic Concepts */}
-                        <div>
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
-                            <Brain className="w-4 h-4" />
-                            Basic Concepts:
-                          </h4>
-                          <SimpleMathRenderer
-                            content={summaryData.basicConcepts || "Not available"}
-                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
-                          />
-                        </div>
-
                         {/* Crux of Problem */}
                         <div>
                           <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
@@ -2007,6 +1995,18 @@ export default function StepsBot() {
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.formulaeUsed || "Not available"}
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                          />
+                        </div>
+
+                        {/* Term Definitions */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
+                            <Brain className="w-4 h-4" />
+                            Term Definitions:
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.termDefinitions || "Not available"}
                             className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
                           />
                         </div>

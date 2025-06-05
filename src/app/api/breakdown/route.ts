@@ -33,15 +33,15 @@ export async function POST(request: NextRequest) {
 
 Return your response as a valid JSON object with this exact structure:
 {
-  "basicConcepts": "[Brief list of key mathematical concepts/topics involved]",
   "cruxOfProblem": "[Single line summary describing what the problem is asking]",
-  "formulaeUsed": "[Key formulae or principles that will be needed to solve this]"
+  "formulaeUsed": "[Key formulae or principles that will be needed to solve this]",
+  "termDefinitions": "[Variables and their meanings, referencing where they appear in the question]"
 }
 
 Keep each field concise and meaningful:
-- basicConcepts: List the main mathematical areas/topics (e.g., "Calculus, Integration, Area under curves")
 - cruxOfProblem: One clear sentence describing what needs to be solved
 - formulaeUsed: Key formulae, theorems, or principles needed (e.g., "Fundamental Theorem of Calculus, Integration by parts")
+- termDefinitions: Define all variables, constants, and key terms with their meanings and location in the original question (e.g., "\\( x \\) represents the independent variable in the function, \\( f(x) = x^2 \\) is the given function to integrate")
 
 For mathematical expressions, use LaTeX notation:
 - For inline math, use \\( and \\) like: \\( \\int_0^1 x^2 dx \\)
@@ -217,9 +217,9 @@ Provide only the concise explanation, nothing else.`;
         } else if (type === 'summary') {
           // Fallback for summary - extract basic info from text
           parsedData = {
-            basicConcepts: "Mathematical problem solving",
             cruxOfProblem: content || "Problem analysis needed",
-            formulaeUsed: "Various mathematical principles"
+            formulaeUsed: "Various mathematical principles",
+            termDefinitions: "Variables and terms to be defined from context"
           };
         }
       }
