@@ -29,19 +29,30 @@ export async function POST(request: NextRequest) {
     
     if (type === 'summary') {
       if (imageData) {
-        prompt = `Analyze this image and provide a brief 2-3 line summary of the question/problem shown. The summary should include:
-1. What type of problem/question this is
-2. Key mathematical concepts, topics, or formulae involved which solves the problem
-3. The crux of the problem
+        prompt = `Analyze this image and provide a structured summary of the question/problem shown.
 
-End with exactly this phrase: Creating a step-by-step solution to the problem, followed by an interactive bot to guide users through solving it. 
-The crux of the problem should be a single line summary of the problem.
-Keep it concise, professional, and informative. Use LaTeX notation for any mathematical expressions: \\( \\) for inline math.`;
+Return your response as a valid JSON object with this exact structure:
+{
+  "basicConcepts": "[Brief list of key mathematical concepts/topics involved]",
+  "cruxOfProblem": "[Single line summary describing what the problem is asking]",
+  "formulaeUsed": "[Key formulae or principles that will be needed to solve this]"
+}
+
+Keep each field concise and meaningful:
+- basicConcepts: List the main mathematical areas/topics (e.g., "Calculus, Integration, Area under curves")
+- cruxOfProblem: One clear sentence describing what needs to be solved
+- formulaeUsed: Key formulae, theorems, or principles needed (e.g., "Fundamental Theorem of Calculus, Integration by parts")
+
+For mathematical expressions, use LaTeX notation:
+- For inline math, use \\( and \\) like: \\( \\int_0^1 x^2 dx \\)
+- For display math, use \\[ and \\] like: \\[ f(x) = x^2 + 2x + 1 \\]
+
+Return ONLY the JSON object, no other text.`;
         
         messages = [
           {
             role: "system",
-            content: "You are a helpful tutor. Provide concise, professional summaries. Use LaTeX notation: \\( \\) for inline math."
+            content: "You are a helpful tutor. Return only valid JSON responses. Use LaTeX notation: \\( \\) for inline math and \\[ \\] for display equations."
           },
           {
             role: "user",
@@ -174,13 +185,13 @@ Provide only the concise explanation, nothing else.`;
     const completion = await openai.chat.completions.create({
       model: model,
       messages: messages,
-      ...(type === 'main' || type === 'sub' ? {
+      ...(type === 'main' || type === 'sub' || type === 'summary' ? {
         response_format: { type: "json_object" }
       } : {}),
       ...(model === "o4-mini" ? {
           // no max tokens or temperature required and supported for o4-mini
       } : {
-        max_tokens: type === 'summary' ? 200 : type === 'theory' ? 400 : 1000,
+        max_tokens:  type === 'theory' ? 400 : 1000,
         temperature: 0.3
       }),
     });
@@ -190,7 +201,7 @@ Provide only the concise explanation, nothing else.`;
 
     // Parse JSON response for structured types
     let parsedData = null;
-    if (type === 'main' || type === 'sub') {
+    if (type === 'main' || type === 'sub' || type === 'summary') {
       try {
         parsedData = JSON.parse(content || '{}');
         console.log(`[Breakdown API] Successfully parsed JSON for type: ${type}`);
@@ -203,13 +214,20 @@ Provide only the concise explanation, nothing else.`;
           parsedData = extractStepsFromText(content || '');
         } else if (type === 'sub') {
           parsedData = extractSubStepsFromText(content || '');
+        } else if (type === 'summary') {
+          // Fallback for summary - extract basic info from text
+          parsedData = {
+            basicConcepts: "Mathematical problem solving",
+            cruxOfProblem: content || "Problem analysis needed",
+            formulaeUsed: "Various mathematical principles"
+          };
         }
       }
     }
 
     return NextResponse.json({ 
       success: true, 
-      content: type === 'main' || type === 'sub' ? null : content, // For backward compatibility
+      content: type === 'main' || type === 'sub' || type === 'summary' ? null : content, // For backward compatibility
       data: parsedData, // New structured data
       type: type,
       model: model // Include model name in response for testing

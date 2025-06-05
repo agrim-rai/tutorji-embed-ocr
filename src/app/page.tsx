@@ -109,6 +109,9 @@ interface BreakdownResponse {
       title: string;
       description: string;
     }>;
+    basicConcepts?: string;
+    cruxOfProblem?: string;
+    formulaeUsed?: string;
   };
   error?: string;
 }
@@ -399,6 +402,11 @@ export default function StepsBot() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
   const [questionSummary, setQuestionSummary] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<{
+    basicConcepts?: string;
+    cruxOfProblem?: string;
+    formulaeUsed?: string;
+  } | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   // Interactive learning states
@@ -593,6 +601,7 @@ export default function StepsBot() {
     if (!selectedImage) return;
 
     setQuestionSummary(null);
+    setSummaryData(null);
 
     try {
       const imageBase64 = await convertImageToBase64(selectedImage);
@@ -610,8 +619,19 @@ export default function StepsBot() {
 
       const data: BreakdownResponse = await response.json();
 
-      if (data.success && data.content) {
-        setQuestionSummary(data.content);
+      if (data.success) {
+        // Handle new structured JSON response
+        if (data.data?.basicConcepts || data.data?.cruxOfProblem || data.data?.formulaeUsed) {
+          setSummaryData({
+            basicConcepts: data.data.basicConcepts,
+            cruxOfProblem: data.data.cruxOfProblem,
+            formulaeUsed: data.data.formulaeUsed,
+          });
+        }
+        // Fallback to old content format for backward compatibility
+        else if (data.content) {
+          setQuestionSummary(data.content);
+        }
       } else {
         console.error("Failed to get question summary:", data.error);
         // Don't show error for summary failure, just continue without it
@@ -919,6 +939,7 @@ export default function StepsBot() {
     setStreamingMessages([]);
     setShowDesktopLayout(false);
     setQuestionSummary(null);
+    setSummaryData(null);
     setIsLoadingSummary(false);
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
@@ -1926,7 +1947,7 @@ export default function StepsBot() {
 
           {/* Question Summary Display */}
           <AnimatePresence>
-            {(questionSummary || isLoadingSummary || isLoadingMainSteps) && (
+            {(summaryData || questionSummary || isLoadingSummary || isLoadingMainSteps) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1943,14 +1964,52 @@ export default function StepsBot() {
                     )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                      Crux of the Question
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                      Question Analysis
                     </h3>
                     {isLoadingSummary ? (
                       <div className="flex items-center gap-2">
                         <span className="text-blue-700 dark:text-blue-300 text-sm">
                           <ShiningText text="Understanding the question..." />
                         </span>
+                      </div>
+                    ) : summaryData ? (
+                      <div className="space-y-4">
+                        {/* Basic Concepts */}
+                        <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200/30 dark:border-blue-800/20">
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                            <Brain className="w-4 h-4" />
+                            Basic Concepts
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.basicConcepts || "Not available"}
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Crux of Problem */}
+                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg p-4 border border-indigo-200/30 dark:border-indigo-800/20">
+                          <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 mb-2 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Crux of the Problem
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.cruxOfProblem || "Not available"}
+                            className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed"
+                          />
+                        </div>
+
+                        {/* Formulae Used */}
+                        <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-4 border border-purple-200/30 dark:border-purple-800/20">
+                          <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Key Formulae & Principles
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.formulaeUsed || "Not available"}
+                            className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed"
+                          />
+                        </div>
                       </div>
                     ) : questionSummary ? (
                       <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
