@@ -1974,40 +1974,40 @@ export default function StepsBot() {
                         </span>
                       </div>
                     ) : summaryData ? (
-                      <div className="space-y-4">
+                      <div className="space-y-3">
                         {/* Basic Concepts */}
-                        <div className="bg-blue-50/50 dark:bg-blue-950/20 rounded-lg p-4 border border-blue-200/30 dark:border-blue-800/20">
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
                             <Brain className="w-4 h-4" />
-                            Basic Concepts
+                            Basic Concepts:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.basicConcepts || "Not available"}
-                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed"
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
                           />
                         </div>
 
                         {/* Crux of Problem */}
-                        <div className="bg-indigo-50/50 dark:bg-indigo-950/20 rounded-lg p-4 border border-indigo-200/30 dark:border-indigo-800/20">
-                          <h4 className="text-sm font-semibold text-indigo-900 dark:text-indigo-100 mb-2 flex items-center gap-2">
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
                             <Target className="w-4 h-4" />
-                            Crux of the Problem
+                            Crux of the Problem:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.cruxOfProblem || "Not available"}
-                            className="text-indigo-800 dark:text-indigo-200 text-sm leading-relaxed"
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
                           />
                         </div>
 
                         {/* Formulae Used */}
-                        <div className="bg-purple-50/50 dark:bg-purple-950/20 rounded-lg p-4 border border-purple-200/30 dark:border-purple-800/20">
-                          <h4 className="text-sm font-semibold text-purple-900 dark:text-purple-100 mb-2 flex items-center gap-2">
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
                             <FileText className="w-4 h-4" />
-                            Key Formulae & Principles
+                            Key Formulae & Principles:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.formulaeUsed || "Not available"}
-                            className="text-purple-800 dark:text-purple-200 text-sm leading-relaxed"
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
                           />
                         </div>
                       </div>
