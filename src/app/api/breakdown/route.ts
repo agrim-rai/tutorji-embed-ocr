@@ -39,7 +39,7 @@ Return your response as a valid JSON object with this exact structure:
 }
 
 Keep each field concise and meaningful:
-- cruxOfProblem: One clear sentence describing what needs to be solved
+  - cruxOfProblem: One clear sentence describing what needs to be solved
 - formulaeUsed: Key formulae, theorems, or principles needed (e.g., "Fundamental Theorem of Calculus, Integration by parts")
 - termDefinitions: Define all variables, constants, and key terms with their meanings and location in the original question (e.g., "\\( x \\) represents the independent variable in the function, \\( f(x) = x^2 \\) is the given function to integrate")
 
