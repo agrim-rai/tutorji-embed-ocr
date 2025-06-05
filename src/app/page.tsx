@@ -669,6 +669,106 @@ export default function StepsBot() {
     return [content.trim()];
   };
 
+  /**
+   * Store summary data to database
+   * Sends user email, current image URL from localStorage, and summary JSON to store-summary API
+   */
+  const storeSummaryData = async (summaryJsonOutput: any) => {
+    try {
+      // Get user email from session
+      const userEmail = session?.user?.email;
+      if (!userEmail) {
+        console.log('No user email available, skipping summary storage');
+        return;
+      }
+
+      // Get current image URL from localStorage
+      const currentImageUrl = getCurrentImageUrlFromStorage();
+      if (!currentImageUrl) {
+        console.log('No current image URL in localStorage, skipping summary storage');
+        return;
+      }
+
+      // Prepare data for API
+      const requestData = {
+        useremail: userEmail,
+        imageurl: currentImageUrl,
+        jsonoutput: summaryJsonOutput
+      };
+
+      console.log('Storing summary data:', requestData);
+
+      // Send to store-summary API
+      const response = await fetch('/api/store-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Summary data stored successfully:', result);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to store summary data:', errorData);
+      }
+    } catch (error) {
+      console.error('Error storing summary data:', error);
+    }
+  };
+
+  /**
+   * Store breakdown data to database
+   * Sends user email, current image URL from localStorage, and breakdown JSON to store-breakdown API
+   */
+  const storeBreakdownData = async (breakdownJsonOutput: any) => {
+    try {
+      // Get user email from session
+      const userEmail = session?.user?.email;
+      if (!userEmail) {
+        console.log('No user email available, skipping breakdown storage');
+        return;
+      }
+
+      // Get current image URL from localStorage
+      const currentImageUrl = getCurrentImageUrlFromStorage();
+      if (!currentImageUrl) {
+        console.log('No current image URL in localStorage, skipping breakdown storage');
+        return;
+      }
+
+      // Prepare data for API
+      const requestData = {
+        useremail: userEmail,
+        imageurl: currentImageUrl,
+        jsonoutput: breakdownJsonOutput
+      };
+
+      console.log('Storing breakdown data:', requestData);
+
+      // Send to store-breakdown API
+      const response = await fetch('/api/store-breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Breakdown data stored successfully:', result);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to store breakdown data:', errorData);
+      }
+    } catch (error) {
+      console.error('Error storing breakdown data:', error);
+    }
+  };
+
   const getQuestionSummary = async () => {
     if (!selectedImage) return;
 
@@ -694,15 +794,23 @@ export default function StepsBot() {
       if (data.success) {
         // Handle new structured JSON response
         if (data.data?.cruxOfProblem || data.data?.formulaeUsed || data.data?.termDefinitions) {
-          setSummaryData({
+          const summaryDataObject = {
             cruxOfProblem: data.data.cruxOfProblem,
             formulaeUsed: data.data.formulaeUsed,
             termDefinitions: data.data.termDefinitions,
-          });
+          };
+          
+          setSummaryData(summaryDataObject);
+          
+          // Store summary data to database when we have all required data
+          await storeSummaryData(summaryDataObject);
         }
         // Fallback to old content format for backward compatibility
         else if (data.content) {
           setQuestionSummary(data.content);
+          
+          // Store summary data to database for legacy format too
+          await storeSummaryData({ content: data.content });
         }
       } else {
         console.error("Failed to get question summary:", data.error);
@@ -1182,6 +1290,7 @@ export default function StepsBot() {
 
       if (data.success) {
         let newSteps: Step[] = [];
+        let breakdownDataToStore: any = null;
 
         // Handle new structured JSON response
         if (data.data?.steps) {
@@ -1192,6 +1301,9 @@ export default function StepsBot() {
             isExpanded: false,
             isLoadingSubSteps: false,
           }));
+          
+          // Store the structured data
+          breakdownDataToStore = data.data;
         }
         // Fallback to old content parsing for backward compatibility
         else if (data.content) {
@@ -1203,9 +1315,17 @@ export default function StepsBot() {
             isExpanded: false,
             isLoadingSubSteps: false,
           }));
+          
+          // Store the content data for legacy format
+          breakdownDataToStore = { content: data.content };
         }
 
         setSteps(newSteps);
+
+        // Store breakdown data to database when we have the data
+        if (breakdownDataToStore) {
+          await storeBreakdownData(breakdownDataToStore);
+        }
 
         // Update credits
         await fetchUserCredits();
