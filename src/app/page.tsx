@@ -1,3 +1,24 @@
+/**
+ * Interactive Learning Assistant - Main Page Component
+ * 
+ * Features:
+ * - Image upload with Cloudinary integration
+ * - Automatic saving of uploaded image URLs to localStorage
+ * - Step-by-step problem breakdown with AI
+ * - Interactive learning with AI tutor
+ * 
+ * Cloudinary Integration:
+ * - All uploaded images are automatically sent to Cloudinary
+ * - Image URLs are stored in localStorage with metadata (filename, size, timestamp)
+ * - Supports both direct uploads and cropped images
+ * - Maintains history of uploaded images (last 50)
+ * - Visual indicators for upload status
+ * 
+ * LocalStorage Structure:
+ * - 'currentImageUrl': URL of the currently displayed image
+ * - 'uploadedImages': Array of UploadedImageData objects with image metadata
+ */
+
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -134,6 +155,14 @@ interface StreamingMessage {
   id: string;
   content: string;
   timestamp: number;
+}
+
+// Interface for uploaded image data in localStorage
+interface UploadedImageData {
+  url: string;
+  timestamp: number;
+  filename: string;
+  size: number;
 }
 
 /**
@@ -433,6 +462,7 @@ export default function StepsBot() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [uploadingToCloudinary, setUploadingToCloudinary] = useState(false);
 
   // Clipboard and focus states
   const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
@@ -557,6 +587,48 @@ export default function StepsBot() {
     });
   };
 
+  // LocalStorage utility functions for uploaded images
+  const getUploadedImagesFromStorage = (): UploadedImageData[] => {
+    try {
+      const images = localStorage.getItem('uploadedImages');
+      return images ? JSON.parse(images) : [];
+    } catch (error) {
+      console.error('Error reading uploaded images from localStorage:', error);
+      return [];
+    }
+  };
+
+  const getCurrentImageUrlFromStorage = () => {
+    try {
+      return localStorage.getItem('currentImageUrl');
+    } catch (error) {
+      console.error('Error reading current image URL from localStorage:', error);
+      return null;
+    }
+  };
+
+  const clearUploadedImagesFromStorage = () => {
+    try {
+      localStorage.removeItem('uploadedImages');
+      localStorage.removeItem('currentImageUrl');
+      console.log('Cleared uploaded images from localStorage');
+    } catch (error) {
+      console.error('Error clearing uploaded images from localStorage:', error);
+    }
+  };
+
+  // Get image URL by filename (useful for finding specific uploads)
+  const getImageUrlByFilename = (filename: string): string | null => {
+    try {
+      const images = getUploadedImagesFromStorage();
+      const foundImage = images.find(img => img.filename === filename);
+      return foundImage?.url || null;
+    } catch (error) {
+      console.error('Error finding image by filename:', error);
+      return null;
+    }
+  };
+
   const parseStepsFromContent = (content: string): string[] => {
     if (!content || !content.trim()) return [];
 
@@ -642,8 +714,47 @@ export default function StepsBot() {
     }
   };
 
+  /**
+   * Cloudinary upload function
+   * 
+   * Uploads an image file to Cloudinary and returns the secure URL.
+   * Requires the following environment variables to be set:
+   * - CLOUDINARY_CLOUD_NAME
+   * - CLOUDINARY_API_KEY  
+   * - CLOUDINARY_API_SECRET
+   * 
+   * @param file - The image file to upload
+   * @returns Promise<string | null> - The Cloudinary URL or null if upload fails
+   */
+  const uploadToCloudinary = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Upload failed: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.imageUrl) {
+        throw new Error('No image URL returned from upload');
+      }
+
+      return data.imageUrl;
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      return null;
+    }
+  };
+
   // Image handling functions
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
       setError("Please select a valid image file");
       return;
@@ -655,11 +766,47 @@ export default function StepsBot() {
     setProcessedData(null);
     setError("");
 
+    // Create preview immediately
     const reader = new FileReader();
     reader.onload = (e) => {
       setImagePreview(e.target?.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Upload to Cloudinary and save to localStorage
+    try {
+      setUploadingToCloudinary(true);
+      const cloudinaryUrl = await uploadToCloudinary(file);
+      if (cloudinaryUrl) {
+        // Save to localStorage with timestamp
+        const imageData: UploadedImageData = {
+          url: cloudinaryUrl,
+          timestamp: Date.now(),
+          filename: file.name,
+          size: file.size
+        };
+        
+        // Get existing images from localStorage
+        const existingImages = getUploadedImagesFromStorage();
+        
+        // Add new image to the beginning of the array
+        existingImages.unshift(imageData);
+        
+        // Keep only the last 50 images to prevent localStorage from getting too large
+        const limitedImages = existingImages.slice(0, 50);
+        
+        // Save back to localStorage
+        localStorage.setItem('uploadedImages', JSON.stringify(limitedImages));
+        localStorage.setItem('currentImageUrl', cloudinaryUrl);
+        
+        console.log('Image uploaded to Cloudinary and saved to localStorage:', cloudinaryUrl);
+      }
+    } catch (error) {
+      console.error('Failed to upload image to Cloudinary:', error);
+      // Don't show error to user as the image preview still works
+    } finally {
+      setUploadingToCloudinary(false);
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -818,7 +965,7 @@ export default function StepsBot() {
         imgRef.current,
         completedCrop
       );
-      handleImageUpload(croppedFile);
+      await handleImageUpload(croppedFile);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
@@ -941,6 +1088,15 @@ export default function StepsBot() {
     setQuestionSummary(null);
     setSummaryData(null);
     setIsLoadingSummary(false);
+    setUploadingToCloudinary(false);
+    
+    // Clear current image URL from localStorage
+    try {
+      localStorage.removeItem('currentImageUrl');
+    } catch (error) {
+      console.error('Error clearing current image URL from localStorage:', error);
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -1717,11 +1873,25 @@ export default function StepsBot() {
                         alt="Preview"
                         className="max-w-full max-h-48 mx-auto rounded-lg shadow-md object-contain"
                       />
-                      <p className="text-sm text-muted-foreground">
-                        {selectedImage?.name} (
-                        {((selectedImage?.size || 0) / 1024 / 1024).toFixed(2)}{" "}
-                        MB)
-                      </p>
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          {selectedImage?.name} (
+                          {((selectedImage?.size || 0) / 1024 / 1024).toFixed(2)}{" "}
+                          MB)
+                        </p>
+                        {uploadingToCloudinary && (
+                          <div className="flex items-center justify-center gap-2 text-primary">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Uploading to cloud...</span>
+                          </div>
+                        )}
+                        {!uploadingToCloudinary && getCurrentImageUrlFromStorage() && (
+                          <div className="flex items-center justify-center gap-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-xs">Saved to cloud</span>
+                          </div>
+                        )}
+                      </div>
                       {/* <button
                         onClick={removeImage}
                         className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
@@ -3056,6 +3226,47 @@ export default function StepsBot() {
 
           {/* Hidden canvas for image processing */}
           <canvas ref={canvasRef} className="hidden" />
+
+          {/* Debug: Uncomment to see uploaded images from localStorage 
+          <div className="mt-8 p-4 bg-muted/30 rounded-lg">
+            <h3 className="font-semibold mb-2">Debug: Uploaded Images History</h3>
+            <div className="space-y-2 text-sm">
+              <div>Current Image URL: {getCurrentImageUrlFromStorage() || 'None'}</div>
+              <div>Stored Images: {getUploadedImagesFromStorage().length}</div>
+              <div className="mt-2">
+                <button 
+                  onClick={clearUploadedImagesFromStorage}
+                  className="px-3 py-1 bg-destructive text-destructive-foreground rounded text-xs mr-2"
+                >
+                  Clear All
+                </button>
+                <button 
+                  onClick={() => {
+                    const images = getUploadedImagesFromStorage();
+                    console.log('Uploaded Images:', images);
+                    console.log('Current Image URL:', getCurrentImageUrlFromStorage());
+                  }}
+                  className="px-3 py-1 bg-primary text-primary-foreground rounded text-xs"
+                >
+                  Log to Console
+                </button>
+              </div>
+              {getUploadedImagesFromStorage().length > 0 && (
+                <div className="mt-2 max-h-32 overflow-y-auto">
+                  <div className="text-xs text-muted-foreground">Recent uploads:</div>
+                  {getUploadedImagesFromStorage().slice(0, 5).map((img, index) => (
+                    <div key={index} className="text-xs p-1 bg-background rounded mt-1">
+                      <div className="truncate">{img.filename}</div>
+                      <div className="text-muted-foreground">
+                        {new Date(img.timestamp).toLocaleString()}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+          */}
         </div>
       </main>
       <Footer />
