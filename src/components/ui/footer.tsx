@@ -1,7 +1,9 @@
+import Link from "next/link";
+
 export function Footer() {
   return (
     <footer className="border-t py-6 md:py-0">
-      <div className="container flex flex-col items-center justify-between gap-6 md:h-20 md:flex-row">
+      <div className="container flex flex-col items-center justify-between gap-6 md:h-20 md:flex-row px-4 sm:px-6 lg:px-8">
         <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
           <p className="text-sm text-muted-foreground">
             © {new Date().getFullYear()} Tutorji.in | All rights reserved.
@@ -14,18 +16,18 @@ export function Footer() {
         <div className="flex flex-col md:flex-row items-center gap-4 md:gap-8">
           {/* Resources Links */}
           <nav className="flex items-center gap-4 text-sm">
-            <a
+            <Link
               href="/contact"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Contact
-            </a>
-            <a
+            </Link>
+            <Link
               href="/suggest"
               className="text-muted-foreground hover:text-foreground transition-colors"
             >
               Suggestions
-            </a>
+            </Link>
           </nav>
           
           {/* Contact Email */}

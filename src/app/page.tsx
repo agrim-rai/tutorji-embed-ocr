@@ -443,6 +443,7 @@ export default function StepsBot() {
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
   const [uploadingToCloudinary, setUploadingToCloudinary] = useState(false);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
 
   // Clipboard and focus states
   const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
@@ -1236,6 +1237,7 @@ export default function StepsBot() {
     setRotationAngle(0);
     setShareUrl(null);
     setShareCopied(false);
+    setIsCreatingShare(false);
     setIsStreaming(false);
     setStreamingMessages([]);
     setShowDesktopLayout(false);
@@ -1745,6 +1747,43 @@ export default function StepsBot() {
       setTimeout(() => setShareCopied(false), 2000);
     } catch (err) {
       console.error("Failed to copy share link:", err);
+    }
+  };
+
+  // Create shareable link function
+  const createShareableLink = async () => {
+    if (!getCurrentImageUrlFromStorage()) {
+      setError("No image found to share");
+      return;
+    }
+
+    setIsCreatingShare(true);
+    setError("");
+
+    try {
+      const response = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageUrl: getCurrentImageUrlFromStorage(),
+          userEmail: session?.user?.email || null
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShareUrl(result.shareUrl);
+      } else {
+        setError(result.error || 'Failed to create share link');
+      }
+    } catch (err) {
+      setError('Network error occurred while creating share link');
+      console.error('Error creating share link:', err);
+    } finally {
+      setIsCreatingShare(false);
     }
   };
 
@@ -2646,52 +2685,129 @@ export default function StepsBot() {
                   ))}
                 </div>
 
-                {/* Interactive Learning Button - CENTERED */}
+                {/* Share and Interactive Learning Section */}
                 {steps.length > 0 && !botResult && !isStreaming && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
-                    className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40"
+                    className="mt-8 space-y-6"
                   >
-                    <div className="text-center space-y-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                          <Bot className="w-6 h-6 text-green-600" />
+                    {/* Share Section */}
+                    <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl border-2 border-purple-200 dark:border-purple-800/40">
+                      <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                            <Share2 className="w-6 h-6 text-purple-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-purple-800 dark:text-purple-400">
+                            Share This Breakdown
+                          </h3>
                         </div>
-                        <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
-                          Ready for Interactive Learning?
-                        </h3>
-                      </div>
 
-                      <p className="text-muted-foreground text-center">
-                        Now that you have the step breakdown, launch the AI
-                        tutor for personalized guidance through the solution!
-                      </p>
+                        <p className="text-muted-foreground text-center">
+                          Share this step-by-step breakdown with friends, classmates, or anyone who needs help with this problem!
+                        </p>
 
-                      <div className="flex justify-center">
-                        <button
-                          onClick={startInteractiveLearningWithStreaming}
-                          disabled={
-                            processing ||
-                            (realTimeCredits !== null
-                              ? realTimeCredits
-                              : session?.user?.credits ?? 0) <= 0
-                          }
-                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"
-                        >
-                          {processing ? (
-                            <>
-                              <Loader2 className="animate-spin w-5 h-5" />
-                              <ShiningText text="Preparing AI Tutor..." />
-                            </>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                          {!shareUrl ? (
+                            <button
+                              onClick={createShareableLink}
+                              disabled={isCreatingShare}
+                              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-muted disabled:to-muted text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg disabled:shadow-none"
+                            >
+                              {isCreatingShare ? (
+                                <>
+                                  <Loader2 className="animate-spin w-5 h-5" />
+                                  Creating Share Link...
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="w-5 h-5" />
+                                  Create Share Link
+                                </>
+                              )}
+                            </button>
                           ) : (
-                            <>
-                              <Play className="w-5 h-5" />
-                              Launch Interactive Learning
-                            </>
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+                              <div className="flex-1 p-3 bg-background/60 border border-border/50 rounded-lg text-sm font-mono truncate min-w-0">
+                                {shareUrl}
+                              </div>
+                              <Button
+                                onClick={copyShareLink}
+                                variant="outline"
+                                className="flex-shrink-0"
+                              >
+                                {shareCopied ? (
+                                  <>
+                                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clipboard className="mr-2 h-4 w-4" />
+                                    Copy Link
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           )}
-                        </button>
+                        </div>
+
+                        {shareUrl && (
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.3 }}
+                            className="text-sm text-purple-700 dark:text-purple-300 font-medium"
+                          >
+                            ✓ Anyone with this link can view the breakdown without signing in
+                          </motion.p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interactive Learning Section */}
+                    <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40">
+                      <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                            <Bot className="w-6 h-6 text-green-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
+                            Ready for Interactive Learning?
+                          </h3>
+                        </div>
+
+                        <p className="text-muted-foreground text-center">
+                          Now that you have the step breakdown, launch the AI
+                          tutor for personalized guidance through the solution!
+                        </p>
+
+                        <div className="flex justify-center">
+                          <button
+                            onClick={startInteractiveLearningWithStreaming}
+                            disabled={
+                              processing ||
+                              (realTimeCredits !== null
+                                ? realTimeCredits
+                                : session?.user?.credits ?? 0) <= 0
+                            }
+                            className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"
+                          >
+                            {processing ? (
+                              <>
+                                <Loader2 className="animate-spin w-5 h-5" />
+                                <ShiningText text="Preparing AI Tutor..." />
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-5 h-5" />
+                                Launch Interactive Learning
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>

@@ -12,14 +12,14 @@ export function Navbar() {
     <nav className="fixed w-full top-0 z-50 bg-background/80 backdrop-blur-sm border-b">
       <div className="container flex items-center justify-between h-16">
         <div className="flex items-center gap-6">
-          <a href="/" className="flex items-center gap-2 font-bold text-xl px-4 py-2">
+          <Link href="/" className="flex items-center gap-2 font-bold text-xl px-4 py-2">
           {/* <img
     src="/favicon.ico"
     alt="Prodijee Logo"
     className="w-12 h-12 object-contain" // 24x24px logo
   /> */}
   <span>TutorJi</span>
-          </a>
+          </Link>
         </div>
 
         <div className="flex items-center gap-4 px-4 py-2">

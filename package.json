@@ -37,6 +37,7 @@
     "mathjs": "^14.5.2",
     "mongoose": "^8.14.2",
     "motion": "^12.14.0",
+    "nanoid": "^5.1.5",
     "next": "^15.3.1",
     "next-auth": "^4.24.11",
     "next-cloudinary": "^6.16.0",

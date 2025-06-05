@@ -4,6 +4,7 @@ import { useState } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
 import { ChevronDown, Phone, Mail, Send, CheckCircle2, AlertTriangle, Clock, HeadphonesIcon, MessageCircle, Building, Zap, Lightbulb } from 'lucide-react';
+import Link from 'next/link';
 
 const CONTACT_SUBJECTS = [
   { value: 'General Inquiry', label: 'General Inquiry', icon: '💬', description: 'General questions about TutorJi' },
@@ -227,13 +228,13 @@ export default function ContactPage() {
                   <p className="text-sm text-purple-800 dark:text-purple-200 mb-3">
                     If you have ideas for new features, improvements, or feedback to help us make TutorJi better, we'd love to hear from you!
                   </p>
-                  <a
+                  <Link
                     href="/suggest"
                     className="inline-flex items-center gap-2 text-sm font-medium text-purple-700 dark:text-purple-300 hover:text-purple-900 dark:hover:text-purple-100 bg-purple-100 dark:bg-purple-800/50 px-3 py-2 rounded-md transition-colors"
                   >
                     <Lightbulb className="w-4 h-4" />
                     Share Your Ideas
-                  </a>
+                  </Link>
                 </div>
               </div>
             </div>

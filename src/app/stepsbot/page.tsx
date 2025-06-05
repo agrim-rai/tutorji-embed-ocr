@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useState, useRef, useEffect, useCallback } from "react";
@@ -109,6 +110,9 @@ interface BreakdownResponse {
       title: string;
       description: string;
     }>;
+    cruxOfProblem?: string;
+    formulaeUsed?: string;
+    termDefinitions?: string;
   };
   error?: string;
 }
@@ -131,6 +135,14 @@ interface StreamingMessage {
   id: string;
   content: string;
   timestamp: number;
+}
+
+// Interface for uploaded image data in localStorage
+interface UploadedImageData {
+  url: string;
+  timestamp: number;
+  filename: string;
+  size: number;
 }
 
 /**
@@ -399,6 +411,11 @@ export default function StepsBot() {
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
   const [questionSummary, setQuestionSummary] = useState<string | null>(null);
+  const [summaryData, setSummaryData] = useState<{
+    cruxOfProblem?: string;
+    formulaeUsed?: string;
+    termDefinitions?: string;
+  } | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
 
   // Interactive learning states
@@ -425,6 +442,8 @@ export default function StepsBot() {
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
+  const [uploadingToCloudinary, setUploadingToCloudinary] = useState(false);
+  const [isCreatingShare, setIsCreatingShare] = useState(false);
 
   // Clipboard and focus states
   const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
@@ -483,6 +502,30 @@ export default function StepsBot() {
 
     return () => observer.disconnect();
   }, []);
+
+  // Upload to cloud when image is set on mobile (after crop)
+  useEffect(() => {
+    // Only trigger cloud upload if:
+    // 1. We have an image preview and selected image
+    // 2. We're on mobile
+    // 3. We're not currently uploading
+    // 4. There's no current image URL in localStorage yet
+    if (
+      imagePreview && 
+      selectedImage && 
+      isMobile && 
+      !uploadingToCloudinary && 
+      !getCurrentImageUrlFromStorage()
+    ) {
+      console.log('Triggering cloud upload for mobile cropped image');
+      // Small delay to ensure UI has settled after crop
+      const timeoutId = setTimeout(() => {
+        uploadCurrentImageToCloud();
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [imagePreview, selectedImage, isMobile, uploadingToCloudinary]);
 
   // Fetch user credits
   const fetchUserCredits = useCallback(async () => {
@@ -549,6 +592,48 @@ export default function StepsBot() {
     });
   };
 
+  // LocalStorage utility functions for uploaded images
+  const getUploadedImagesFromStorage = (): UploadedImageData[] => {
+    try {
+      const images = localStorage.getItem('uploadedImages');
+      return images ? JSON.parse(images) : [];
+    } catch (error) {
+      console.error('Error reading uploaded images from localStorage:', error);
+      return [];
+    }
+  };
+
+  const getCurrentImageUrlFromStorage = () => {
+    try {
+      return localStorage.getItem('currentImageUrl');
+    } catch (error) {
+      console.error('Error reading current image URL from localStorage:', error);
+      return null;
+    }
+  };
+
+  const clearUploadedImagesFromStorage = () => {
+    try {
+      localStorage.removeItem('uploadedImages');
+      localStorage.removeItem('currentImageUrl');
+      console.log('Cleared uploaded images from localStorage');
+    } catch (error) {
+      console.error('Error clearing uploaded images from localStorage:', error);
+    }
+  };
+
+  // Get image URL by filename (useful for finding specific uploads)
+  const getImageUrlByFilename = (filename: string): string | null => {
+    try {
+      const images = getUploadedImagesFromStorage();
+      const foundImage = images.find(img => img.filename === filename);
+      return foundImage?.url || null;
+    } catch (error) {
+      console.error('Error finding image by filename:', error);
+      return null;
+    }
+  };
+
   const parseStepsFromContent = (content: string): string[] => {
     if (!content || !content.trim()) return [];
 
@@ -589,11 +674,111 @@ export default function StepsBot() {
     return [content.trim()];
   };
 
+  /**
+   * Store summary data to database
+   * Sends user email, current image URL from localStorage, and summary JSON to store-summary API
+   */
+  const storeSummaryData = async (summaryJsonOutput: any) => {
+    try {
+      // Get user email from session
+      const userEmail = session?.user?.email;
+      if (!userEmail) {
+        console.log('No user email available, skipping summary storage');
+        return;
+      }
+
+      // Get current image URL from localStorage
+      const currentImageUrl = getCurrentImageUrlFromStorage();
+      if (!currentImageUrl) {
+        console.log('No current image URL in localStorage, skipping summary storage');
+        return;
+      }
+
+      // Prepare data for API
+      const requestData = {
+        useremail: userEmail,
+        imageurl: currentImageUrl,
+        jsonoutput: summaryJsonOutput
+      };
+
+      console.log('Storing summary data:', requestData);
+
+      // Send to store-summary API
+      const response = await fetch('/api/store-summary', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Summary data stored successfully:', result);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to store summary data:', errorData);
+      }
+    } catch (error) {
+      console.error('Error storing summary data:', error);
+    }
+  };
+
+  /**
+   * Store breakdown data to database
+   * Sends user email, current image URL from localStorage, and breakdown JSON to store-breakdown API
+   */
+  const storeBreakdownData = async (breakdownJsonOutput: any) => {
+    try {
+      // Get user email from session
+      const userEmail = session?.user?.email;
+      if (!userEmail) {
+        console.log('No user email available, skipping breakdown storage');
+        return;
+      }
+
+      // Get current image URL from localStorage
+      const currentImageUrl = getCurrentImageUrlFromStorage();
+      if (!currentImageUrl) {
+        console.log('No current image URL in localStorage, skipping breakdown storage');
+        return;
+      }
+
+      // Prepare data for API
+      const requestData = {
+        useremail: userEmail,
+        imageurl: currentImageUrl,
+        jsonoutput: breakdownJsonOutput
+      };
+
+      console.log('Storing breakdown data:', requestData);
+
+      // Send to store-breakdown API
+      const response = await fetch('/api/store-breakdown', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestData),
+      });
+
+      if (response.ok) {
+        const result = await response.json();
+        console.log('Breakdown data stored successfully:', result);
+      } else {
+        const errorData = await response.json();
+        console.error('Failed to store breakdown data:', errorData);
+      }
+    } catch (error) {
+      console.error('Error storing breakdown data:', error);
+    }
+  };
+
   const getQuestionSummary = async () => {
     if (!selectedImage) return;
 
-    setIsLoadingSummary(true);
     setQuestionSummary(null);
+    setSummaryData(null);
 
     try {
       const imageBase64 = await convertImageToBase64(selectedImage);
@@ -611,8 +796,27 @@ export default function StepsBot() {
 
       const data: BreakdownResponse = await response.json();
 
-      if (data.success && data.content) {
-        setQuestionSummary(data.content);
+      if (data.success) {
+        // Handle new structured JSON response
+        if (data.data?.cruxOfProblem || data.data?.formulaeUsed || data.data?.termDefinitions) {
+          const summaryDataObject = {
+            cruxOfProblem: data.data.cruxOfProblem,
+            formulaeUsed: data.data.formulaeUsed,
+            termDefinitions: data.data.termDefinitions,
+          };
+          
+          setSummaryData(summaryDataObject);
+          
+          // Store summary data to database when we have all required data
+          await storeSummaryData(summaryDataObject);
+        }
+        // Fallback to old content format for backward compatibility
+        else if (data.content) {
+          setQuestionSummary(data.content);
+          
+          // Store summary data to database for legacy format too
+          await storeSummaryData({ content: data.content });
+        }
       } else {
         console.error("Failed to get question summary:", data.error);
         // Don't show error for summary failure, just continue without it
@@ -620,13 +824,50 @@ export default function StepsBot() {
     } catch (err) {
       console.error("Network error getting summary:", err);
       // Don't show error for summary failure, just continue without it
-    } finally {
-      setIsLoadingSummary(false);
+    }
+  };
+
+  /**
+   * Cloudinary upload function
+   * 
+   * Uploads an image file to Cloudinary and returns the secure URL.
+   * Requires the following environment variables to be set:
+   * - CLOUDINARY_CLOUD_NAME
+   * - CLOUDINARY_API_KEY  
+   * - CLOUDINARY_API_SECRET
+   * 
+   * @param file - The image file to upload
+   * @returns Promise<string | null> - The Cloudinary URL or null if upload fails
+   */
+  const uploadToCloudinary = async (file: File): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        throw new Error(`Upload failed: ${errorData.error || response.statusText}`);
+      }
+
+      const data = await response.json();
+      if (!data.imageUrl) {
+        throw new Error('No image URL returned from upload');
+      }
+
+      return data.imageUrl;
+    } catch (error) {
+      console.error('Cloudinary upload error:', error);
+      return null;
     }
   };
 
   // Image handling functions
-  const handleImageUpload = (file: File) => {
+  const handleImageUpload = async (file: File, skipCloudUpload = false) => {
     if (!file.type.startsWith("image/")) {
       setError("Please select a valid image file");
       return;
@@ -638,11 +879,88 @@ export default function StepsBot() {
     setProcessedData(null);
     setError("");
 
+    // Create preview immediately
     const reader = new FileReader();
     reader.onload = (e) => {
       setImagePreview(e.target?.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Upload to Cloudinary and save to localStorage (skip if mobile crop workflow)
+    if (!skipCloudUpload) {
+      try {
+        setUploadingToCloudinary(true);
+        const cloudinaryUrl = await uploadToCloudinary(file);
+        if (cloudinaryUrl) {
+          // Save to localStorage with timestamp
+          const imageData: UploadedImageData = {
+            url: cloudinaryUrl,
+            timestamp: Date.now(),
+            filename: file.name,
+            size: file.size
+          };
+          
+          // Get existing images from localStorage
+          const existingImages = getUploadedImagesFromStorage();
+          
+          // Add new image to the beginning of the array
+          existingImages.unshift(imageData);
+          
+          // Keep only the last 50 images to prevent localStorage from getting too large
+          const limitedImages = existingImages.slice(0, 50);
+          
+          // Save back to localStorage
+          localStorage.setItem('uploadedImages', JSON.stringify(limitedImages));
+          localStorage.setItem('currentImageUrl', cloudinaryUrl);
+          
+          console.log('Image uploaded to Cloudinary and saved to localStorage:', cloudinaryUrl);
+        }
+      } catch (error) {
+        console.error('Failed to upload image to Cloudinary:', error);
+        // Don't show error to user as the image preview still works
+      } finally {
+        setUploadingToCloudinary(false);
+      }
+    }
+  };
+
+  // Upload current image to cloud (for mobile crop workflow)
+  const uploadCurrentImageToCloud = async () => {
+    if (!selectedImage) return;
+
+    try {
+      setUploadingToCloudinary(true);
+      const cloudinaryUrl = await uploadToCloudinary(selectedImage);
+      if (cloudinaryUrl) {
+        // Save to localStorage with timestamp
+        const imageData: UploadedImageData = {
+          url: cloudinaryUrl,
+          timestamp: Date.now(),
+          filename: selectedImage.name,
+          size: selectedImage.size
+        };
+        
+        // Get existing images from localStorage
+        const existingImages = getUploadedImagesFromStorage();
+        
+        // Add new image to the beginning of the array
+        existingImages.unshift(imageData);
+        
+        // Keep only the last 50 images to prevent localStorage from getting too large
+        const limitedImages = existingImages.slice(0, 50);
+        
+        // Save back to localStorage
+        localStorage.setItem('uploadedImages', JSON.stringify(limitedImages));
+        localStorage.setItem('currentImageUrl', cloudinaryUrl);
+        
+        console.log('Image uploaded to Cloudinary and saved to localStorage:', cloudinaryUrl);
+      }
+    } catch (error) {
+      console.error('Failed to upload image to Cloudinary:', error);
+      // Don't show error to user as the image preview still works
+    } finally {
+      setUploadingToCloudinary(false);
+    }
   };
 
   const handleFileSelect = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -801,7 +1119,8 @@ export default function StepsBot() {
         imgRef.current,
         completedCrop
       );
-      handleImageUpload(croppedFile);
+      // Skip cloud upload during crop, handle it after returning to main page via useEffect
+      await handleImageUpload(croppedFile, true);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
@@ -918,11 +1237,23 @@ export default function StepsBot() {
     setRotationAngle(0);
     setShareUrl(null);
     setShareCopied(false);
+    setIsCreatingShare(false);
     setIsStreaming(false);
     setStreamingMessages([]);
     setShowDesktopLayout(false);
     setQuestionSummary(null);
+    setSummaryData(null);
     setIsLoadingSummary(false);
+    setUploadingToCloudinary(false);
+    
+    // Clear current image URL from localStorage
+    try {
+      localStorage.removeItem('currentImageUrl');
+      console.log('Cleared current image URL from localStorage');
+    } catch (error) {
+      console.error('Error clearing current image URL from localStorage:', error);
+    }
+    
     if (fileInputRef.current) {
       fileInputRef.current.value = "";
     }
@@ -952,6 +1283,11 @@ export default function StepsBot() {
       return;
     }
 
+    // Start loading immediately when button is clicked
+    setIsLoadingSummary(true);
+    setError("");
+    setSteps([]);
+
     // Deduct one credit first
     try {
       const deductResponse = await fetch("/api/user/credits", {
@@ -966,6 +1302,7 @@ export default function StepsBot() {
 
       if (!deductResponse.ok) {
         setError(deductResult.error || "Failed to deduct credit");
+        setIsLoadingSummary(false);
         return;
       }
 
@@ -973,16 +1310,16 @@ export default function StepsBot() {
       setRealTimeCredits(deductResult.credits);
     } catch (err) {
       setError("Failed to process credit deduction");
+      setIsLoadingSummary(false);
       return;
     }
 
     // First get the question summary
     await getQuestionSummary();
 
-    // Then get the main steps
+    // Then transition to main steps loading
+    setIsLoadingSummary(false);
     setIsLoadingMainSteps(true);
-    setError("");
-    setSteps([]);
 
     try {
       const imageBase64 = await convertImageToBase64(selectedImage);
@@ -1002,6 +1339,7 @@ export default function StepsBot() {
 
       if (data.success) {
         let newSteps: Step[] = [];
+        let breakdownDataToStore: any = null;
 
         // Handle new structured JSON response
         if (data.data?.steps) {
@@ -1012,6 +1350,9 @@ export default function StepsBot() {
             isExpanded: false,
             isLoadingSubSteps: false,
           }));
+          
+          // Store the structured data
+          breakdownDataToStore = data.data;
         }
         // Fallback to old content parsing for backward compatibility
         else if (data.content) {
@@ -1023,9 +1364,17 @@ export default function StepsBot() {
             isExpanded: false,
             isLoadingSubSteps: false,
           }));
+          
+          // Store the content data for legacy format
+          breakdownDataToStore = { content: data.content };
         }
 
         setSteps(newSteps);
+
+        // Store breakdown data to database when we have the data
+        if (breakdownDataToStore) {
+          await storeBreakdownData(breakdownDataToStore);
+        }
 
         // Update credits
         await fetchUserCredits();
@@ -1401,6 +1750,43 @@ export default function StepsBot() {
     }
   };
 
+  // Create shareable link function
+  const createShareableLink = async () => {
+    if (!getCurrentImageUrlFromStorage()) {
+      setError("No image found to share");
+      return;
+    }
+
+    setIsCreatingShare(true);
+    setError("");
+
+    try {
+      const response = await fetch('/api/share/create', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          imageUrl: getCurrentImageUrlFromStorage(),
+          userEmail: session?.user?.email || null
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setShareUrl(result.shareUrl);
+      } else {
+        setError(result.error || 'Failed to create share link');
+      }
+    } catch (err) {
+      setError('Network error occurred while creating share link');
+      console.error('Error creating share link:', err);
+    } finally {
+      setIsCreatingShare(false);
+    }
+  };
+
   // Show login wall if not authenticated
   if (status === "loading") {
     return (
@@ -1693,18 +2079,32 @@ export default function StepsBot() {
                         alt="Preview"
                         className="max-w-full max-h-48 mx-auto rounded-lg shadow-md object-contain"
                       />
-                      <p className="text-sm text-muted-foreground">
-                        {selectedImage?.name} (
-                        {((selectedImage?.size || 0) / 1024 / 1024).toFixed(2)}{" "}
-                        MB)
-                      </p>
-                      <button
+                      <div className="space-y-2">
+                        <p className="text-sm text-muted-foreground">
+                          {selectedImage?.name} (
+                          {((selectedImage?.size || 0) / 1024 / 1024).toFixed(2)}{" "}
+                          MB)
+                        </p>
+                        {uploadingToCloudinary && (
+                          <div className="flex items-center justify-center gap-2 text-primary">
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                            <span className="text-xs">Uploading image...</span>
+                          </div>
+                        )}
+                        {!uploadingToCloudinary && getCurrentImageUrlFromStorage() && (
+                          <div className="flex items-center justify-center gap-2 text-green-600">
+                            <CheckCircle className="h-4 w-4" />
+                            <span className="text-xs">Upload Completed</span>
+                          </div>
+                        )}
+                      </div>
+                      {/* <button
                         onClick={removeImage}
                         className="mt-2 px-4 py-2 bg-destructive hover:bg-destructive/80 text-destructive-foreground rounded-lg transition-colors"
                       >
                         <X className="inline mr-2 h-4 w-4" />
                         Remove Image
-                      </button>
+                      </button> */}
                     </div>
                   ) : (
                     <>
@@ -1864,6 +2264,7 @@ export default function StepsBot() {
                       onClick={analyzeImageSteps}
                       disabled={
                         isLoadingMainSteps ||
+                        isLoadingSummary ||
                         (realTimeCredits !== null
                           ? realTimeCredits
                           : session?.user?.credits ?? 0) <= 0
@@ -1871,7 +2272,9 @@ export default function StepsBot() {
                       className="flex-1"
                       size="lg"
                     >
-                      {isLoadingMainSteps ? (
+                      {isLoadingSummary ? (
+                        <ShiningText text="Understanding question..." />
+                      ) : isLoadingMainSteps ? (
                         <ShiningText text="AI is analyzing..." />
                       ) : (realTimeCredits !== null
                           ? realTimeCredits
@@ -1920,7 +2323,7 @@ export default function StepsBot() {
 
           {/* Question Summary Display */}
           <AnimatePresence>
-            {(questionSummary || isLoadingSummary) && (
+            {(summaryData || questionSummary || isLoadingSummary || isLoadingMainSteps) && (
               <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -1930,18 +2333,59 @@ export default function StepsBot() {
               >
                 <div className="flex items-start gap-3">
                   <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
-                    <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    {isLoadingSummary ? (
+                      <Loader2 className="animate-spin w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    ) : (
+                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-2">
-                      Question Analysis
+                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                    Analytical Breakdown 
                     </h3>
                     {isLoadingSummary ? (
                       <div className="flex items-center gap-2">
-                        <Loader2 className="animate-spin w-4 h-4 text-blue-600" />
                         <span className="text-blue-700 dark:text-blue-300 text-sm">
-                          Analyzing question...
+                          <ShiningText text="Understanding the question..." />
                         </span>
+                      </div>
+                    ) : summaryData ? (
+                      <div className="space-y-3">
+                        {/* Crux of Problem */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
+                            <Target className="w-4 h-4" />
+                            Crux of the Problem:
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.cruxOfProblem || "Not available"}
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                          />
+                        </div>
+
+                        {/* Formulae Used */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
+                            <FileText className="w-4 h-4" />
+                            Key Formulae & Principles:
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.formulaeUsed || "Not available"}
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                          />
+                        </div>
+
+                        {/* Term Definitions */}
+                        <div>
+                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
+                            <Brain className="w-4 h-4" />
+                            Term Definitions:
+                          </h4>
+                          <SimpleMathRenderer
+                            content={summaryData.termDefinitions || "Not available"}
+                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                          />
+                        </div>
                       </div>
                     ) : questionSummary ? (
                       <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
@@ -2241,52 +2685,129 @@ export default function StepsBot() {
                   ))}
                 </div>
 
-                {/* Interactive Learning Button - CENTERED */}
+                {/* Share and Interactive Learning Section */}
                 {steps.length > 0 && !botResult && !isStreaming && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
-                    className="mt-8 p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40"
+                    className="mt-8 space-y-6"
                   >
-                    <div className="text-center space-y-4">
-                      <div className="flex items-center justify-center gap-3">
-                        <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
-                          <Bot className="w-6 h-6 text-green-600" />
+                    {/* Share Section */}
+                    <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl border-2 border-purple-200 dark:border-purple-800/40">
+                      <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
+                            <Share2 className="w-6 h-6 text-purple-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-purple-800 dark:text-purple-400">
+                            Share This Breakdown
+                          </h3>
                         </div>
-                        <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
-                          Ready for Interactive Learning?
-                        </h3>
-                      </div>
 
-                      <p className="text-muted-foreground text-center">
-                        Now that you have the step breakdown, launch the AI
-                        tutor for personalized guidance through the solution!
-                      </p>
+                        <p className="text-muted-foreground text-center">
+                          Share this step-by-step breakdown with friends, classmates, or anyone who needs help with this problem!
+                        </p>
 
-                      <div className="flex justify-center">
-                        <button
-                          onClick={startInteractiveLearningWithStreaming}
-                          disabled={
-                            processing ||
-                            (realTimeCredits !== null
-                              ? realTimeCredits
-                              : session?.user?.credits ?? 0) <= 0
-                          }
-                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"
-                        >
-                          {processing ? (
-                            <>
-                              <Loader2 className="animate-spin w-5 h-5" />
-                              <ShiningText text="Preparing AI Tutor..." />
-                            </>
+                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+                          {!shareUrl ? (
+                            <button
+                              onClick={createShareableLink}
+                              disabled={isCreatingShare}
+                              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-muted disabled:to-muted text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg disabled:shadow-none"
+                            >
+                              {isCreatingShare ? (
+                                <>
+                                  <Loader2 className="animate-spin w-5 h-5" />
+                                  Creating Share Link...
+                                </>
+                              ) : (
+                                <>
+                                  <Share2 className="w-5 h-5" />
+                                  Create Share Link
+                                </>
+                              )}
+                            </button>
                           ) : (
-                            <>
-                              <Play className="w-5 h-5" />
-                              Launch Interactive Learning
-                            </>
+                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
+                              <div className="flex-1 p-3 bg-background/60 border border-border/50 rounded-lg text-sm font-mono truncate min-w-0">
+                                {shareUrl}
+                              </div>
+                              <Button
+                                onClick={copyShareLink}
+                                variant="outline"
+                                className="flex-shrink-0"
+                              >
+                                {shareCopied ? (
+                                  <>
+                                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
+                                    Copied!
+                                  </>
+                                ) : (
+                                  <>
+                                    <Clipboard className="mr-2 h-4 w-4" />
+                                    Copy Link
+                                  </>
+                                )}
+                              </Button>
+                            </div>
                           )}
-                        </button>
+                        </div>
+
+                        {shareUrl && (
+                          <motion.p
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.3 }}
+                            className="text-sm text-purple-700 dark:text-purple-300 font-medium"
+                          >
+                            ✓ Anyone with this link can view the breakdown without signing in
+                          </motion.p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Interactive Learning Section */}
+                    <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40">
+                      <div className="text-center space-y-4">
+                        <div className="flex items-center justify-center gap-3">
+                          <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-full">
+                            <Bot className="w-6 h-6 text-green-600" />
+                          </div>
+                          <h3 className="text-xl font-bold text-green-800 dark:text-green-400">
+                            Ready for Interactive Learning?
+                          </h3>
+                        </div>
+
+                        <p className="text-muted-foreground text-center">
+                          Now that you have the step breakdown, launch the AI
+                          tutor for personalized guidance through the solution!
+                        </p>
+
+                        <div className="flex justify-center">
+                          <button
+                            onClick={startInteractiveLearningWithStreaming}
+                            disabled={
+                              processing ||
+                              (realTimeCredits !== null
+                                ? realTimeCredits
+                                : session?.user?.credits ?? 0) <= 0
+                            }
+                            className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"
+                          >
+                            {processing ? (
+                              <>
+                                <Loader2 className="animate-spin w-5 h-5" />
+                                <ShiningText text="Preparing AI Tutor..." />
+                              </>
+                            ) : (
+                              <>
+                                <Play className="w-5 h-5" />
+                                Launch Interactive Learning
+                              </>
+                            )}
+                          </button>
+                        </div>
                       </div>
                     </div>
                   </motion.div>
