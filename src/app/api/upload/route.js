@@ -1,60 +1,83 @@
-import { v2 as cloudinary } from 'cloudinary';
-import formidable from 'formidable';
-import { IncomingForm } from 'formidable';
-import { Readable } from 'stream';
+import { S3Client, PutObjectCommand } from "@aws-sdk/client-s3";
+import formidable, { IncomingForm } from "formidable";
+import { Readable } from "stream";
+import fs from "fs";
+import path from "path";
+import { nanoid } from "nanoid";
 
-// Cloudinary config
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
+// 1) Configure S3 client
+const s3 = new S3Client({
+  region: process.env.AWS_REGION,
+  credentials: {
+    accessKeyId: process.env.AWS_ACCESS_KEY_ID,
+    secretAccessKey: process.env.AWS_SECRET_ACCESS_KEY
+  }
 });
+const BUCKET = process.env.S3_BUCKET_NAME;
 
-// Disable Next.js default body parsing for this route
-export const config = {
-  api: {
-    bodyParser: false,
-  },
-};
+export const config = { api: { bodyParser: false } };
 
-// Helper to convert Web Request to Node stream
-const streamToIncomingMessage = async (request) => {
+// Turn Next Request into a Node IncomingMessage for formidable
+async function streamToIncomingMessage(request) {
   const { headers } = request;
-  const body = await request.arrayBuffer();
-  const readable = Readable.from(Buffer.from(body));
-  readable.headers = Object.fromEntries(headers.entries());
+  const arrayBuffer = await request.arrayBuffer();
+  const readable = Readable.from(Buffer.from(arrayBuffer));
+  readable.headers = Object.fromEntries(request.headers.entries());
   readable.method = request.method;
   return readable;
-};
+}
 
-// Handle POST
 export async function POST(request) {
   const req = await streamToIncomingMessage(request);
-
   const form = new IncomingForm();
 
-  return new Promise((resolve, reject) => {
+  return new Promise((resolve) => {
     form.parse(req, async (err, fields, files) => {
       if (err) {
-        return resolve(new Response(JSON.stringify({ error: 'Form parsing error' }), { status: 500 }));
+        return resolve(new Response(JSON.stringify({ error: "Form parse error" }), { status: 500 }));
       }
 
-      const file = files.image?.[0]?.filepath || files.image?.filepath;
+      // Grab the temp file path from formidable
+      const filePath = files.image?.[0]?.filepath || files.image?.filepath;
+      const originalFilename = files.image?.[0]?.originalFilename || files.image?.originalFilename;
+      
+      if (!filePath) {
+        return resolve(new Response(JSON.stringify({ error: "No file" }), { status: 400 }));
+      }
+
+      // Read the file into a Buffer (or createReadStream)
+      const fileStream = fs.createReadStream(filePath);
+
+      // Get the extension from the original filename, not the temp file path
+      const ext = originalFilename ? path.extname(originalFilename).toLowerCase() : '';
+
+
+
+      const key = `uploads/${nanoid()}${ext}`;    // generate a unique key
 
       try {
-        const result = await cloudinary.uploader.upload(file, {
-          folder: 'uploads',
-        });
+        // Upload to S3
+        await s3.send(new PutObjectCommand({
+          Bucket: BUCKET,
+          Key: key,
+          Body: fileStream,
+          ContentType: files.image?.[0]?.mimetype || "application/octet-stream"
+        }));
 
-        return resolve(new Response(JSON.stringify({ 
-          imageId: result.public_id,
-          imageUrl: result.secure_url 
+        // Construct the URL
+        // If you have a CloudFront distro, swap this URL out for your CF domain.
+        const imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+
+        return resolve(new Response(JSON.stringify({
+          imageId: key,
+          imageUrl
         }), {
           status: 200,
-          headers: { 'Content-Type': 'application/json' },
+          headers: { "Content-Type": "application/json" }
         }));
-      } catch (e) {
-        return resolve(new Response(JSON.stringify({ error: 'Upload failed' }), { status: 500 }));
+      } catch (uploadErr) {
+        console.error(uploadErr);
+        return resolve(new Response(JSON.stringify({ error: "Upload failed" }), { status: 500 }));
       }
     });
   });

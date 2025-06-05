@@ -43,6 +43,7 @@ export const authOptions = {
       if (account && user) {
         token.userId = user.id;
         token.credits = user.credits || 25;
+        token.role = user.role || 'user';
       }
       return token;
     },
@@ -56,10 +57,11 @@ export const authOptions = {
      * @returns {Promise<Object>} Enhanced session object with user data
      */
     async session({ session, token }) {
-      // Add user ID and credits to the session
+      // Add user ID, credits, and role to the session
       if (token.userId) {
         session.user.id = token.userId;
         session.user.credits = token.credits;
+        session.user.role = token.role;
       }
       
       return session;

@@ -11,6 +11,8 @@ declare module "next-auth" {
       id: string;
       /** User's remaining credits */
       credits: number;
+      /** User's role */
+      role?: string;
     } & DefaultSession["user"];
   }
 } 

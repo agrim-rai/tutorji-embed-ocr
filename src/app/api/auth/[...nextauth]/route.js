@@ -10,6 +10,7 @@
  * - User creation during first login
  * - Session management with user data enrichment
  * - Credits system integration
+ * - Role-based access control
  * - Secure JWT token handling
  * - Custom login and error pages
  * 
@@ -56,6 +57,7 @@ const handler = NextAuth({
             // Update token with existing user data
             token.userId = existingUser._id.toString();
             token.credits = existingUser.credits;
+            token.role = existingUser.role || 'user';
             console.log('User found in db:', existingUser.email);
           } else {
             // Create a new user if not found
@@ -65,6 +67,7 @@ const handler = NextAuth({
               name: user.name || 'User',
               image: user.image,
               credits: 25, // Default starting credits for new users
+              role: 'user', // Default role for new users
             });
             
             // Verify the user was created
@@ -78,6 +81,7 @@ const handler = NextAuth({
             // Add new user data to token
             token.userId = newUser._id.toString();
             token.credits = newUser.credits;
+            token.role = newUser.role;
           }
         } catch (error) {
           console.error('Error in JWT callback:', error);
@@ -96,10 +100,11 @@ const handler = NextAuth({
      * @returns {Promise<Object>} Enhanced session object with user data
      */
     async session({ session, token }) {
-      // Add user ID and credits to the session
+      // Add user ID, credits, and role to the session
       if (token.userId) {
         session.user.id = token.userId;
         session.user.credits = token.credits;
+        session.user.role = token.role;
       }
       
       return session;

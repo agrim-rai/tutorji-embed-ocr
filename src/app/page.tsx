@@ -1,23 +1,3 @@
-/**
- * Interactive Learning Assistant - Main Page Component
- * 
- * Features:
- * - Image upload with Cloudinary integration
- * - Automatic saving of uploaded image URLs to localStorage
- * - Step-by-step problem breakdown with AI
- * - Interactive learning with AI tutor
- * 
- * Cloudinary Integration:
- * - All uploaded images are automatically sent to Cloudinary
- * - Image URLs are stored in localStorage with metadata (filename, size, timestamp)
- * - Supports both direct uploads and cropped images
- * - Maintains history of uploaded images (last 50)
- * - Visual indicators for upload status
- * 
- * LocalStorage Structure:
- * - 'currentImageUrl': URL of the currently displayed image
- * - 'uploadedImages': Array of UploadedImageData objects with image metadata
- */
 
 "use client";
 
@@ -522,6 +502,30 @@ export default function StepsBot() {
     return () => observer.disconnect();
   }, []);
 
+  // Upload to cloud when image is set on mobile (after crop)
+  useEffect(() => {
+    // Only trigger cloud upload if:
+    // 1. We have an image preview and selected image
+    // 2. We're on mobile
+    // 3. We're not currently uploading
+    // 4. There's no current image URL in localStorage yet
+    if (
+      imagePreview && 
+      selectedImage && 
+      isMobile && 
+      !uploadingToCloudinary && 
+      !getCurrentImageUrlFromStorage()
+    ) {
+      console.log('Triggering cloud upload for mobile cropped image');
+      // Small delay to ensure UI has settled after crop
+      const timeoutId = setTimeout(() => {
+        uploadCurrentImageToCloud();
+      }, 1000);
+      
+      return () => clearTimeout(timeoutId);
+    }
+  }, [imagePreview, selectedImage, isMobile, uploadingToCloudinary]);
+
   // Fetch user credits
   const fetchUserCredits = useCallback(async () => {
     if (status !== "authenticated" || !session?.user?.email) return;
@@ -862,7 +866,7 @@ export default function StepsBot() {
   };
 
   // Image handling functions
-  const handleImageUpload = async (file: File) => {
+  const handleImageUpload = async (file: File, skipCloudUpload = false) => {
     if (!file.type.startsWith("image/")) {
       setError("Please select a valid image file");
       return;
@@ -881,17 +885,58 @@ export default function StepsBot() {
     };
     reader.readAsDataURL(file);
 
-    // Upload to Cloudinary and save to localStorage
+    // Upload to Cloudinary and save to localStorage (skip if mobile crop workflow)
+    if (!skipCloudUpload) {
+      try {
+        setUploadingToCloudinary(true);
+        const cloudinaryUrl = await uploadToCloudinary(file);
+        if (cloudinaryUrl) {
+          // Save to localStorage with timestamp
+          const imageData: UploadedImageData = {
+            url: cloudinaryUrl,
+            timestamp: Date.now(),
+            filename: file.name,
+            size: file.size
+          };
+          
+          // Get existing images from localStorage
+          const existingImages = getUploadedImagesFromStorage();
+          
+          // Add new image to the beginning of the array
+          existingImages.unshift(imageData);
+          
+          // Keep only the last 50 images to prevent localStorage from getting too large
+          const limitedImages = existingImages.slice(0, 50);
+          
+          // Save back to localStorage
+          localStorage.setItem('uploadedImages', JSON.stringify(limitedImages));
+          localStorage.setItem('currentImageUrl', cloudinaryUrl);
+          
+          console.log('Image uploaded to Cloudinary and saved to localStorage:', cloudinaryUrl);
+        }
+      } catch (error) {
+        console.error('Failed to upload image to Cloudinary:', error);
+        // Don't show error to user as the image preview still works
+      } finally {
+        setUploadingToCloudinary(false);
+      }
+    }
+  };
+
+  // Upload current image to cloud (for mobile crop workflow)
+  const uploadCurrentImageToCloud = async () => {
+    if (!selectedImage) return;
+
     try {
       setUploadingToCloudinary(true);
-      const cloudinaryUrl = await uploadToCloudinary(file);
+      const cloudinaryUrl = await uploadToCloudinary(selectedImage);
       if (cloudinaryUrl) {
         // Save to localStorage with timestamp
         const imageData: UploadedImageData = {
           url: cloudinaryUrl,
           timestamp: Date.now(),
-          filename: file.name,
-          size: file.size
+          filename: selectedImage.name,
+          size: selectedImage.size
         };
         
         // Get existing images from localStorage
@@ -1073,7 +1118,8 @@ export default function StepsBot() {
         imgRef.current,
         completedCrop
       );
-      await handleImageUpload(croppedFile);
+      // Skip cloud upload during crop, handle it after returning to main page via useEffect
+      await handleImageUpload(croppedFile, true);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
@@ -1201,6 +1247,7 @@ export default function StepsBot() {
     // Clear current image URL from localStorage
     try {
       localStorage.removeItem('currentImageUrl');
+      console.log('Cleared current image URL from localStorage');
     } catch (error) {
       console.error('Error clearing current image URL from localStorage:', error);
     }
@@ -2002,13 +2049,13 @@ export default function StepsBot() {
                         {uploadingToCloudinary && (
                           <div className="flex items-center justify-center gap-2 text-primary">
                             <Loader2 className="h-4 w-4 animate-spin" />
-                            <span className="text-xs">Uploading to cloud...</span>
+                            <span className="text-xs">Uploading image...</span>
                           </div>
                         )}
                         {!uploadingToCloudinary && getCurrentImageUrlFromStorage() && (
                           <div className="flex items-center justify-center gap-2 text-green-600">
                             <CheckCircle className="h-4 w-4" />
-                            <span className="text-xs">Saved to cloud</span>
+                            <span className="text-xs">Upload Completed</span>
                           </div>
                         )}
                       </div>
@@ -3346,47 +3393,6 @@ export default function StepsBot() {
 
           {/* Hidden canvas for image processing */}
           <canvas ref={canvasRef} className="hidden" />
-
-          {/* Debug: Uncomment to see uploaded images from localStorage 
-          <div className="mt-8 p-4 bg-muted/30 rounded-lg">
-            <h3 className="font-semibold mb-2">Debug: Uploaded Images History</h3>
-            <div className="space-y-2 text-sm">
-              <div>Current Image URL: {getCurrentImageUrlFromStorage() || 'None'}</div>
-              <div>Stored Images: {getUploadedImagesFromStorage().length}</div>
-              <div className="mt-2">
-                <button 
-                  onClick={clearUploadedImagesFromStorage}
-                  className="px-3 py-1 bg-destructive text-destructive-foreground rounded text-xs mr-2"
-                >
-                  Clear All
-                </button>
-                <button 
-                  onClick={() => {
-                    const images = getUploadedImagesFromStorage();
-                    console.log('Uploaded Images:', images);
-                    console.log('Current Image URL:', getCurrentImageUrlFromStorage());
-                  }}
-                  className="px-3 py-1 bg-primary text-primary-foreground rounded text-xs"
-                >
-                  Log to Console
-                </button>
-              </div>
-              {getUploadedImagesFromStorage().length > 0 && (
-                <div className="mt-2 max-h-32 overflow-y-auto">
-                  <div className="text-xs text-muted-foreground">Recent uploads:</div>
-                  {getUploadedImagesFromStorage().slice(0, 5).map((img, index) => (
-                    <div key={index} className="text-xs p-1 bg-background rounded mt-1">
-                      <div className="truncate">{img.filename}</div>
-                      <div className="text-muted-foreground">
-                        {new Date(img.timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-          */}
         </div>
       </main>
       <Footer />

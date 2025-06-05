@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { AdminLoading } from '@/components/admin/AdminLoading';
 import { RefreshCw, User, Mail, MessageSquare, Tag, Calendar, BarChart3, Users, Clock, Trash2, Check, Star, StarOff, Archive, ChevronDown, Lightbulb, CheckCircle, XCircle, PlayCircle } from 'lucide-react';
 
 interface Suggestion {
@@ -71,6 +73,7 @@ const PRIORITY_COLORS = {
 };
 
 export default function AdminSuggestionsPage() {
+  const { isLoading: authLoading, isAdmin } = useAdminAuth();
   const [suggestions, setSuggestions] = useState<Suggestion[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -83,10 +86,7 @@ export default function AdminSuggestionsPage() {
   const [selectedSuggestions, setSelectedSuggestions] = useState<Set<string>>(new Set());
   const [expandedSuggestion, setExpandedSuggestion] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchSuggestions();
-  }, []);
-
+  // Move fetchSuggestions function BEFORE useEffect
   const fetchSuggestions = async () => {
     try {
       setIsLoading(true);
@@ -115,6 +115,21 @@ export default function AdminSuggestionsPage() {
       setIsLoading(false);
     }
   };
+
+  // Move useEffect BEFORE early returns
+  useEffect(() => {
+    fetchSuggestions();
+  }, []);
+
+  // Show loading screen while authenticating
+  if (authLoading) {
+    return <AdminLoading message="Loading suggestion management..." />;
+  }
+
+  // This should not render if not admin due to the hook redirect
+  if (!isAdmin) {
+    return null;
+  }
 
   const updateSuggestion = async (suggestionId: string, updates: Partial<Suggestion>) => {
     try {

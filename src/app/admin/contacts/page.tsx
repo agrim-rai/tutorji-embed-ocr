@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { Navbar } from '@/components/ui/navbar';
 import { Footer } from '@/components/ui/footer';
+import { useAdminAuth } from '@/hooks/useAdminAuth';
+import { AdminLoading } from '@/components/admin/AdminLoading';
 import { RefreshCw, User, Mail, MessageSquare, Tag, Calendar, BarChart3, Users, Clock, Phone, Building, Zap, AlertCircle, Trash2, Check, X, Star, StarOff, Archive, Eye, EyeOff, ChevronDown } from 'lucide-react';
 
 interface Contact {
@@ -60,6 +62,7 @@ const PRIORITY_COLORS = {
 };
 
 export default function AdminContactsPage() {
+  const { isLoading: authLoading, isAdmin } = useAdminAuth();
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -72,10 +75,7 @@ export default function AdminContactsPage() {
   const [selectedContacts, setSelectedContacts] = useState<Set<string>>(new Set());
   const [expandedContact, setExpandedContact] = useState<string | null>(null);
 
-  useEffect(() => {
-    fetchContacts();
-  }, []);
-
+  // Move fetchContacts function BEFORE useEffect
   const fetchContacts = async () => {
     try {
       setIsLoading(true);
@@ -103,6 +103,20 @@ export default function AdminContactsPage() {
       setIsLoading(false);
     }
   };
+
+  useEffect(() => {
+    fetchContacts();
+  }, []);
+
+  // Show loading screen while authenticating
+  if (authLoading) {
+    return <AdminLoading message="Loading contact management..." />;
+  }
+
+  // This should not render if not admin due to the hook redirect
+  if (!isAdmin) {
+    return null;
+  }
 
   const updateContact = async (contactId: string, updates: Partial<Contact>) => {
     try {
@@ -303,65 +317,69 @@ export default function AdminContactsPage() {
       <main className="pt-20 pb-16">
         <div className="container mx-auto px-4 sm:px-6 lg:px-8">
           {/* Header */}
-          <div className="text-center mb-8">
-            <h1 className="text-4xl md:text-5xl font-bold mb-4">
+          <div className="text-center mb-6 sm:mb-8">
+            <h1 className="text-3xl sm:text-4xl lg:text-5xl font-bold mb-4">
               Contact{' '}
               <span className="bg-gradient-to-r from-primary to-purple-600 bg-clip-text text-transparent">
                 Management
               </span>
             </h1>
-            <p className="text-xl text-muted-foreground max-w-2xl mx-auto mb-6">
+            <p className="text-lg sm:text-xl text-muted-foreground max-w-2xl mx-auto mb-4 sm:mb-6 px-4">
               Manage contact submissions and support requests ({contacts.filter(c => !c.isArchived).length} active)
             </p>
-            <div className="flex flex-wrap justify-center gap-2">
+            <div className="flex flex-wrap justify-center gap-2 px-4">
               <button
                 onClick={fetchContacts}
-                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-4 py-2 rounded-lg font-medium transition-colors"
+                className="inline-flex items-center gap-2 bg-primary hover:bg-primary/90 text-primary-foreground px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors"
               >
                 <RefreshCw className="w-4 h-4" />
-                Refresh Data
+                <span className="hidden sm:inline">Refresh Data</span>
+                <span className="sm:hidden">Refresh</span>
               </button>
               <button
                 onClick={() => setBulkSelectMode(!bulkSelectMode)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors ${
                   bulkSelectMode 
                     ? 'bg-orange-500 hover:bg-orange-600 text-white' 
                     : 'bg-muted hover:bg-muted/80'
                 }`}
               >
                 <Check className="w-4 h-4" />
-                {bulkSelectMode ? 'Exit Bulk Mode' : 'Bulk Select'}
+                <span className="hidden sm:inline">{bulkSelectMode ? 'Exit Bulk Mode' : 'Bulk Select'}</span>
+                <span className="sm:hidden">{bulkSelectMode ? 'Exit Bulk' : 'Bulk'}</span>
               </button>
               <button
                 onClick={() => setShowOnlyStarred(!showOnlyStarred)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors ${
                   showOnlyStarred 
                     ? 'bg-yellow-500 hover:bg-yellow-600 text-white' 
                     : 'bg-muted hover:bg-muted/80'
                 }`}
               >
                 <Star className="w-4 h-4" />
-                {showOnlyStarred ? 'Show All' : 'Starred Only'}
+                <span className="hidden sm:inline">{showOnlyStarred ? 'Show All' : 'Starred Only'}</span>
+                <span className="sm:hidden">Starred</span>
               </button>
               <button
                 onClick={() => setShowArchived(!showArchived)}
-                className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+                className={`inline-flex items-center gap-2 px-3 sm:px-4 py-2 rounded-lg text-sm sm:text-base font-medium transition-colors ${
                   showArchived 
                     ? 'bg-gray-500 hover:bg-gray-600 text-white' 
                     : 'bg-muted hover:bg-muted/80'
                 }`}
               >
                 <Archive className="w-4 h-4" />
-                {showArchived ? 'Hide Archived' : 'Show Archived'}
+                <span className="hidden sm:inline">{showArchived ? 'Hide Archived' : 'Show Archived'}</span>
+                <span className="sm:hidden">Archive</span>
               </button>
             </div>
           </div>
 
           {/* Bulk Actions */}
           {bulkSelectMode && (
-            <div className="bg-card border rounded-lg p-4 mb-6">
-              <div className="flex flex-wrap items-center justify-between gap-4">
-                <div className="flex items-center gap-4">
+            <div className="bg-card border rounded-lg p-4 mb-6 mx-4 sm:mx-0">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                <div className="flex flex-wrap items-center gap-2 sm:gap-4">
                   <span className="text-sm font-medium">
                     {selectedContacts.size} of {filteredContacts.length} selected
                   </span>
@@ -388,7 +406,7 @@ export default function AdminContactsPage() {
                           e.target.value = '';
                         }
                       }}
-                      className="px-3 py-1 text-sm border rounded bg-background"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded bg-background"
                     >
                       <option value="">Change Status</option>
                       <option value="pending">Pending</option>
@@ -403,7 +421,7 @@ export default function AdminContactsPage() {
                           e.target.value = '';
                         }
                       }}
-                      className="px-3 py-1 text-sm border rounded bg-background"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm border rounded bg-background"
                     >
                       <option value="">Change Priority</option>
                       <option value="low">Low</option>
@@ -413,23 +431,23 @@ export default function AdminContactsPage() {
                     
                     <button
                       onClick={() => bulkUpdateContacts(Array.from(selectedContacts), { isStarred: true })}
-                      className="px-3 py-1 text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-yellow-500 hover:bg-yellow-600 text-white rounded"
                     >
-                      ⭐ Star
+                      ⭐ <span className="hidden sm:inline">Star</span>
                     </button>
                     
                     <button
                       onClick={() => bulkUpdateContacts(Array.from(selectedContacts), { isArchived: true })}
-                      className="px-3 py-1 text-sm bg-gray-500 hover:bg-gray-600 text-white rounded"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-gray-500 hover:bg-gray-600 text-white rounded"
                     >
-                      📦 Archive
+                      📦 <span className="hidden sm:inline">Archive</span>
                     </button>
                     
                     <button
                       onClick={() => bulkDeleteContacts(Array.from(selectedContacts))}
-                      className="px-3 py-1 text-sm bg-red-500 hover:bg-red-600 text-white rounded"
+                      className="px-2 sm:px-3 py-1 text-xs sm:text-sm bg-red-500 hover:bg-red-600 text-white rounded"
                     >
-                      🗑️ Delete
+                      🗑️ <span className="hidden sm:inline">Delete</span>
                     </button>
                   </div>
                 )}
@@ -438,15 +456,15 @@ export default function AdminContactsPage() {
           )}
 
           {/* Filters */}
-          <div className="grid md:grid-cols-3 gap-6 mb-8">
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-4 sm:gap-6 mb-6 sm:mb-8 px-4 sm:px-0">
             {/* Subject Filter */}
             {uniqueSubjects.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold mb-4">Filter by Subject</h3>
+                <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Filter by Subject</h3>
                 <div className="flex flex-wrap gap-2">
                   <button
                     onClick={() => setSelectedSubject('All')}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                    className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                       selectedSubject === 'All'
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80'
@@ -458,14 +476,16 @@ export default function AdminContactsPage() {
                     <button
                       key={subject}
                       onClick={() => setSelectedSubject(subject)}
-                      className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+                      className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors flex items-center gap-1 sm:gap-2 ${
                         selectedSubject === subject
                           ? 'bg-primary text-primary-foreground'
                           : 'bg-muted hover:bg-muted/80'
                       }`}
                     >
                       <span>{SUBJECT_ICONS[subject as keyof typeof SUBJECT_ICONS]}</span>
-                      {subject} ({subjectCounts[subject]})
+                      <span className="hidden sm:inline">{subject}</span>
+                      <span className="sm:hidden">{subject.slice(0, 8)}...</span>
+                      ({subjectCounts[subject]})
                     </button>
                   ))}
                 </div>
@@ -474,11 +494,11 @@ export default function AdminContactsPage() {
 
             {/* Status Filter */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Filter by Status</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Filter by Status</h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSelectedStatus('All')}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                     selectedStatus === 'All'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted hover:bg-muted/80'
@@ -490,7 +510,7 @@ export default function AdminContactsPage() {
                   <button
                     key={status}
                     onClick={() => setSelectedStatus(status)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
+                    className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors capitalize ${
                       selectedStatus === status
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80'
@@ -504,11 +524,11 @@ export default function AdminContactsPage() {
 
             {/* Priority Filter */}
             <div>
-              <h3 className="text-lg font-semibold mb-4">Filter by Priority</h3>
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Filter by Priority</h3>
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setSelectedPriority('All')}
-                  className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
+                  className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
                     selectedPriority === 'All'
                       ? 'bg-primary text-primary-foreground'
                       : 'bg-muted hover:bg-muted/80'
@@ -520,7 +540,7 @@ export default function AdminContactsPage() {
                   <button
                     key={priority}
                     onClick={() => setSelectedPriority(priority)}
-                    className={`px-3 py-2 rounded-lg text-sm font-medium transition-colors capitalize ${
+                    className={`px-2 sm:px-3 py-1 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors capitalize ${
                       selectedPriority === priority
                         ? 'bg-primary text-primary-foreground'
                         : 'bg-muted hover:bg-muted/80'

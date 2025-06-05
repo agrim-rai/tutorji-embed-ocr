@@ -1,10 +1,30 @@
 import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth/next';
+import { authOptions } from '@/lib/auth';
 import dbConnect from '@/lib/mongoose';
 import User from '@/models/User';
 import ChatbotSession from '@/models/ChatbotSession';
+import Summary from '@/models/summary';
 
 export async function GET() {
   try {
+    // Check authentication and authorization
+    const session = await getServerSession(authOptions);
+    
+    if (!session) {
+      return NextResponse.json(
+        { error: 'Authentication required' },
+        { status: 401 }
+      );
+    }
+
+    if (session.user?.role !== 'admin') {
+      return NextResponse.json(
+        { error: 'Admin access required' },
+        { status: 403 }
+      );
+    }
+
     await dbConnect();
 
     // Get current date and time boundaries
@@ -169,6 +189,143 @@ export async function GET() {
       }
     ]);
     
+    // === STEP BREAKDOWN (SUMMARY) ANALYTICS ===
+    
+    // Total step breakdowns ever
+    const totalStepBreakdowns = await Summary.countDocuments();
+    
+    // Step breakdowns created today
+    const stepBreakdownsToday = await Summary.countDocuments({
+      createdAt: { $gte: todayStart }
+    });
+    
+    // Step breakdowns created yesterday
+    const stepBreakdownsYesterday = await Summary.countDocuments({
+      createdAt: { 
+        $gte: yesterdayStart,
+        $lt: todayStart
+      }
+    });
+    
+    // Step breakdowns created this week
+    const stepBreakdownsThisWeek = await Summary.countDocuments({
+      createdAt: { $gte: weekStart }
+    });
+    
+    // Step breakdowns created this month
+    const stepBreakdownsThisMonth = await Summary.countDocuments({
+      createdAt: { $gte: monthStart }
+    });
+    
+    // Daily step breakdowns for the last 7 days
+    const dailyStepBreakdowns = await Summary.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: weekStart }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            $dateToString: { format: "%Y-%m-%d", date: "$createdAt" }
+          },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+    
+    // Top 5 most active users for step breakdowns
+    const topStepBreakdownUsers = await Summary.aggregate([
+      {
+        $group: {
+          _id: "$useremail",
+          totalUsage: { $sum: 1 },
+          lastUsed: { $max: "$createdAt" },
+          firstUsed: { $min: "$createdAt" }
+        }
+      },
+      {
+        $sort: { totalUsage: -1 }
+      },
+      {
+        $limit: 5
+      }
+    ]);
+    
+    // Unique users who used step breakdown feature
+    const uniqueStepBreakdownUsers = await Summary.distinct("useremail");
+    const uniqueStepBreakdownUsersCount = uniqueStepBreakdownUsers.length;
+    
+    // Step breakdown usage by user distribution
+    const stepBreakdownUserDistribution = await Summary.aggregate([
+      {
+        $group: {
+          _id: "$useremail",
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $bucket: {
+          groupBy: "$count",
+          boundaries: [1, 2, 5, 10, 25, 50],
+          default: "50+",
+          output: {
+            userCount: { $sum: 1 },
+            avgUsage: { $avg: "$count" }
+          }
+        }
+      }
+    ]);
+    
+    // Weekly step breakdown trends for the last 4 weeks
+    const weeklyStepBreakdowns = await Summary.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: monthStart }
+        }
+      },
+      {
+        $group: {
+          _id: {
+            year: { $year: "$createdAt" },
+            week: { $week: "$createdAt" }
+          },
+          count: { $sum: 1 },
+          uniqueUsers: { $addToSet: "$useremail" },
+          startDate: { $min: "$createdAt" }
+        }
+      },
+      {
+        $addFields: {
+          uniqueUserCount: { $size: "$uniqueUsers" }
+        }
+      },
+      {
+        $sort: { startDate: 1 }
+      }
+    ]);
+    
+    // Hourly usage pattern for step breakdowns (last 7 days)
+    const hourlyStepBreakdownPattern = await Summary.aggregate([
+      {
+        $match: {
+          createdAt: { $gte: weekStart }
+        }
+      },
+      {
+        $group: {
+          _id: { $hour: "$createdAt" },
+          count: { $sum: 1 }
+        }
+      },
+      {
+        $sort: { _id: 1 }
+      }
+    ]);
+
     // Recent activity (last 10 users and sessions)
     const recentUsers = await User.find({})
       .sort({ createdAt: -1 })
@@ -179,6 +336,12 @@ export async function GET() {
       .sort({ createdAt: -1 })
       .limit(10)
       .select('sessionId createdAt');
+      
+    // Recent step breakdowns
+    const recentStepBreakdowns = await Summary.find({})
+      .sort({ createdAt: -1 })
+      .limit(10)
+      .select('useremail createdAt imageurl');
 
     // Calculate growth rates
     const userGrowthRate = usersYesterday > 0 ? 
@@ -188,6 +351,10 @@ export async function GET() {
     const sessionGrowthRate = sessionsYesterday > 0 ? 
       ((sessionsToday - sessionsYesterday) / sessionsYesterday * 100).toFixed(1) : 
       (sessionsToday > 0 ? 100 : 0);
+      
+    const stepBreakdownGrowthRate = stepBreakdownsYesterday > 0 ? 
+      ((stepBreakdownsToday - stepBreakdownsYesterday) / stepBreakdownsYesterday * 100).toFixed(1) : 
+      (stepBreakdownsToday > 0 ? 100 : 0);
 
     const analytics = {
       users: {
@@ -210,6 +377,21 @@ export async function GET() {
         daily: dailySessions,
         weekly: weeklySessions,
         recent: recentSessions
+      },
+      stepBreakdowns: {
+        total: totalStepBreakdowns,
+        today: stepBreakdownsToday,
+        yesterday: stepBreakdownsYesterday,
+        thisWeek: stepBreakdownsThisWeek,
+        thisMonth: stepBreakdownsThisMonth,
+        growthRate: parseFloat(stepBreakdownGrowthRate),
+        uniqueUsers: uniqueStepBreakdownUsersCount,
+        daily: dailyStepBreakdowns,
+        weekly: weeklyStepBreakdowns,
+        hourlyPattern: hourlyStepBreakdownPattern,
+        topUsers: topStepBreakdownUsers,
+        userDistribution: stepBreakdownUserDistribution,
+        recent: recentStepBreakdowns
       },
       credits: {
         average: creditStats[0]?.avgCredits?.toFixed(2) || 0,
