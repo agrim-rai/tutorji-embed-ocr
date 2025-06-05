@@ -1,216 +1,147 @@
-# tutorji - AI-Powered Learning Platform
+# Tutorji - Interactive Learning Assistant
 
-**URL:** https://tutorji.in/
+A Next.js application that provides step-by-step analysis and interactive learning for educational content using AI.
 
-## Tech Stack
+## Features
 
-- **Frontend**: Next.js 14, React 18, TypeScript
-- **Styling**: Tailwind CSS, Framer Motion
-- **Authentication**: NextAuth.js with Google OAuth
-- **Database**: MongoDB with Mongoose
-- **AI Integration**: OpenAI GPT-4 (o4-mini / o3 if required)
-- **Image file upload and CDN**: Cloudinary
+- **Image Upload & Analysis**: Upload question images with Cloudinary integration
+- **Step-by-Step Breakdown**: AI-powered analysis with detailed steps and sub-steps  
+- **Interactive Learning**: AI chatbot for personalized guidance
+- **Database Storage**: Complete analysis tracking and user analytics
+- **Authentication**: Google OAuth integration
+- **Responsive Design**: Mobile and desktop optimized
 
-## Prerequisites
+## Environment Variables
 
-Before you begin, ensure you have the following installed:
+Create a `.env.local` file in the root directory with the following variables:
 
-- Node.js (version 18.0 or higher)
-- npm or yarn package manager
-- Git
-- MongoDB database (local or cloud)
+```env
+# Database
+MONGODB_URI=your_mongodb_connection_string
 
-## Installation & Setup
+# Authentication (NextAuth.js)
+NEXTAUTH_URL=http://localhost:3000
+NEXTAUTH_SECRET=your_nextauth_secret
+GOOGLE_CLIENT_ID=your_google_client_id
+GOOGLE_CLIENT_SECRET=your_google_client_secret
 
-### 1. Clone the Repository
+# OpenAI API
+OPENAI_API_KEY=your_openai_api_key
 
+# Cloudinary (for image uploads)
+CLOUDINARY_CLOUD_NAME=your_cloudinary_cloud_name
+CLOUDINARY_API_KEY=your_cloudinary_api_key
+CLOUDINARY_API_SECRET=your_cloudinary_api_secret
+
+# Optional: Admin email for enhanced permissions
+ADMIN_EMAIL=your_admin_email@example.com
+```
+
+## Getting Started
+
+1. **Clone the repository**
 ```bash
-git clone https://bitbucket.org/bigvisionllc/tutorji.git
+   git clone <repository-url>
 cd tutorji
 ```
 
-### 2. Install Dependencies
-
+2. **Install dependencies**
 ```bash
 npm install
 ```
 
-### 3. Environment Variables Setup
+3. **Set up environment variables**
+   - Copy the environment variables above into `.env.local`
+   - Configure your MongoDB, Google OAuth, OpenAI, and Cloudinary credentials
 
-Create a `.env.local` file in the root directory and add the following environment variables:
-
-```env
-# Next.js Configuration
-NEXTAUTH_URL=http://localhost:3000
-NEXTAUTH_SECRET=your-nextauth-secret-key-here
-
-# Google OAuth Configuration
-GOOGLE_CLIENT_ID=your-google-client-id
-GOOGLE_CLIENT_SECRET=your-google-client-secret
-
-# OpenAI Configuration
-OPENAI_API_KEY=your-openai-api-key
-
-# MongoDB Configuration
-MONGODB_URI=mongodb://localhost:27017/tutorji
-# or for cloud MongoDB:
-# MONGODB_URI=mongodb+srv://username:password@cluster.mongodb.net/tutorji
-
-# Cloudinary Configuration (for image uploads)
-CLOUDINARY_CLOUD_NAME=your-cloudinary-cloud-name
-CLOUDINARY_API_KEY=your-cloudinary-api-key
-CLOUDINARY_API_SECRET=your-cloudinary-api-secret
-```
-
-## Running the Development Server
-
-### Start the development server:
-
+4. **Run the development server**
 ```bash
 npm run dev
 ```
 
-The application will be available at: http://localhost:3000
+5. **Open your browser**
+   Navigate to [http://localhost:3000](http://localhost:3000)
 
-### Build for Production:
+## Database Schema
 
-```bash
-npm run build
-npm start
-```
+The application uses MongoDB with the following main collections:
 
-## Usage Guide
+### Analysis Collection
+- **Image Data**: Cloudinary URLs, metadata, dimensions
+- **Question Summary**: AI-generated question analysis
+- **Step Breakdown**: Hierarchical steps with sub-steps and theory
+- **Interactive Learning**: Chatbot session data
+- **Analytics**: View counts, user interactions, completion tracking
+- **User Management**: Authentication, credits, permissions
 
-### 1. Upload Question Image
-- Navigate to `/upload-image`
-- Drag & drop an image or click to browse
-- Paste from clipboard (Ctrl+V / Cmd+V)
-- Supported formats: JPG, PNG, GIF, WebP
+### Key Features of the Schema
+- **Auto-tagging**: Automatically extracts subject tags from content
+- **Analytics Tracking**: Monitors user engagement and learning progress
+- **Access Control**: Public/private sharing with expiration dates
+- **Credit System**: Tracks API usage for different features
 
-### 2. AI Processing
-- Click "Breakdown Problem" to start AI analysis
-- Mock/hard coded thinking process
-- AI will generate scaffolded sub-questions
+## API Endpoints
 
-### 3. Interactive Learning
-- Click "Start Learning with AI Bot" to begin
-- Navigate through step-by-step guidance
-- View original question with zoom controls
+### Image Upload
+- `POST /api/upload-image` - Upload images to Cloudinary
 
+### Analysis Management
+- `POST /api/analysis` - Create new analysis
+- `GET /api/analysis` - List analyses (user's or public)
+- `GET /api/analysis/[id]` - Get specific analysis
+- `PATCH /api/analysis/[id]` - Update analysis
+- `DELETE /api/analysis/[id]` - Delete analysis
 
-## Testing
+### Content Generation
+- `POST /api/breakdown` - Generate step-by-step analysis
+- `POST /api/process-image` - Process images for interactive learning
 
-### Run Tests:
+### User Management
+- `GET /api/user/credits` - Get user credits
+- `PATCH /api/user/credits` - Update user credits
 
-```bash
-npm test
-```
+## Technology Stack
 
-### API Testing:
+- **Frontend**: Next.js 14, React, TypeScript, Tailwind CSS
+- **Backend**: Next.js API Routes, MongoDB, Mongoose
+- **Authentication**: NextAuth.js with Google OAuth
+- **AI/ML**: OpenAI GPT-4, GPT-4o-mini
+- **Image Storage**: Cloudinary
+- **UI Components**: Custom components with Framer Motion
+- **Math Rendering**: Custom LaTeX renderer
 
-Refer README_API.md file
+## Key Features
 
-## Database Models
+### Intelligent Image Analysis
+- Cloudinary integration for optimized image storage
+- AI-powered question analysis and categorization
+- Automatic concept extraction and tagging
 
-### User Model (`src/models/User.js`)
-**Purpose**: Stores user account information and credit system data
+### Structured Learning
+- Hierarchical breakdown (Steps → Sub-steps → Theory)
+- On-demand theory explanations
+- Interactive expansion tracking
 
-**Schema**:
-```javascript
-{
-  name: {
-    type: String,
-    required: true,
-    description: "User's display name from OAuth"
-  },
-  email: {
-    type: String,
-    required: true,
-    unique: true,
-    validation: "Valid email format required"
-  },
-  image: {
-    type: String,
-    description: "Profile image URL from OAuth provider"
-  },
-  credits: {
-    type: Number,
-    default: 25,
-    description: "Available credits for AI question asking"
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-    description: "Account creation timestamp"
-  }
-}
-```
+### User Analytics
+- Learning progress tracking
+- Interaction analytics
+- Completion percentages
+- Reading time estimation
 
-**Usage**:
-- Created automatically on first Google OAuth login
-- Referenced in AIResponse model for question history
+### Sharing & Collaboration
+- Public/private analysis sharing
+- Shareable links with access controls
+- Comment support (configurable)
+- Expiration dates for shared content
 
-### AIResponse Model (`src/models/AIResponse.js`)
-**Purpose**: Stores user's question-answer history for the main AI chat feature
+## Contributing
 
-**Schema**:
-```javascript
-{
-  userId: {
-    type: ObjectId,
-    ref: 'User',
-    description: "Reference to the user who asked the question"
-  },
-  question: {
-    type: String,
-    required: true,
-    description: "User's original question text"
-  },
-  answer: {
-    type: String,
-    required: true,
-    description: "AI-generated response with analysis and solution"
-  },
-  imageId: {
-    type: String,
-    default: null,
-    description: "Cloudinary public ID if question included an image"
-  },
-  imageUrl: {
-    type: String,
-    default: null,
-    description: "Full Cloudinary URL for image reference"
-  },
-  createdAt: {
-    type: Date,
-    default: Date.now,
-    description: "Timestamp when question was asked"
-  }
-}
-```
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests if applicable
+5. Submit a pull request
 
+## License
 
-**JSON Data Structure**:
-```javascript
-{
-  questions: ["Array of sub-questions"],
-  options: [["4 options per question"]],
-  correct_answers: [0, 1, 2], // Indices of correct options
-  hint1: ["Light hints for each question"],
-  hint2: ["Stronger hints for each question"],
-  explanations: ["Detailed explanations for correct answers"],
-  conceptual_explanation: ["Core concepts and formulas"],
-  concept_tags: [["Subject tags", "Topic tags"]]
-}
-```
-
-**Usage**:
-- Created via `/api/upload-json` after image processing
-- Retrieved via `/api/session` for learnbot interface
-- Automatically expires after 30 days to manage storage
-
-
-
-## 🔑 API Endpoints
-
-Refer README_API.md file
+[Add your license information here]

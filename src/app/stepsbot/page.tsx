@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import React, { useState, useRef, useEffect, useCallback } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useRef, useEffect, useCallback } from "react";
+import { motion, AnimatePresence } from "framer-motion";
 import { useSession, signIn, signOut } from "next-auth/react";
-import ReactCrop, { Crop, PixelCrop } from 'react-image-crop';
-import 'react-image-crop/dist/ReactCrop.css';
+import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
 import {
   Upload,
   Image as ImageIcon,
@@ -35,11 +35,11 @@ import {
   RotateCw,
   Crop as CropIcon,
   Clipboard,
-} from 'lucide-react';
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
-import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
+import { SimpleMathRenderer } from "@/components/ui/simple-math-renderer";
 import { ShiningText } from "@/components/ui/shining-text";
 import { ResponseStream } from "@/components/ui/response-stream";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
@@ -47,10 +47,16 @@ import dynamic from "next/dynamic";
 import Link from "next/link";
 
 // Lazy load the SplineSceneBasic component with SSR disabled and error handling
-const SplineSceneBasic = dynamic(() => import("@/components/robotui").then(mod => ({ default: mod.SplineSceneBasic })), {
-  ssr: false,
-  loading: () => null, // No loading placeholder since it won't show on mobile anyway
-});
+const SplineSceneBasic = dynamic(
+  () =>
+    import("@/components/robotui").then((mod) => ({
+      default: mod.SplineSceneBasic,
+    })),
+  {
+    ssr: false,
+    loading: () => null, // No loading placeholder since it won't show on mobile anyway
+  }
+);
 
 // Error boundary component for the robot UI
 const RobotUIWrapper: React.FC = () => {
@@ -67,7 +73,7 @@ const RobotUIWrapper: React.FC = () => {
   try {
     return <SplineSceneBasic />;
   } catch (error) {
-    console.warn('Robot UI failed to load:', error);
+    console.warn("Robot UI failed to load:", error);
     setHasError(true);
     return null;
   }
@@ -129,51 +135,81 @@ interface StreamingMessage {
 
 /**
  * UserProfile Component
- * 
+ *
  * Displays the current user's information and credits status
  * Shows upgrade option for free users and authentication status
  */
-const UserProfile: React.FC<{ 
-  session: any; 
-  darkMode?: boolean; 
+const UserProfile: React.FC<{
+  session: any;
+  darkMode?: boolean;
   realTimeCredits?: number | null;
   creditsLoading?: boolean;
   onRefreshCredits?: () => void;
-}> = ({ session, darkMode = false, realTimeCredits, creditsLoading, onRefreshCredits }) => {
+}> = ({
+  session,
+  darkMode = false,
+  realTimeCredits,
+  creditsLoading,
+  onRefreshCredits,
+}) => {
   // Check if user is authenticated
   const isAuthenticated = !!session?.user;
-  
+
   // Handle user logout
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' });
+    await signOut({ callbackUrl: "/" });
   };
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/' });
+    await signIn("google", { callbackUrl: "/" });
   };
-  
+
   // If not authenticated, show login prompt
   if (!isAuthenticated) {
     return (
-      <div className={`p-3 ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg backdrop-blur-sm`}>
+      <div
+        className={`p-3 ${
+          darkMode
+            ? "bg-gray-800/50 border-gray-700"
+            : "bg-gray-50 border-gray-200"
+        } border rounded-lg backdrop-blur-sm`}
+      >
         <div className="flex items-center space-x-3">
-          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-            darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-600'
-          }`}>
+          <div
+            className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+              darkMode
+                ? "bg-gray-700 text-gray-300"
+                : "bg-gray-200 text-gray-600"
+            }`}
+          >
             <User size={16} />
           </div>
-          
+
           <div className="flex-grow">
-            <h3 className={`text-sm font-medium ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>Guest User</h3>
-            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Sign in to access AI features</p>
+            <h3
+              className={`text-sm font-medium ${
+                darkMode ? "text-gray-200" : "text-gray-900"
+              }`}
+            >
+              Guest User
+            </h3>
+            <p
+              className={`text-xs ${
+                darkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              Sign in to access AI features
+            </p>
           </div>
         </div>
-        
+
         <button
           onClick={handleSignIn}
           className={`mt-3 w-full py-2 rounded-lg text-sm font-medium ${
-            darkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+            darkMode
+              ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+              : "bg-indigo-500 hover:bg-indigo-600 text-white"
           } transition-colors flex items-center justify-center`}
         >
           <User className="mr-2" size={14} />
@@ -182,71 +218,108 @@ const UserProfile: React.FC<{
       </div>
     );
   }
-  
+
   // For authenticated users, show compact profile with credits
   const user = session.user;
   // Use real-time credits if available, otherwise fall back to session credits
-  const creditsRemaining = realTimeCredits !== null ? realTimeCredits : (user.credits !== undefined ? user.credits : 0);
+  const creditsRemaining =
+    realTimeCredits !== null
+      ? realTimeCredits
+      : user.credits !== undefined
+      ? user.credits
+      : 0;
   const totalCredits = 25; // This could be made dynamic in the future
-  
+
   return (
-    <div className={`p-3 ${darkMode ? 'bg-gray-800/50 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg backdrop-blur-sm`}>
+    <div
+      className={`p-3 ${
+        darkMode
+          ? "bg-gray-800/50 border-gray-700"
+          : "bg-gray-50 border-gray-200"
+      } border rounded-lg backdrop-blur-sm`}
+    >
       {/* Compact user profile header */}
       <div className="flex items-center justify-between">
         <div className="flex items-center space-x-2">
           {user.image ? (
             <div className="w-8 h-8 rounded-full overflow-hidden border border-indigo-500">
-              <img 
-                src={user.image} 
-                alt={user.name || 'User'} 
+              <img
+                src={user.image}
+                alt={user.name || "User"}
                 className="w-full h-full object-cover"
               />
             </div>
           ) : (
-            <div className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
-              darkMode ? 'bg-indigo-600 text-white' : 'bg-indigo-500 text-white'
-            }`}>
-              {user.name?.charAt(0) || 'U'}
+            <div
+              className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-semibold ${
+                darkMode
+                  ? "bg-indigo-600 text-white"
+                  : "bg-indigo-500 text-white"
+              }`}
+            >
+              {user.name?.charAt(0) || "U"}
             </div>
           )}
-          
+
           <div className="flex-grow min-w-0">
             <div className="flex items-center space-x-1">
-              <h3 className={`text-sm font-medium truncate ${darkMode ? 'text-gray-200' : 'text-gray-900'}`}>
-                {user.name || 'User'}
+              <h3
+                className={`text-sm font-medium truncate ${
+                  darkMode ? "text-gray-200" : "text-gray-900"
+                }`}
+              >
+                {user.name || "User"}
               </h3>
               {user.accountType === "pro" && (
-                <span className={`px-1.5 py-0.5 rounded text-xs font-medium ${
-                  darkMode ? 'bg-yellow-800 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
-                } flex items-center space-x-1`}>
+                <span
+                  className={`px-1.5 py-0.5 rounded text-xs font-medium ${
+                    darkMode
+                      ? "bg-yellow-800 text-yellow-300"
+                      : "bg-yellow-100 text-yellow-800"
+                  } flex items-center space-x-1`}
+                >
                   <Crown size={8} />
                   <span>PRO</span>
                 </span>
               )}
             </div>
-            <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user.email}</p>
+            <p
+              className={`text-xs truncate ${
+                darkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              {user.email}
+            </p>
           </div>
         </div>
-        
+
         {/* Logout button */}
-        <button 
+        <button
           onClick={handleLogout}
           className={`p-1.5 rounded-lg text-xs font-medium ${
-            darkMode ? 'bg-gray-700 hover:bg-gray-600 text-gray-300' : 'bg-gray-200 hover:bg-gray-300 text-gray-700'
+            darkMode
+              ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+              : "bg-gray-200 hover:bg-gray-300 text-gray-700"
           } transition-colors flex items-center`}
           title="Logout"
         >
           <LogOut size={12} />
         </button>
       </div>
-      
+
       {/* Compact credits display */}
-      <div className={`mt-2 p-2 rounded ${
-        darkMode ? 'bg-gray-700/50' : 'bg-white/80'
-      }`}>
+      <div
+        className={`mt-2 p-2 rounded ${
+          darkMode ? "bg-gray-700/50" : "bg-white/80"
+        }`}
+      >
         <div className="flex justify-between items-center mb-1">
           <div className="flex items-center gap-1">
-            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+            <span
+              className={`text-xs ${
+                darkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
               Credits
             </span>
             {onRefreshCredits && (
@@ -254,45 +327,57 @@ const UserProfile: React.FC<{
                 onClick={onRefreshCredits}
                 disabled={creditsLoading}
                 className={`p-0.5 rounded hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors ${
-                  creditsLoading ? 'opacity-50 cursor-not-allowed' : ''
+                  creditsLoading ? "opacity-50 cursor-not-allowed" : ""
                 }`}
                 title="Refresh credits"
               >
-                <RefreshCw 
-                  size={10} 
-                  className={`${creditsLoading ? 'animate-spin' : ''} ${
-                    darkMode ? 'text-gray-400' : 'text-gray-500'
-                  }`} 
+                <RefreshCw
+                  size={10}
+                  className={`${creditsLoading ? "animate-spin" : ""} ${
+                    darkMode ? "text-gray-400" : "text-gray-500"
+                  }`}
                 />
               </button>
             )}
           </div>
-          <span className={`text-xs font-medium ${
-            (creditsRemaining <= 1)
-              ? 'text-red-500' 
-              : darkMode ? 'text-indigo-400' : 'text-indigo-600'
-          }`}>
-            {creditsLoading ? '...' : `${creditsRemaining}/${totalCredits}`}
+          <span
+            className={`text-xs font-medium ${
+              creditsRemaining <= 1
+                ? "text-red-500"
+                : darkMode
+                ? "text-indigo-400"
+                : "text-indigo-600"
+            }`}
+          >
+            {creditsLoading ? "..." : `${creditsRemaining}/${totalCredits}`}
           </span>
         </div>
-        
+
         {/* Compact credits progress bar */}
-        <div className={`w-full h-1.5 rounded-full overflow-hidden ${
-          darkMode ? 'bg-gray-600' : 'bg-gray-200'
-        }`}>
-          <div 
+        <div
+          className={`w-full h-1.5 rounded-full overflow-hidden ${
+            darkMode ? "bg-gray-600" : "bg-gray-200"
+          }`}
+        >
+          <div
             style={{ width: `${(creditsRemaining / totalCredits) * 100}%` }}
             className={`h-full transition-all duration-500 ${
-              (creditsRemaining <= 1) 
-                ? 'bg-red-500' 
-                : darkMode ? 'bg-indigo-500' : 'bg-indigo-500'
+              creditsRemaining <= 1
+                ? "bg-red-500"
+                : darkMode
+                ? "bg-indigo-500"
+                : "bg-indigo-500"
             }`}
           ></div>
         </div>
-        
+
         {/* Credits reset notice for free users with no credits */}
         {user.accountType === "free" && creditsRemaining === 0 && (
-          <div className={`mt-1 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center`}>
+          <div
+            className={`mt-1 text-xs ${
+              darkMode ? "text-gray-400" : "text-gray-500"
+            } text-center`}
+          >
             Resets in 24h
           </div>
         )}
@@ -304,48 +389,52 @@ const UserProfile: React.FC<{
 export default function StepsBot() {
   // Session management
   const { data: session, status } = useSession();
-  
+
   // Image upload states
   const [selectedImage, setSelectedImage] = useState<File | null>(null);
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isDragOver, setIsDragOver] = useState(false);
-  
+
   // Steps breakdown states
   const [steps, setSteps] = useState<Step[]>([]);
   const [isLoadingMainSteps, setIsLoadingMainSteps] = useState(false);
   const [questionSummary, setQuestionSummary] = useState<string | null>(null);
   const [isLoadingSummary, setIsLoadingSummary] = useState(false);
-  
+
   // Interactive learning states
   const [botResult, setBotResult] = useState<BotResult | null>(null);
   const [showIframe, setShowIframe] = useState(false);
   const [showFullQuestion, setShowFullQuestion] = useState(false);
   const [processing, setProcessing] = useState(false);
-  const [processedData, setProcessedData] = useState<ProcessedData | null>(null);
-  
+  const [processedData, setProcessedData] = useState<ProcessedData | null>(
+    null
+  );
+
   // Add new states for streaming and layout
   const [isStreaming, setIsStreaming] = useState(false);
-  const [streamingMessages, setStreamingMessages] = useState<StreamingMessage[]>([]);
+  const [streamingMessages, setStreamingMessages] = useState<
+    StreamingMessage[]
+  >([]);
   const [showDesktopLayout, setShowDesktopLayout] = useState(false);
-  
+
   // General states
-  const [error, setError] = useState('');
+  const [error, setError] = useState("");
   const [realTimeCredits, setRealTimeCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
   const [isMobile, setIsMobile] = useState(false);
   const [isDarkMode, setIsDarkMode] = useState(false);
   const [shareUrl, setShareUrl] = useState<string | null>(null);
   const [shareCopied, setShareCopied] = useState(false);
-  
+
   // Clipboard and focus states
   const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
   const [clipboardFocused, setClipboardFocused] = useState(false);
-  
+
   // Camera and crop states
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
   const [crop, setCrop] = useState<Crop>({
-    unit: '%',
+    unit: "%",
     width: 90,
     height: 90,
     x: 5,
@@ -353,7 +442,7 @@ export default function StepsBot() {
   });
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [rotationAngle, setRotationAngle] = useState(0);
-  
+
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const uploadAreaRef = useRef<HTMLDivElement>(null);
@@ -362,7 +451,7 @@ export default function StepsBot() {
 
   // Handle direct Google sign in
   const handleSignIn = async () => {
-    await signIn('google', { callbackUrl: '/' });
+    await signIn("google", { callbackUrl: "/" });
   };
 
   // Check if screen is mobile
@@ -370,63 +459,63 @@ export default function StepsBot() {
     const checkMobile = () => {
       setIsMobile(window.innerWidth < 768);
     };
-    
+
     checkMobile();
-    window.addEventListener('resize', checkMobile);
-    
+    window.addEventListener("resize", checkMobile);
+
     return () => {
-      window.removeEventListener('resize', checkMobile);
+      window.removeEventListener("resize", checkMobile);
     };
   }, []);
 
   // Check for dark mode
   useEffect(() => {
     const checkDarkMode = () => {
-      setIsDarkMode(document.documentElement.classList.contains('dark'));
+      setIsDarkMode(document.documentElement.classList.contains("dark"));
     };
-    
+
     checkDarkMode();
     const observer = new MutationObserver(checkDarkMode);
     observer.observe(document.documentElement, {
       attributes: true,
-      attributeFilter: ['class']
+      attributeFilter: ["class"],
     });
-    
+
     return () => observer.disconnect();
   }, []);
 
   // Fetch user credits
   const fetchUserCredits = useCallback(async () => {
-    if (status !== 'authenticated' || !session?.user?.email) return;
-    
+    if (status !== "authenticated" || !session?.user?.email) return;
+
     try {
       setCreditsLoading(true);
-      const response = await fetch('/api/user/credits');
+      const response = await fetch("/api/user/credits");
       if (response.ok) {
         const data = await response.json();
         setRealTimeCredits(data.credits);
-        
+
         // Update session object with latest credits for immediate UI updates
         if (session?.user) {
           (session.user as any).credits = data.credits;
         }
       }
     } catch (error) {
-      console.error('Error fetching credits:', error);
+      console.error("Error fetching credits:", error);
     } finally {
       setCreditsLoading(false);
     }
   }, [status, session?.user?.email, session?.user]);
 
   useEffect(() => {
-    if (status === 'authenticated') {
+    if (status === "authenticated") {
       fetchUserCredits();
     }
   }, [status, fetchUserCredits]);
 
   // Set up periodic credit refresh every 30 seconds
   useEffect(() => {
-    if (status !== 'authenticated') return;
+    if (status !== "authenticated") return;
 
     const intervalId = setInterval(() => {
       fetchUserCredits();
@@ -438,17 +527,18 @@ export default function StepsBot() {
   // Manual refresh on window focus (when user comes back to tab)
   useEffect(() => {
     const handleFocus = () => {
-      if (status === 'authenticated') {
+      if (status === "authenticated") {
         fetchUserCredits();
       }
     };
 
-    window.addEventListener('focus', handleFocus);
-    return () => window.removeEventListener('focus', handleFocus);
+    window.addEventListener("focus", handleFocus);
+    return () => window.removeEventListener("focus", handleFocus);
   }, [status, fetchUserCredits]); // Add fetchUserCredits to dependency array
 
   // Utility functions
-  const generateUniqueId = () => `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+  const generateUniqueId = () =>
+    `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
 
   const convertImageToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
@@ -461,16 +551,18 @@ export default function StepsBot() {
 
   const parseStepsFromContent = (content: string): string[] => {
     if (!content || !content.trim()) return [];
-    
-    const blocks = content.split('\n\n').filter(block => block.trim());
-    
+
+    const blocks = content.split("\n\n").filter((block) => block.trim());
+
     if (blocks.length > 1) {
       const completeSteps: string[] = [];
-      let currentStep = '';
-      
+      let currentStep = "";
+
       for (const block of blocks) {
-        const isStepStart = /^(Step|Sub-step)\s+\d+(\.\d+)?:/i.test(block.trim());
-        
+        const isStepStart = /^(Step|Sub-step)\s+\d+(\.\d+)?:/i.test(
+          block.trim()
+        );
+
         if (isStepStart && currentStep) {
           completeSteps.push(currentStep.trim());
           currentStep = block;
@@ -478,20 +570,22 @@ export default function StepsBot() {
           currentStep = block;
         } else {
           if (currentStep) {
-            currentStep += '\n\n' + block;
+            currentStep += "\n\n" + block;
           } else {
             currentStep = block;
           }
         }
       }
-      
+
       if (currentStep) {
         completeSteps.push(currentStep.trim());
       }
-      
-      return completeSteps.length > 0 ? completeSteps : blocks.map(block => block.trim());
+
+      return completeSteps.length > 0
+        ? completeSteps
+        : blocks.map((block) => block.trim());
     }
-    
+
     return [content.trim()];
   };
 
@@ -503,15 +597,15 @@ export default function StepsBot() {
 
     try {
       const imageBase64 = await convertImageToBase64(selectedImage);
-      
-      const response = await fetch('/api/breakdown', {
-        method: 'POST',
+
+      const response = await fetch("/api/breakdown", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           imageData: imageBase64,
-          type: 'summary'
+          type: "summary",
         }),
       });
 
@@ -520,11 +614,11 @@ export default function StepsBot() {
       if (data.success && data.content) {
         setQuestionSummary(data.content);
       } else {
-        console.error('Failed to get question summary:', data.error);
+        console.error("Failed to get question summary:", data.error);
         // Don't show error for summary failure, just continue without it
       }
     } catch (err) {
-      console.error('Network error getting summary:', err);
+      console.error("Network error getting summary:", err);
       // Don't show error for summary failure, just continue without it
     } finally {
       setIsLoadingSummary(false);
@@ -533,8 +627,8 @@ export default function StepsBot() {
 
   // Image handling functions
   const handleImageUpload = (file: File) => {
-    if (!file.type.startsWith('image/')) {
-      setError('Please select a valid image file');
+    if (!file.type.startsWith("image/")) {
+      setError("Please select a valid image file");
       return;
     }
 
@@ -542,7 +636,7 @@ export default function StepsBot() {
     setSteps([]);
     setBotResult(null);
     setProcessedData(null);
-    setError('');
+    setError("");
 
     const reader = new FileReader();
     reader.onload = (e) => {
@@ -629,25 +723,26 @@ export default function StepsBot() {
         try {
           const canvas = canvasRef.current;
           if (!canvas) {
-            reject(new Error('Canvas not available'));
+            reject(new Error("Canvas not available"));
             return;
           }
 
           const scaleX = image.naturalWidth / image.width;
           const scaleY = image.naturalHeight / image.height;
-          const ctx = canvas.getContext('2d');
+          const ctx = canvas.getContext("2d");
 
           if (!ctx) {
-            reject(new Error('Canvas context not available'));
+            reject(new Error("Canvas context not available"));
             return;
           }
 
           // Set canvas dimensions based on crop
           const cropWidth = crop.width * scaleX;
           const cropHeight = crop.height * scaleY;
-          
+
           // When rotating by 90 or 270 degrees, swap width and height
-          const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
+          const isRotated90or270 =
+            rotationAngle === 90 || rotationAngle === 270;
           canvas.width = isRotated90or270 ? cropHeight : cropWidth;
           canvas.height = isRotated90or270 ? cropWidth : cropHeight;
 
@@ -656,7 +751,7 @@ export default function StepsBot() {
           ctx.save();
           ctx.translate(canvas.width / 2, canvas.height / 2);
           ctx.rotate((rotationAngle * Math.PI) / 180);
-          
+
           // Draw the image with correct position adjustment for rotation
           ctx.drawImage(
             image,
@@ -669,22 +764,22 @@ export default function StepsBot() {
             cropWidth,
             cropHeight
           );
-          
+
           ctx.restore();
 
           canvas.toBlob(
             (blob) => {
               if (blob) {
-                const file = new File([blob], 'cropped-image.jpg', {
-                  type: 'image/jpeg',
+                const file = new File([blob], "cropped-image.jpg", {
+                  type: "image/jpeg",
                   lastModified: Date.now(),
                 });
                 resolve(file);
               } else {
-                reject(new Error('Failed to generate blob from canvas'));
+                reject(new Error("Failed to generate blob from canvas"));
               }
             },
-            'image/jpeg',
+            "image/jpeg",
             0.9
           );
         } catch (error) {
@@ -702,12 +797,15 @@ export default function StepsBot() {
     if (!completedCrop || !imgRef.current) return;
 
     try {
-      const croppedFile = await generateCroppedImage(imgRef.current, completedCrop);
+      const croppedFile = await generateCroppedImage(
+        imgRef.current,
+        completedCrop
+      );
       handleImageUpload(croppedFile);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
-      console.error('Crop operation failed:', error);
+      console.error("Crop operation failed:", error);
       setError("Failed to crop image. Please try again.");
     }
   };
@@ -742,24 +840,27 @@ export default function StepsBot() {
   /**
    * Handle clipboard paste functionality
    */
-  const handlePaste = useCallback((event: ClipboardEvent) => {
-    if (!isUploadAreaFocused && !clipboardFocused) return;
+  const handlePaste = useCallback(
+    (event: ClipboardEvent) => {
+      if (!isUploadAreaFocused && !clipboardFocused) return;
 
-    const items = event.clipboardData?.items;
-    if (!items) return;
+      const items = event.clipboardData?.items;
+      if (!items) return;
 
-    for (let i = 0; i < items.length; i++) {
-      const item = items[i];
-      if (item.type.startsWith("image/")) {
-        const file = item.getAsFile();
-        if (file) {
-          handleImageUpload(file);
-          event.preventDefault();
-          break;
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            handleImageUpload(file);
+            event.preventDefault();
+            break;
+          }
         }
       }
-    }
-  }, [isUploadAreaFocused, clipboardFocused]);
+    },
+    [isUploadAreaFocused, clipboardFocused]
+  );
 
   const handleUploadAreaClick = () => {
     setIsUploadAreaFocused(true);
@@ -809,7 +910,7 @@ export default function StepsBot() {
     setSteps([]);
     setBotResult(null);
     setProcessedData(null);
-    setError('');
+    setError("");
     setShowIframe(false);
     setShowCropModal(false);
     setCropImageSrc(null);
@@ -833,27 +934,30 @@ export default function StepsBot() {
   // Step analysis function
   const analyzeImageSteps = async () => {
     if (!selectedImage) {
-      setError('Please upload an image first');
+      setError("Please upload an image first");
       return;
     }
 
-    if (status === 'unauthenticated') {
-      setError('You need to sign in to use this feature');
+    if (status === "unauthenticated") {
+      setError("You need to sign in to use this feature");
       return;
     }
 
-    const currentCredits = realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0);
+    const currentCredits =
+      realTimeCredits !== null ? realTimeCredits : session?.user?.credits ?? 0;
     if (currentCredits <= 0) {
-      setError('No credits remaining. Please upgrade your account or wait for credits to reset.');
+      setError(
+        "No credits remaining. Please upgrade your account or wait for credits to reset."
+      );
       return;
     }
 
     // Deduct one credit first
     try {
-      const deductResponse = await fetch('/api/user/credits', {
-        method: 'PATCH',
+      const deductResponse = await fetch("/api/user/credits", {
+        method: "PATCH",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({ amount: 1 }),
       });
@@ -861,14 +965,14 @@ export default function StepsBot() {
       const deductResult = await deductResponse.json();
 
       if (!deductResponse.ok) {
-        setError(deductResult.error || 'Failed to deduct credit');
+        setError(deductResult.error || "Failed to deduct credit");
         return;
       }
 
       // Update real-time credits
       setRealTimeCredits(deductResult.credits);
     } catch (err) {
-      setError('Failed to process credit deduction');
+      setError("Failed to process credit deduction");
       return;
     }
 
@@ -877,20 +981,20 @@ export default function StepsBot() {
 
     // Then get the main steps
     setIsLoadingMainSteps(true);
-    setError('');
+    setError("");
     setSteps([]);
 
     try {
       const imageBase64 = await convertImageToBase64(selectedImage);
-      
-      const response = await fetch('/api/breakdown', {
-        method: 'POST',
+
+      const response = await fetch("/api/breakdown", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           imageData: imageBase64,
-          type: 'main'
+          type: "main",
         }),
       });
 
@@ -898,21 +1002,21 @@ export default function StepsBot() {
 
       if (data.success) {
         let newSteps: Step[] = [];
-        
+
         // Handle new structured JSON response
         if (data.data?.steps) {
-          newSteps = data.data.steps.map(step => ({
+          newSteps = data.data.steps.map((step) => ({
             id: generateUniqueId(),
             content: `${step.title}\n\n${step.description}`,
             subSteps: [],
             isExpanded: false,
             isLoadingSubSteps: false,
           }));
-        } 
+        }
         // Fallback to old content parsing for backward compatibility
         else if (data.content) {
           const stepContents = parseStepsFromContent(data.content);
-          newSteps = stepContents.map(content => ({
+          newSteps = stepContents.map((content) => ({
             id: generateUniqueId(),
             content,
             subSteps: [],
@@ -920,16 +1024,16 @@ export default function StepsBot() {
             isLoadingSubSteps: false,
           }));
         }
-        
+
         setSteps(newSteps);
-        
+
         // Update credits
         await fetchUserCredits();
       } else {
-        setError(data.error || 'Failed to analyze the image');
+        setError(data.error || "Failed to analyze the image");
       }
     } catch (err) {
-      setError('Network error occurred or failed to process image');
+      setError("Network error occurred or failed to process image");
     } finally {
       setIsLoadingMainSteps(false);
     }
@@ -937,26 +1041,24 @@ export default function StepsBot() {
 
   // Step interaction functions
   const handleGetSubSteps = async (stepId: string) => {
-    setSteps(prevSteps =>
-      prevSteps.map(step =>
-        step.id === stepId
-          ? { ...step, isLoadingSubSteps: true }
-          : step
+    setSteps((prevSteps) =>
+      prevSteps.map((step) =>
+        step.id === stepId ? { ...step, isLoadingSubSteps: true } : step
       )
     );
 
-    const step = steps.find(s => s.id === stepId);
+    const step = steps.find((s) => s.id === stepId);
     if (!step) return;
 
     try {
-      const response = await fetch('/api/breakdown', {
-        method: 'POST',
+      const response = await fetch("/api/breakdown", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           stepContext: step.content,
-          type: 'sub'
+          type: "sub",
         }),
       });
 
@@ -964,21 +1066,21 @@ export default function StepsBot() {
 
       if (data.success) {
         let newSubSteps: SubStep[] = [];
-        
+
         // Handle new structured JSON response
         if (data.data?.subSteps) {
-          newSubSteps = data.data.subSteps.map(subStep => ({
+          newSubSteps = data.data.subSteps.map((subStep) => ({
             id: generateUniqueId(),
             content: `${subStep.title}\n\n${subStep.description}`,
             theory: undefined,
             isExpanded: false,
             isLoadingTheory: false,
           }));
-        } 
+        }
         // Fallback to old content parsing for backward compatibility
         else if (data.content) {
           const subStepContents = parseStepsFromContent(data.content);
-          newSubSteps = subStepContents.map(content => ({
+          newSubSteps = subStepContents.map((content) => ({
             id: generateUniqueId(),
             content,
             theory: undefined,
@@ -987,8 +1089,8 @@ export default function StepsBot() {
           }));
         }
 
-        setSteps(prevSteps =>
-          prevSteps.map(step =>
+        setSteps((prevSteps) =>
+          prevSteps.map((step) =>
             step.id === stepId
               ? {
                   ...step,
@@ -1000,34 +1102,30 @@ export default function StepsBot() {
           )
         );
       } else {
-        setError(data.error || 'Failed to get sub-steps');
-        setSteps(prevSteps =>
-          prevSteps.map(step =>
-            step.id === stepId
-              ? { ...step, isLoadingSubSteps: false }
-              : step
+        setError(data.error || "Failed to get sub-steps");
+        setSteps((prevSteps) =>
+          prevSteps.map((step) =>
+            step.id === stepId ? { ...step, isLoadingSubSteps: false } : step
           )
         );
       }
     } catch (err) {
-      setError('Network error occurred');
-      setSteps(prevSteps =>
-        prevSteps.map(step =>
-          step.id === stepId
-            ? { ...step, isLoadingSubSteps: false }
-            : step
+      setError("Network error occurred");
+      setSteps((prevSteps) =>
+        prevSteps.map((step) =>
+          step.id === stepId ? { ...step, isLoadingSubSteps: false } : step
         )
       );
     }
   };
 
   const handleGetTheory = async (stepId: string, subStepId: string) => {
-    setSteps(prevSteps =>
-      prevSteps.map(step =>
+    setSteps((prevSteps) =>
+      prevSteps.map((step) =>
         step.id === stepId
           ? {
               ...step,
-              subSteps: step.subSteps.map(subStep =>
+              subSteps: step.subSteps.map((subStep) =>
                 subStep.id === subStepId
                   ? { ...subStep, isLoadingTheory: true }
                   : subStep
@@ -1037,31 +1135,31 @@ export default function StepsBot() {
       )
     );
 
-    const step = steps.find(s => s.id === stepId);
-    const subStep = step?.subSteps.find(s => s.id === subStepId);
+    const step = steps.find((s) => s.id === stepId);
+    const subStep = step?.subSteps.find((s) => s.id === subStepId);
     if (!subStep) return;
 
     try {
-      const response = await fetch('/api/breakdown', {
-        method: 'POST',
+      const response = await fetch("/api/breakdown", {
+        method: "POST",
         headers: {
-          'Content-Type': 'application/json',
+          "Content-Type": "application/json",
         },
         body: JSON.stringify({
           stepContext: subStep.content,
-          type: 'theory'
+          type: "theory",
         }),
       });
 
       const data: BreakdownResponse = await response.json();
 
       if (data.success && data.content) {
-        setSteps(prevSteps =>
-          prevSteps.map(step =>
+        setSteps((prevSteps) =>
+          prevSteps.map((step) =>
             step.id === stepId
               ? {
                   ...step,
-                  subSteps: step.subSteps.map(subStep =>
+                  subSteps: step.subSteps.map((subStep) =>
                     subStep.id === subStepId
                       ? {
                           ...subStep,
@@ -1076,13 +1174,13 @@ export default function StepsBot() {
           )
         );
       } else {
-        setError(data.error || 'Failed to get theory explanation');
-        setSteps(prevSteps =>
-          prevSteps.map(step =>
+        setError(data.error || "Failed to get theory explanation");
+        setSteps((prevSteps) =>
+          prevSteps.map((step) =>
             step.id === stepId
               ? {
                   ...step,
-                  subSteps: step.subSteps.map(subStep =>
+                  subSteps: step.subSteps.map((subStep) =>
                     subStep.id === subStepId
                       ? { ...subStep, isLoadingTheory: false }
                       : subStep
@@ -1093,13 +1191,13 @@ export default function StepsBot() {
         );
       }
     } catch (err) {
-      setError('Network error occurred');
-      setSteps(prevSteps =>
-        prevSteps.map(step =>
+      setError("Network error occurred");
+      setSteps((prevSteps) =>
+        prevSteps.map((step) =>
           step.id === stepId
             ? {
                 ...step,
-                subSteps: step.subSteps.map(subStep =>
+                subSteps: step.subSteps.map((subStep) =>
                   subStep.id === subStepId
                     ? { ...subStep, isLoadingTheory: false }
                     : subStep
@@ -1112,22 +1210,20 @@ export default function StepsBot() {
   };
 
   const toggleStepExpansion = (stepId: string) => {
-    setSteps(prevSteps =>
-      prevSteps.map(step =>
-        step.id === stepId
-          ? { ...step, isExpanded: !step.isExpanded }
-          : step
+    setSteps((prevSteps) =>
+      prevSteps.map((step) =>
+        step.id === stepId ? { ...step, isExpanded: !step.isExpanded } : step
       )
     );
   };
 
   const toggleSubStepExpansion = (stepId: string, subStepId: string) => {
-    setSteps(prevSteps =>
-      prevSteps.map(step =>
+    setSteps((prevSteps) =>
+      prevSteps.map((step) =>
         step.id === stepId
           ? {
               ...step,
-              subSteps: step.subSteps.map(subStep =>
+              subSteps: step.subSteps.map((subStep) =>
                 subStep.id === subStepId
                   ? { ...subStep, isExpanded: !subStep.isExpanded }
                   : subStep
@@ -1139,7 +1235,7 @@ export default function StepsBot() {
   };
 
   const handleStepClick = (stepId: string) => {
-    const step = steps.find(s => s.id === stepId);
+    const step = steps.find((s) => s.id === stepId);
     if (step && step.subSteps.length > 0) {
       toggleStepExpansion(stepId);
     } else if (step && step.subSteps.length === 0 && !step.isLoadingSubSteps) {
@@ -1148,8 +1244,8 @@ export default function StepsBot() {
   };
 
   const handleSubStepClick = (stepId: string, subStepId: string) => {
-    const step = steps.find(s => s.id === stepId);
-    const subStep = step?.subSteps.find(s => s.id === subStepId);
+    const step = steps.find((s) => s.id === stepId);
+    const subStep = step?.subSteps.find((s) => s.id === subStepId);
     if (subStep && subStep.theory) {
       toggleSubStepExpansion(stepId, subStepId);
     } else if (subStep && !subStep.theory && !subStep.isLoadingTheory) {
@@ -1160,34 +1256,34 @@ export default function StepsBot() {
   // Interactive learning functions with streaming
   const startInteractiveLearningWithStreaming = async () => {
     if (!selectedImage || steps.length === 0) {
-      setError('Please analyze the image first to generate steps');
+      setError("Please analyze the image first to generate steps");
       return;
     }
 
     // Start streaming and API call simultaneously
     setIsStreaming(true);
     setStreamingMessages([]);
-    setError('');
+    setError("");
     setProcessing(true);
 
     const streamingTexts = [
       "Analyzing image content and mathematical expressions...",
-      "Identifying key problem components and variable relationships...", 
+      "Identifying key problem components and variable relationships...",
       "Processing question structure and determining solution pathway...",
       "Generating adaptive learning framework for personalized guidance...",
       "Calibrating interactive response system for optimal learning experience...",
       "Finalizing AI tutor configuration and knowledge base integration...",
-      "Establishing secure learning session and preparing interface..."
+      "Establishing secure learning session and preparing interface...",
     ];
 
     // Start API call immediately
     const apiPromise = (async () => {
       try {
         // Step 0: Add one credit to compensate for the deduction in process-image API
-        await fetch('/api/user/credits', {
-          method: 'POST',
+        await fetch("/api/user/credits", {
+          method: "POST",
           headers: {
-            'Content-Type': 'application/json',
+            "Content-Type": "application/json",
           },
           body: JSON.stringify({ amount: 1 }),
         });
@@ -1228,7 +1324,7 @@ export default function StepsBot() {
         if (result.creditsRemaining !== undefined) {
           setRealTimeCredits(result.creditsRemaining);
         }
-        
+
         await fetchUserCredits();
 
         return {
@@ -1246,34 +1342,40 @@ export default function StepsBot() {
         // Check if API has finished
         const apiFinished = await Promise.race([
           apiPromise.then(() => true),
-          new Promise(resolve => setTimeout(() => resolve(false), 10))
+          new Promise((resolve) => setTimeout(() => resolve(false), 10)),
         ]);
-        
+
         if (apiFinished) {
           break; // Stop streaming if API finished
         }
 
-        const delay = i === 0 ? 800 : (i < 3 ? 1200 : 1000);
-        await new Promise(resolve => setTimeout(resolve, delay));
-        
-        setStreamingMessages(prev => [...prev, {
-          id: `msg-${i}`,
-          content: streamingTexts[i],
-          timestamp: Date.now()
-        }]);
+        const delay = i === 0 ? 800 : i < 3 ? 1200 : 1000;
+        await new Promise((resolve) => setTimeout(resolve, delay));
+
+        setStreamingMessages((prev) => [
+          ...prev,
+          {
+            id: `msg-${i}`,
+            content: streamingTexts[i],
+            timestamp: Date.now(),
+          },
+        ]);
       }
     })();
 
     // Wait for API to complete (streaming will stop automatically when API finishes)
     try {
       const result = await apiPromise;
-      
+
       // Stop streaming and show success
       setIsStreaming(false);
       setBotResult(result);
-      
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Failed to start interactive learning");
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start interactive learning"
+      );
       setIsStreaming(false);
     } finally {
       setProcessing(false);
@@ -1289,7 +1391,7 @@ export default function StepsBot() {
 
   const copyShareLink = async () => {
     if (!shareUrl) return;
-    
+
     try {
       await navigator.clipboard.writeText(shareUrl);
       setShareCopied(true);
@@ -1300,7 +1402,7 @@ export default function StepsBot() {
   };
 
   // Show login wall if not authenticated
-  if (status === 'loading') {
+  if (status === "loading") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-background">
         <div className="text-center space-y-4">
@@ -1312,7 +1414,7 @@ export default function StepsBot() {
   }
 
   // For unauthenticated users, show different layouts for desktop vs mobile
-  if (status === 'unauthenticated') {
+  if (status === "unauthenticated") {
     return (
       <div className="min-h-screen flex flex-col bg-background">
         <Navbar />
@@ -1329,10 +1431,13 @@ export default function StepsBot() {
                 <div className="p-3 bg-primary/10 rounded-xl">
                   <Brain className="h-8 w-8 text-primary" />
                 </div>
-                <h1 className="text-4xl font-bold">Interactive Learning Assistant</h1>
+                <h1 className="text-4xl font-bold">
+                  Interactive Learning Assistant
+                </h1>
               </div>
               <p className="text-muted-foreground text-lg max-w-2xl mx-auto">
-                Upload a problem image, get step-by-step breakdown, and learn interactively with AI guidance
+                Upload a problem image, get step-by-step breakdown, and learn
+                interactively with AI guidance
               </p>
             </motion.div>
 
@@ -1348,11 +1453,14 @@ export default function StepsBot() {
                   <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                     <Brain className="w-8 h-8 text-primary" />
                   </div>
-                  
+
                   <div className="space-y-2">
-                    <h2 className="text-xl font-bold">AI Step-by-Step Learning</h2>
+                    <h2 className="text-xl font-bold">
+                      AI Step-by-Step Learning
+                    </h2>
                     <p className="text-muted-foreground text-sm">
-                      Break down complex problems into manageable steps with interactive AI guidance
+                      Break down complex problems into manageable steps with
+                      interactive AI guidance
                     </p>
                   </div>
 
@@ -1423,11 +1531,14 @@ export default function StepsBot() {
                       <div className="w-16 h-16 bg-primary/10 rounded-full flex items-center justify-center mx-auto">
                         <Brain className="w-8 h-8 text-primary" />
                       </div>
-                      
+
                       <div className="space-y-2">
-                        <h2 className="text-2xl font-bold">AI Step-by-Step Learning</h2>
+                        <h2 className="text-2xl font-bold">
+                          AI Step-by-Step Learning
+                        </h2>
                         <p className="text-muted-foreground">
-                          Transform complex problems into digestible steps with our advanced AI learning assistant
+                          Transform complex problems into digestible steps with
+                          our advanced AI learning assistant
                         </p>
                       </div>
 
@@ -1439,7 +1550,9 @@ export default function StepsBot() {
                         <ul className="text-sm space-y-2">
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
-                            <span>Intelligent problem breakdown into steps</span>
+                            <span>
+                              Intelligent problem breakdown into steps
+                            </span>
                           </li>
                           <li className="flex items-center gap-2">
                             <CheckCircle size={16} className="text-green-500" />
@@ -1490,7 +1603,7 @@ export default function StepsBot() {
       <main className="flex-1 pt-16">
         <div className="container mx-auto max-w-7xl p-6 space-y-8">
           {/* Header */}
-          <motion.div 
+          <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.6 }}
@@ -1505,7 +1618,8 @@ export default function StepsBot() {
               Interactive Learning Assistant
             </h1>
             <p className="text-base sm:text-lg md:text-xl text-muted-foreground max-w-2xl mx-auto leading-relaxed px-4">
-              Upload a problem image, get step-by-step breakdown, and learn interactively with AI guidance
+              Upload a problem image, get step-by-step breakdown, and learn
+              interactively with AI guidance
             </p>
           </motion.div>
 
@@ -1516,11 +1630,21 @@ export default function StepsBot() {
             transition={{ duration: 0.6, delay: 0.1 }}
             className="max-w-md mx-auto"
           >
-            <UserProfile session={session} darkMode={isDarkMode} realTimeCredits={realTimeCredits} creditsLoading={creditsLoading} onRefreshCredits={fetchUserCredits} />
+            <UserProfile
+              session={session}
+              darkMode={isDarkMode}
+              realTimeCredits={realTimeCredits}
+              creditsLoading={creditsLoading}
+              onRefreshCredits={fetchUserCredits}
+            />
           </motion.div>
 
           {/* Main Content Grid */}
-          <div className={`grid gap-8 ${isMobile ? 'grid-cols-1' : 'lg:grid-cols-2'}`}>
+          <div
+            className={`grid gap-8 ${
+              isMobile ? "grid-cols-1" : "lg:grid-cols-2"
+            }`}
+          >
             {/* Left Side - Animated Bot (Desktop only) */}
             {!isMobile && (
               <motion.div
@@ -1540,8 +1664,14 @@ export default function StepsBot() {
             <motion.div
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
-              transition={{ duration: 0.6, ease: "easeOut", delay: isMobile ? 0 : 0.2 }}
-              className={`space-y-6 ${isMobile ? 'order-1' : 'order-2 lg:order-2'}`}
+              transition={{
+                duration: 0.6,
+                ease: "easeOut",
+                delay: isMobile ? 0 : 0.2,
+              }}
+              className={`space-y-6 ${
+                isMobile ? "order-1" : "order-2 lg:order-2"
+              }`}
             >
               {/* Image Upload Section */}
               <div className="bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg h-[580px] flex flex-col">
@@ -1553,7 +1683,7 @@ export default function StepsBot() {
                     Upload Problem Image
                   </h2>
                 </div>
-                
+
                 {/* Image Upload Area */}
                 <div className="flex-1 flex flex-col">
                   {imagePreview ? (
@@ -1565,9 +1695,7 @@ export default function StepsBot() {
                       />
                       <p className="text-sm text-muted-foreground">
                         {selectedImage?.name} (
-                        {((selectedImage?.size || 0) / 1024 / 1024).toFixed(
-                          2
-                        )}{" "}
+                        {((selectedImage?.size || 0) / 1024 / 1024).toFixed(2)}{" "}
                         MB)
                       </p>
                       <button
@@ -1592,7 +1720,9 @@ export default function StepsBot() {
                               <Camera className="w-10 h-10 text-primary" />
                             </div>
                             <div className="text-center">
-                              <h3 className="text-xl font-semibold text-foreground">Take Photo</h3>
+                              <h3 className="text-xl font-semibold text-foreground">
+                                Take Photo
+                              </h3>
                               <p className="text-sm text-muted-foreground">
                                 Capture, crop & rotate question
                               </p>
@@ -1606,7 +1736,9 @@ export default function StepsBot() {
                           >
                             <Upload className="w-6 h-6 text-muted-foreground" />
                             <div className="text-left">
-                              <p className="text-sm font-medium">Upload Image</p>
+                              <p className="text-sm font-medium">
+                                Upload Image
+                              </p>
                               <p className="text-xs text-muted-foreground">
                                 Select, crop & rotate
                               </p>
@@ -1660,7 +1792,7 @@ export default function StepsBot() {
                               </div>
                             </div>
                           </div>
-                          
+
                           {/* Paste Area */}
                           <div
                             ref={uploadAreaRef}
@@ -1687,23 +1819,35 @@ export default function StepsBot() {
                                 <p className="text-sm text-muted-foreground">
                                   Click here and press{" "}
                                   <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                                    {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'}
+                                    {navigator.platform.indexOf("Mac") > -1
+                                      ? "Cmd+V"
+                                      : "Ctrl+V"}
                                   </kbd>
                                 </p>
                                 {clipboardFocused && (
                                   <p className="text-xs text-primary font-medium mt-2">
-                                    Ready for paste! Press {navigator.platform.indexOf('Mac') > -1 ? 'Cmd+V' : 'Ctrl+V'} now
+                                    Ready for paste! Press{" "}
+                                    {navigator.platform.indexOf("Mac") > -1
+                                      ? "Cmd+V"
+                                      : "Ctrl+V"}{" "}
+                                    now
                                   </p>
                                 )}
                               </div>
                             </div>
                           </div>
-                          
+
                           {session && (
                             <div className="col-span-2 text-center">
                               <span className="text-xs text-muted-foreground">
-                                <span className="font-medium">1 credit will be used</span> for each question breakdown. 
-                                You have {realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)} credits remaining.
+                                <span className="font-medium">
+                                  1 credit will be used
+                                </span>{" "}
+                                for each question breakdown. You have{" "}
+                                {realTimeCredits !== null
+                                  ? realTimeCredits
+                                  : session.user.credits ?? 0}{" "}
+                                credits remaining.
                               </span>
                             </div>
                           )}
@@ -1718,13 +1862,20 @@ export default function StepsBot() {
                   <div className="flex gap-3 mt-4">
                     <Button
                       onClick={analyzeImageSteps}
-                      disabled={isLoadingMainSteps || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
+                      disabled={
+                        isLoadingMainSteps ||
+                        (realTimeCredits !== null
+                          ? realTimeCredits
+                          : session?.user?.credits ?? 0) <= 0
+                      }
                       className="flex-1"
                       size="lg"
                     >
                       {isLoadingMainSteps ? (
                         <ShiningText text="AI is analyzing..." />
-                      ) : ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0) ? (
+                      ) : (realTimeCredits !== null
+                          ? realTimeCredits
+                          : session?.user?.credits ?? 0) <= 0 ? (
                         <>
                           <XCircle className="mr-2 h-4 w-4" />
                           No Credits Remaining
@@ -1749,7 +1900,7 @@ export default function StepsBot() {
           {/* Error Display */}
           <AnimatePresence>
             {error && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: -10 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -10 }}
@@ -1757,7 +1908,10 @@ export default function StepsBot() {
                 className="bg-destructive/10 border border-destructive/20 text-destructive px-4 sm:px-6 py-3 sm:py-4 rounded-lg sm:rounded-xl mb-6 sm:mb-8 backdrop-blur-sm"
               >
                 <div className="flex items-center gap-2">
-                  <XCircle size={16} className="sm:w-[18px] sm:h-[18px] flex-shrink-0" />
+                  <XCircle
+                    size={16}
+                    className="sm:w-[18px] sm:h-[18px] flex-shrink-0"
+                  />
                   <span className="text-sm sm:text-base">{error}</span>
                 </div>
               </motion.div>
@@ -1767,7 +1921,7 @@ export default function StepsBot() {
           {/* Question Summary Display */}
           <AnimatePresence>
             {(questionSummary || isLoadingSummary) && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
@@ -1791,9 +1945,9 @@ export default function StepsBot() {
                       </div>
                     ) : questionSummary ? (
                       <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
-                        <SimpleMathRenderer 
-                          content={questionSummary} 
-                          className="text-blue-800 dark:text-blue-200 leading-relaxed" 
+                        <SimpleMathRenderer
+                          content={questionSummary}
+                          className="text-blue-800 dark:text-blue-200 leading-relaxed"
                         />
                       </div>
                     ) : null}
@@ -1804,41 +1958,47 @@ export default function StepsBot() {
           </AnimatePresence>
 
           {/* No Credits Notice */}
-          {session?.user && ((realTimeCredits !== null ? realTimeCredits : (session.user.credits ?? 0)) <= 0) && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
-            >
-              <div className="flex items-start gap-3">
-                <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
-                <div className="flex-1">
-                  <h4 className="font-medium text-yellow-800 mb-1">No Credits Remaining</h4>
-                  <p className="text-yellow-700 mb-3">
-                    You've used all your credits for this account. Get more credits to continue using the AI Step Breakdown feature.
-                  </p>
-                  <div className="flex gap-2">
-                    <Link 
-                      href="/features/premium"
-                      className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
-                    >
-                      Upgrade to Pro
-                    </Link>
+          {session?.user &&
+            (realTimeCredits !== null
+              ? realTimeCredits
+              : session.user.credits ?? 0) <= 0 && (
+              <motion.div
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="mt-4 p-4 text-sm bg-yellow-50 border border-yellow-200 rounded-lg"
+              >
+                <div className="flex items-start gap-3">
+                  <Info className="h-5 w-5 text-yellow-600 mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="font-medium text-yellow-800 mb-1">
+                      No Credits Remaining
+                    </h4>
+                    <p className="text-yellow-700 mb-3">
+                      You've used all your credits for this account. Get more
+                      credits to continue using the AI Step Breakdown feature.
+                    </p>
+                    <div className="flex gap-2">
+                      <Link
+                        href="/features/premium"
+                        className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
+                      >
+                        Upgrade to Pro
+                      </Link>
+                    </div>
                   </div>
                 </div>
-              </div>
-            </motion.div>
-          )}
+              </motion.div>
+            )}
 
           {/* Steps Display */}
           <AnimatePresence>
             {steps.length > 0 && (
-              <motion.div 
+              <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
                 className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
-                  showDesktopLayout ? 'hidden md:block' : ''
+                  showDesktopLayout ? "hidden md:block" : ""
                 }`}
               >
                 <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
@@ -1849,10 +2009,10 @@ export default function StepsBot() {
                     Step-by-Step Breakdown
                   </h2>
                 </div>
-                
+
                 <div className="space-y-3 sm:space-y-4">
                   {steps.map((step, stepIndex) => (
-                    <motion.div 
+                    <motion.div
                       key={step.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
@@ -1867,25 +2027,34 @@ export default function StepsBot() {
                               animate={{ rotate: step.isExpanded ? 90 : 0 }}
                               transition={{ duration: 0.2 }}
                               className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
-                              disabled={step.subSteps.length === 0 && !step.isLoadingSubSteps}
+                              disabled={
+                                step.subSteps.length === 0 &&
+                                !step.isLoadingSubSteps
+                              }
                               onClick={() => handleStepClick(step.id)}
                             >
-                              <ChevronRight size={18} className="sm:w-5 sm:h-5" />
+                              <ChevronRight
+                                size={18}
+                                className="sm:w-5 sm:h-5"
+                              />
                             </motion.button>
-                            <div 
+                            <div
                               className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
                               onClick={() => handleStepClick(step.id)}
                             >
-                              <SimpleMathRenderer 
-                                content={step.content} 
-                                className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base" 
+                              <SimpleMathRenderer
+                                content={step.content}
+                                className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base"
                               />
                             </div>
                             {/* Mobile: Compact action button */}
                             <div className="flex-shrink-0 self-start sm:hidden">
                               <button
                                 onClick={() => handleGetSubSteps(step.id)}
-                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                disabled={
+                                  step.isLoadingSubSteps ||
+                                  step.subSteps.length > 0
+                                }
                                 className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-primary/20 disabled:border-muted"
                               >
                                 {step.isLoadingSubSteps ? (
@@ -1901,17 +2070,25 @@ export default function StepsBot() {
                             <div className="flex-shrink-0 self-start hidden sm:block">
                               <button
                                 onClick={() => handleGetSubSteps(step.id)}
-                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                disabled={
+                                  step.isLoadingSubSteps ||
+                                  step.subSteps.length > 0
+                                }
                                 className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted whitespace-nowrap"
                               >
                                 {step.isLoadingSubSteps ? (
                                   <Loader2 className="animate-spin w-4 h-4" />
                                 ) : step.subSteps.length > 0 ? (
-                                  <CheckCircle size={14} className="sm:w-4 sm:h-4" />
+                                  <CheckCircle
+                                    size={14}
+                                    className="sm:w-4 sm:h-4"
+                                  />
                                 ) : (
                                   <Plus size={14} className="sm:w-4 sm:h-4" />
                                 )}
-                                {step.subSteps.length > 0 ? 'Expanded' : 'Further Breakdown'}
+                                {step.subSteps.length > 0
+                                  ? "Expanded"
+                                  : "Further Breakdown"}
                               </button>
                             </div>
                           </div>
@@ -1921,19 +2098,22 @@ export default function StepsBot() {
                       {/* Sub Steps */}
                       <AnimatePresence>
                         {step.isExpanded && step.subSteps.length > 0 && (
-                          <motion.div 
+                          <motion.div
                             initial={{ height: 0, opacity: 0 }}
-                            animate={{ height: 'auto', opacity: 1 }}
+                            animate={{ height: "auto", opacity: 1 }}
                             exit={{ height: 0, opacity: 0 }}
                             transition={{ duration: 0.3 }}
                             className="overflow-hidden"
                           >
                             {step.subSteps.map((subStep, subStepIndex) => (
-                              <motion.div 
+                              <motion.div
                                 key={subStep.id}
                                 initial={{ opacity: 0, x: -10 }}
                                 animate={{ opacity: 1, x: 0 }}
-                                transition={{ duration: 0.3, delay: subStepIndex * 0.05 }}
+                                transition={{
+                                  duration: 0.3,
+                                  delay: subStepIndex * 0.05,
+                                }}
                                 className="border-b border-border/50 last:border-b-0 step-container"
                               >
                                 {/* Sub Step Header */}
@@ -1941,28 +2121,51 @@ export default function StepsBot() {
                                   <div className="p-3 sm:p-4 md:p-6 pl-6 sm:pl-8 md:pl-12">
                                     <div className="flex items-start gap-3 sm:gap-4">
                                       <motion.button
-                                        animate={{ rotate: subStep.isExpanded ? 90 : 0 }}
+                                        animate={{
+                                          rotate: subStep.isExpanded ? 90 : 0,
+                                        }}
                                         transition={{ duration: 0.2 }}
                                         className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
-                                        disabled={!subStep.theory && !subStep.isLoadingTheory}
-                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                        disabled={
+                                          !subStep.theory &&
+                                          !subStep.isLoadingTheory
+                                        }
+                                        onClick={() =>
+                                          handleSubStepClick(
+                                            step.id,
+                                            subStep.id
+                                          )
+                                        }
                                       >
-                                        <ChevronRight size={16} className="sm:w-[18px] sm:h-[18px]" />
+                                        <ChevronRight
+                                          size={16}
+                                          className="sm:w-[18px] sm:h-[18px]"
+                                        />
                                       </motion.button>
-                                      <div 
+                                      <div
                                         className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
-                                        onClick={() => handleSubStepClick(step.id, subStep.id)}
+                                        onClick={() =>
+                                          handleSubStepClick(
+                                            step.id,
+                                            subStep.id
+                                          )
+                                        }
                                       >
-                                        <SimpleMathRenderer 
-                                          content={subStep.content} 
-                                          className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base" 
+                                        <SimpleMathRenderer
+                                          content={subStep.content}
+                                          className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base"
                                         />
                                       </div>
                                       {/* Mobile: Compact theory button */}
                                       <div className="flex-shrink-0 self-start sm:hidden">
                                         <button
-                                          onClick={() => handleGetTheory(step.id, subStep.id)}
-                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          onClick={() =>
+                                            handleGetTheory(step.id, subStep.id)
+                                          }
+                                          disabled={
+                                            subStep.isLoadingTheory ||
+                                            !!subStep.theory
+                                          }
                                           className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-secondary/20 disabled:border-muted"
                                         >
                                           {subStep.isLoadingTheory ? (
@@ -1977,18 +2180,31 @@ export default function StepsBot() {
                                       {/* Desktop: Full theory button */}
                                       <div className="flex-shrink-0 self-start hidden sm:block">
                                         <button
-                                          onClick={() => handleGetTheory(step.id, subStep.id)}
-                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          onClick={() =>
+                                            handleGetTheory(step.id, subStep.id)
+                                          }
+                                          disabled={
+                                            subStep.isLoadingTheory ||
+                                            !!subStep.theory
+                                          }
                                           className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted whitespace-nowrap"
                                         >
                                           {subStep.isLoadingTheory ? (
                                             <Loader2 className="animate-spin w-3 h-3 sm:w-[14px] sm:h-[14px]" />
                                           ) : subStep.theory ? (
-                                            <CheckCircle size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                            <CheckCircle
+                                              size={12}
+                                              className="sm:w-[14px] sm:h-[14px]"
+                                            />
                                           ) : (
-                                            <FileText size={12} className="sm:w-[14px] sm:h-[14px]" />
+                                            <FileText
+                                              size={12}
+                                              className="sm:w-[14px] sm:h-[14px]"
+                                            />
                                           )}
-                                          {subStep.theory ? 'Theory Loaded' : 'Get Explanation'}
+                                          {subStep.theory
+                                            ? "Theory Loaded"
+                                            : "Get Explanation"}
                                         </button>
                                       </div>
                                     </div>
@@ -1998,18 +2214,18 @@ export default function StepsBot() {
                                 {/* Theory Explanation */}
                                 <AnimatePresence>
                                   {subStep.isExpanded && subStep.theory && (
-                                    <motion.div 
+                                    <motion.div
                                       initial={{ height: 0, opacity: 0 }}
-                                      animate={{ height: 'auto', opacity: 1 }}
+                                      animate={{ height: "auto", opacity: 1 }}
                                       exit={{ height: 0, opacity: 0 }}
                                       transition={{ duration: 0.3 }}
                                       className="overflow-hidden"
                                     >
                                       <div className="p-3 sm:p-4 md:p-6 pl-8 sm:pl-12 md:pl-16 bg-primary/5 border-l-2 sm:border-l-4 border-primary/30">
                                         <div className="bg-card/40 rounded-lg p-3 sm:p-4 border border-border/50">
-                                          <SimpleMathRenderer 
-                                            content={subStep.theory} 
-                                            className="text-muted-foreground leading-relaxed text-sm sm:text-base" 
+                                          <SimpleMathRenderer
+                                            content={subStep.theory}
+                                            className="text-muted-foreground leading-relaxed text-sm sm:text-base"
                                           />
                                         </div>
                                       </div>
@@ -2027,7 +2243,7 @@ export default function StepsBot() {
 
                 {/* Interactive Learning Button - CENTERED */}
                 {steps.length > 0 && !botResult && !isStreaming && (
-                  <motion.div 
+                  <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
@@ -2042,16 +2258,22 @@ export default function StepsBot() {
                           Ready for Interactive Learning?
                         </h3>
                       </div>
-                      
+
                       <p className="text-muted-foreground text-center">
-                        Now that you have the step breakdown, launch the AI tutor for personalized guidance through the solution!
+                        Now that you have the step breakdown, launch the AI
+                        tutor for personalized guidance through the solution!
                       </p>
-                      
+
                       <div className="flex justify-center">
                         <button
                           onClick={startInteractiveLearningWithStreaming}
-                          disabled={processing || ((realTimeCredits !== null ? realTimeCredits : (session?.user?.credits ?? 0)) <= 0)}
-                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"   
+                          disabled={
+                            processing ||
+                            (realTimeCredits !== null
+                              ? realTimeCredits
+                              : session?.user?.credits ?? 0) <= 0
+                          }
+                          className="bg-gradient-to-r from-green-600 to-blue-600 hover:from-green-700 hover:to-blue-700 disabled:from-muted disabled:to-muted text-white px-8 py-4 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-3 shadow-lg disabled:shadow-none"
                         >
                           {processing ? (
                             <>
@@ -2103,7 +2325,7 @@ export default function StepsBot() {
                         className="flex items-center gap-3 text-left"
                       >
                         <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse"></div>
-                        <ResponseStream 
+                        <ResponseStream
                           textStream={message.content}
                           className="text-muted-foreground"
                         />
@@ -2118,7 +2340,9 @@ export default function StepsBot() {
                       className="flex items-center justify-center gap-2"
                     >
                       <Loader2 className="animate-spin w-5 h-5 text-green-600" />
-                      <span className="text-green-600 font-medium">Finalizing setup...</span>
+                      <span className="text-green-600 font-medium">
+                        Finalizing setup...
+                      </span>
                     </motion.div>
                   )}
                 </div>
@@ -2145,8 +2369,9 @@ export default function StepsBot() {
                 </div>
 
                 <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-                  Your personalized AI tutor is ready to guide you through the solution step by step. 
-                  Start your interactive learning journey now!
+                  Your personalized AI tutor is ready to guide you through the
+                  solution step by step. Start your interactive learning journey
+                  now!
                 </p>
 
                 <motion.div
@@ -2209,10 +2434,10 @@ export default function StepsBot() {
           {/* Desktop Layout - Split View */}
           <AnimatePresence>
             {showDesktopLayout && botResult && (
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ duration: 0.6 }}
                 className="hidden md:block"
               >
                 {/* Desktop Split Layout */}
@@ -2275,7 +2500,9 @@ export default function StepsBot() {
                                         <RotateCcw className="h-3 w-3" />
                                       </Button>
                                       <Button
-                                        onClick={() => setShowFullQuestion(true)}
+                                        onClick={() =>
+                                          setShowFullQuestion(true)
+                                        }
                                         variant="outline"
                                         size="icon"
                                         className="h-7 w-7 bg-background/90 backdrop-blur-sm hover:bg-background"
@@ -2295,7 +2522,7 @@ export default function StepsBot() {
                                 )}
                               </TransformWrapper>
                             </div>
-                            
+
                             {/* Full Screen Button */}
                             <div className="mt-3">
                               <Button
@@ -2328,7 +2555,10 @@ export default function StepsBot() {
                               key={step.id}
                               initial={{ opacity: 0, y: 10 }}
                               animate={{ opacity: 1, y: 0 }}
-                              transition={{ duration: 0.3, delay: stepIndex * 0.05 }}
+                              transition={{
+                                duration: 0.3,
+                                delay: stepIndex * 0.05,
+                              }}
                               className="border rounded-lg p-4 bg-muted/30 hover:bg-muted/50 transition-colors"
                             >
                               <div className="flex items-start gap-3">
@@ -2340,21 +2570,28 @@ export default function StepsBot() {
                                     content={step.content}
                                     className="text-foreground leading-relaxed text-sm"
                                   />
-                                  
+
                                   {/* Sub-steps */}
                                   {step.subSteps.length > 0 && (
                                     <div className="mt-2 ml-4 space-y-2">
-                                      {step.subSteps.map((subStep, subIndex) => (
-                                        <div key={subStep.id} className="flex items-start gap-2">
-                                          <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
-                                            {String.fromCharCode(97 + subIndex)}
+                                      {step.subSteps.map(
+                                        (subStep, subIndex) => (
+                                          <div
+                                            key={subStep.id}
+                                            className="flex items-start gap-2"
+                                          >
+                                            <div className="w-4 h-4 bg-secondary/20 rounded-full flex items-center justify-center text-xs text-secondary-foreground mt-1">
+                                              {String.fromCharCode(
+                                                97 + subIndex
+                                              )}
+                                            </div>
+                                            <SimpleMathRenderer
+                                              content={subStep.content}
+                                              className="text-muted-foreground text-xs leading-relaxed"
+                                            />
                                           </div>
-                                          <SimpleMathRenderer
-                                            content={subStep.content}
-                                            className="text-muted-foreground text-xs leading-relaxed"
-                                          />
-                                        </div>
-                                      ))}
+                                        )
+                                      )}
                                     </div>
                                   )}
                                 </div>
@@ -2415,7 +2652,9 @@ export default function StepsBot() {
               <div className="flex items-center justify-between p-3 lg:p-4 border-b bg-card">
                 <h2 className="text-lg lg:text-xl font-semibold flex items-center gap-2">
                   <Bot className="w-4 h-4 lg:w-5 lg:h-5 text-primary" />
-                  <span className="hidden sm:inline">Interactive Learning Session</span>
+                  <span className="hidden sm:inline">
+                    Interactive Learning Session
+                  </span>
                   <span className="sm:hidden">Learning Session</span>
                 </h2>
                 <div className="flex gap-2">
@@ -2458,9 +2697,9 @@ export default function StepsBot() {
                     {/* Image Container */}
                     <div
                       className="border rounded-lg bg-muted/20 overflow-hidden relative"
-                      style={{ 
-                        minHeight: isMobile ? "180px" : "250px", 
-                        maxHeight: isMobile ? "220px" : "350px" 
+                      style={{
+                        minHeight: isMobile ? "180px" : "250px",
+                        maxHeight: isMobile ? "220px" : "350px",
                       }}
                     >
                       {selectedImage && imagePreview && (
@@ -2525,7 +2764,9 @@ export default function StepsBot() {
                         className="w-full text-xs lg:text-sm"
                       >
                         <Maximize2 className="mr-1 lg:mr-2 h-3 w-3 lg:h-4 lg:w-4" />
-                        <span className="hidden sm:inline">View Full Screen</span>
+                        <span className="hidden sm:inline">
+                          View Full Screen
+                        </span>
                         <span className="sm:hidden">Full Screen</span>
                       </Button>
                     </div>
@@ -2551,8 +2792,8 @@ export default function StepsBot() {
                                   .flat()
                                   .slice(0, isMobile ? 2 : 3)
                                   .join(", ")}
-                                {processedData.concept_tags.flat().length > (isMobile ? 2 : 3) &&
-                                  "..."}
+                                {processedData.concept_tags.flat().length >
+                                  (isMobile ? 2 : 3) && "..."}
                               </p>
                               <p className="text-muted-foreground leading-relaxed">
                                 Broken into{" "}
@@ -2646,7 +2887,9 @@ export default function StepsBot() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <CropIcon className="w-5 h-5 text-primary" />
-                        <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
+                        <h3 className="text-xl font-semibold">
+                          Crop & Rotate Image
+                        </h3>
                       </div>
                       <Button
                         onClick={handleCropCancel}
@@ -2659,7 +2902,9 @@ export default function StepsBot() {
 
                     {/* Instructions */}
                     <p className="text-sm text-muted-foreground">
-                      Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+                      Drag the corners to select the area you want to keep. Use
+                      rotation controls if needed. Focus on the question content
+                      for best results.
                     </p>
 
                     {/* Rotation Controls */}
@@ -2673,16 +2918,14 @@ export default function StepsBot() {
                         <RotateCcw className="mr-2 h-4 w-4" />
                         Reset
                       </Button>
-                      
+
                       <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium">{rotationAngle}°</span>
+                        <span className="text-sm font-medium">
+                          {rotationAngle}°
+                        </span>
                       </div>
-                      
-                      <Button
-                        onClick={rotateImage}
-                        variant="outline"
-                        size="sm"
-                      >
+
+                      <Button onClick={rotateImage} variant="outline" size="sm">
                         <RotateCw className="mr-2 h-4 w-4" />
                         Rotate 90°
                       </Button>
@@ -2701,7 +2944,7 @@ export default function StepsBot() {
                         >
                           <img
                             ref={imgRef}
-                                src={cropImageSrc || ''}
+                            src={cropImageSrc || ""}
                             alt="Crop preview"
                             className="max-w-full h-auto"
                             style={{ transform: `rotate(${rotationAngle}deg)` }}
@@ -2710,7 +2953,7 @@ export default function StepsBot() {
                               if (imgRef.current) {
                                 const { width, height } = imgRef.current;
                                 setCrop({
-                                  unit: 'px',
+                                  unit: "px",
                                   width: width * 0.9,
                                   height: height * 0.9,
                                   x: width * 0.05,
@@ -2725,10 +2968,7 @@ export default function StepsBot() {
 
                     {/* Action Buttons */}
                     <div className="flex gap-3 justify-end">
-                      <Button
-                        onClick={handleCropCancel}
-                        variant="outline"
-                      >
+                      <Button onClick={handleCropCancel} variant="outline">
                         Cancel
                       </Button>
                       <Button
@@ -2747,10 +2987,7 @@ export default function StepsBot() {
           </AnimatePresence>
 
           {/* Hidden canvas for image processing */}
-          <canvas
-            ref={canvasRef}
-            className="hidden"
-          />
+          <canvas ref={canvasRef} className="hidden" />
         </div>
       </main>
       <Footer />

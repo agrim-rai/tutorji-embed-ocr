@@ -19,9 +19,9 @@ export async function POST(request: NextRequest) {
     let messages: any[] = [];
     
     // Choose model based on request type
-    if (type === 'summary' || type === 'theory') {
-      model = "gpt-4o-mini"; // Use gpt-4o-mini for theory and summary
-    } else if (type === 'main' || type === 'sub') {
+    if (type === 'theory') {  
+      model = "gpt-4o-mini"; // Use gpt-4o-mini for theory
+    } else if (type === 'summary' || type === 'main' || type === 'sub') {
       model = "o4-mini"; // Use o4-mini for breakdown (main and sub steps)
     }
 
@@ -29,11 +29,13 @@ export async function POST(request: NextRequest) {
     
     if (type === 'summary') {
       if (imageData) {
-        prompt = `Analyze this image and provide a brief 1-2 line summary of the question/problem shown. The summary should include:
+        prompt = `Analyze this image and provide a brief 2-3 line summary of the question/problem shown. The summary should include:
 1. What type of problem/question this is
-2. Key mathematical concepts or topics involved
+2. Key mathematical concepts, topics, or formulae involved which solves the problem
+3. The crux of the problem
 
-End with exactly this phrase: Creating a step-by-step solution to the problem, followed by an interactive bot to guide users through solving it.
+End with exactly this phrase: Creating a step-by-step solution to the problem, followed by an interactive bot to guide users through solving it. 
+The crux of the problem should be a single line summary of the problem.
 Keep it concise, professional, and informative. Use LaTeX notation for any mathematical expressions: \\( \\) for inline math.`;
         
         messages = [
@@ -107,7 +109,7 @@ Return ONLY the JSON object, no other text.`;
         ];
       }
     } else if (type === 'sub') {
-      prompt = `For the following step: "${stepContext}", break it down into exactly 2-3 detailed sub-steps. Each sub-step should be specific and actionable.
+      prompt = `For the following step: "${stepContext}", break it down into exactly 2-3 detailed sub-steps. Generate some theory for each sub-step along with required formulae. Each sub-step should be specific and actionable.
 
 Return your response as a valid JSON object with this exact structure:
 {
