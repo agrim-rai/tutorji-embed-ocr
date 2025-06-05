@@ -1965,7 +1965,7 @@ export default function StepsBot() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
-                      Question Analysis
+                    Analytical Breakdown 
                     </h3>
                     {isLoadingSummary ? (
                       <div className="flex items-center gap-2">
