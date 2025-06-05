@@ -2685,15 +2685,14 @@ export default function StepsBot() {
                   ))}
                 </div>
 
-                {/* Share and Interactive Learning Section */}
-                {steps.length > 0 && !botResult && !isStreaming && (
+                {/* Share Section - Always visible when steps exist */}
+                {steps.length > 0 && (
                   <motion.div
                     initial={{ opacity: 0, y: 10 }}
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ duration: 0.4, delay: 0.2 }}
-                    className="mt-8 space-y-6"
+                    className="mt-8"
                   >
-                    {/* Share Section */}
                     <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl border-2 border-purple-200 dark:border-purple-800/40">
                       <div className="text-center space-y-4">
                         <div className="flex items-center justify-center gap-3">
@@ -2766,8 +2765,17 @@ export default function StepsBot() {
                         )}
                       </div>
                     </div>
+                  </motion.div>
+                )}
 
-                    {/* Interactive Learning Section */}
+                {/* Interactive Learning Section - Only when no bot result */}
+                {steps.length > 0 && !botResult && !isStreaming && (
+                  <motion.div
+                    initial={{ opacity: 0, y: 10 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    transition={{ duration: 0.4, delay: 0.3 }}
+                    className="mt-6"
+                  >
                     <div className="p-6 bg-gradient-to-r from-green-50 to-blue-50 dark:from-green-950/20 dark:to-blue-950/20 rounded-xl border-2 border-green-200 dark:border-green-800/40">
                       <div className="text-center space-y-4">
                         <div className="flex items-center justify-center gap-3">
@@ -2913,41 +2921,6 @@ export default function StepsBot() {
                     </span>
                   </Button>
                 </motion.div>
-
-                {/* Share functionality */}
-                {shareUrl && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4 }}
-                    className="pt-6 border-t border-border/30"
-                  >
-                    <div className="text-center space-y-3">
-                      <p className="text-sm text-muted-foreground">
-                        Share this learning session with others
-                      </p>
-                      <Button
-                        onClick={copyShareLink}
-                        variant="outline"
-                        size="lg"
-                        className="w-full sm:w-auto"
-                      >
-                        <Share2 className="mr-2 h-4 w-4" />
-                        {shareCopied ? "Link Copied!" : "Copy Share Link"}
-                      </Button>
-                      {shareCopied && (
-                        <motion.p
-                          initial={{ opacity: 0 }}
-                          animate={{ opacity: 1 }}
-                          transition={{ duration: 0.3 }}
-                          className="text-sm text-green-600 font-medium"
-                        >
-                          ✓ Share link copied to clipboard!
-                        </motion.p>
-                      )}
-                    </div>
-                  </motion.div>
-                )}
               </div>
             </motion.div>
           )}
