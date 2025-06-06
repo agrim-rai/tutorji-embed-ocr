@@ -61,7 +61,7 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       shareId,
-      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/share/${shareId}`
+      shareUrl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}share/${shareId}`
     });
 
   } catch (error) {
