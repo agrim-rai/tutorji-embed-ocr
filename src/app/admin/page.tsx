@@ -53,6 +53,14 @@ export default function AdminDashboard() {
       stats: 'Real-time data'
     },
     {
+      title: 'Ratings Analytics',
+      description: 'Comprehensive analysis of user ratings, feedback trends, and satisfaction metrics',
+      href: '/admin/ratings',
+      icon: <Activity className="w-6 h-6" />,
+      color: 'yellow',
+      stats: 'User satisfaction'
+    },
+    {
       title: 'Contact Management',
       description: 'Manage user inquiries, feedback, and support requests',
       href: '/admin/contacts',
@@ -85,6 +93,13 @@ export default function AdminDashboard() {
       icon: 'text-blue-600 dark:text-blue-400',
       iconBg: 'bg-blue-100 dark:bg-blue-900/30',
       button: 'bg-blue-600 hover:bg-blue-700'
+    },
+    yellow: {
+      bg: 'bg-yellow-50 dark:bg-yellow-900/20',
+      border: 'border-yellow-200 dark:border-yellow-800',
+      icon: 'text-yellow-600 dark:text-yellow-400',
+      iconBg: 'bg-yellow-100 dark:bg-yellow-900/30',
+      button: 'bg-yellow-600 hover:bg-yellow-700'
     },
     green: {
       bg: 'bg-green-50 dark:bg-green-900/20',

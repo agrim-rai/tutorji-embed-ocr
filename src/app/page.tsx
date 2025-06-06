@@ -2382,7 +2382,7 @@ export default function StepsBot() {
             )}
           </AnimatePresence>
 
-          {/* Question Summary Display */}
+          {/* Analytic Breakdown Display */}
           <AnimatePresence>
             {(summaryData || questionSummary || isLoadingSummary || isLoadingMainSteps) && (
               <motion.div
@@ -2390,74 +2390,88 @@ export default function StepsBot() {
                 animate={{ opacity: 1, y: 0 }}
                 exit={{ opacity: 0, y: -20 }}
                 transition={{ duration: 0.5 }}
-                className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 mb-6 sm:mb-8 backdrop-blur-sm shadow-sm"
+                className="mb-6 sm:mb-8"
               >
-                <div className="flex items-start gap-3">
-                  <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
-                    {isLoadingSummary ? (
-                      <Loader2 className="animate-spin w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    ) : (
-                      <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                    )}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
-                    Analytical Breakdown 
-                    </h3>
-                    {isLoadingSummary ? (
-                      <div className="flex items-center gap-2">
-                        <span className="text-blue-700 dark:text-blue-300 text-sm">
-                          <ShiningText text="Understanding the question..." />
-                        </span>
+                {summaryData ? (
+                  <div className="bg-gradient-to-br from-slate-900/95 to-slate-800/95 dark:from-slate-900/95 dark:to-slate-800/95 border border-slate-700/60 dark:border-slate-700/60 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300">
+                    <div className="space-y-6">
+                      <div className="flex items-center gap-3">
+                        <h3 className="text-base sm:text-lg font-semibold text-white">
+                          Analytic Breakdown
+                        </h3>
                       </div>
-                    ) : summaryData ? (
-                      <div className="space-y-3">
+                      
+                      <div className="space-y-5">
                         {/* Crux of Problem */}
                         <div>
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
-                            <Target className="w-4 h-4" />
+                          <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                            <Target className="w-4 h-4 text-blue-400" />
                             Crux of the Problem:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.cruxOfProblem || "Not available"}
-                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                            className="text-slate-200 text-default leading-relaxed"
                           />
                         </div>
 
                         {/* Formulae Used */}
                         <div>
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
-                            <FileText className="w-4 h-4" />
+                          <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                            <FileText className="w-4 h-4 text-blue-400" />
                             Key Formulae & Principles:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.formulaeUsed || "Not available"}
-                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                            className="text-slate-200 text-default leading-relaxed"
                           />
                         </div>
 
                         {/* Term Definitions */}
                         <div>
-                          <h4 className="text-sm font-semibold text-blue-900 dark:text-blue-100 mb-1 flex items-center gap-2">
-                            <Brain className="w-4 h-4" />
+                          <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                            <Brain className="w-4 h-4 text-blue-400" />
                             Term Definitions:
                           </h4>
                           <SimpleMathRenderer
                             content={summaryData.termDefinitions || "Not available"}
-                            className="text-blue-800 dark:text-blue-200 text-sm leading-relaxed ml-6"
+                            className="text-slate-200 text-default leading-relaxed"
                           />
                         </div>
                       </div>
-                    ) : questionSummary ? (
-                      <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
-                        <SimpleMathRenderer
-                          content={questionSummary}
-                          className="text-blue-800 dark:text-blue-200 leading-relaxed"
-                        />
-                      </div>
-                    ) : null}
+                    </div>
                   </div>
-                </div>
+                ) : (
+                  <div className="bg-gradient-to-r from-blue-50/80 to-indigo-50/80 dark:from-blue-950/30 dark:to-indigo-950/30 border border-blue-200/50 dark:border-blue-800/30 rounded-xl p-6 backdrop-blur-sm shadow-sm">
+                    <div className="flex items-start gap-3">
+                      <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
+                        {isLoadingSummary ? (
+                          <Loader2 className="animate-spin w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        ) : (
+                          <Info className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                        )}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <h3 className="text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                          Analytical Breakdown 
+                        </h3>
+                        {isLoadingSummary ? (
+                          <div className="flex items-center gap-2">
+                            <span className="text-blue-700 dark:text-blue-300 text-sm">
+                              <ShiningText text="Understanding the question..." />
+                            </span>
+                          </div>
+                        ) : questionSummary ? (
+                          <div className="prose prose-sm prose-blue dark:prose-invert max-w-none">
+                            <SimpleMathRenderer
+                              content={questionSummary}
+                              className="text-blue-800 dark:text-blue-200 leading-relaxed"
+                            />
+                          </div>
+                        ) : null}
+                      </div>
+                    </div>
+                  </div>
+                )}
               </motion.div>
             )}
           </AnimatePresence>
@@ -2502,46 +2516,59 @@ export default function StepsBot() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6 }}
-                className={`bg-card/50 backdrop-blur-sm border border-border rounded-xl sm:rounded-2xl p-4 sm:p-6 md:p-8 shadow-lg mb-6 sm:mb-8 ${
+                className={`bg-card/60 backdrop-blur-sm border border-border/50 rounded-2xl p-4 sm:p-6 shadow-xl hover:shadow-2xl transition-all duration-300 mb-6 sm:mb-8 ${
                   showDesktopLayout ? "hidden md:block" : ""
                 }`}
               >
-                <div className="flex items-center gap-2 sm:gap-3 mb-6 sm:mb-8">
-                  <div className="p-1.5 sm:p-2 bg-primary/10 rounded-lg">
-                    <Target className="w-4 h-4 sm:w-5 sm:h-5 text-primary" />
+                <div className="flex items-center gap-3 mb-6">
+                  <div className="p-2 bg-gradient-to-br from-primary/20 to-primary/10 rounded-lg">
+                    <Target className="w-5 h-5 text-primary" />
                   </div>
-                  <h2 className="text-lg sm:text-2xl font-semibold text-card-foreground">
+                  <h2 className="text-xl sm:text-2xl font-semibold text-card-foreground">
                     Step-by-Step Breakdown
                   </h2>
                 </div>
 
-                <div className="space-y-3 sm:space-y-4">
+                {/* Mobile instruction */}
+                {isMobile && (
+                  <div className="mb-4 p-3 bg-muted/30 rounded-lg border border-border/30">
+                    <p className="text-sm text-muted-foreground text-center">
+                      <Info className="inline w-4 h-4 mr-1" />
+                      Press any step to further breakdown into sub-steps or theory
+                    </p>
+                  </div>
+                )}
+
+                <div className="space-y-4 sm:space-y-4">
                   {steps.map((step, stepIndex) => (
                     <motion.div
                       key={step.id}
                       initial={{ opacity: 0, x: -20 }}
                       animate={{ opacity: 1, x: 0 }}
                       transition={{ duration: 0.5, delay: stepIndex * 0.1 }}
-                      className="border border-border rounded-lg sm:rounded-xl overflow-hidden bg-card/30 backdrop-blur-sm step-container"
+                      className="border border-border/40 rounded-xl overflow-hidden bg-gradient-to-r from-card/50 to-card/30 backdrop-blur-sm shadow-lg hover:shadow-xl transition-all duration-300 step-container"
                     >
                       {/* Main Step */}
-                      <div className="bg-muted/20 border-b border-border">
-                        <div className="p-3 sm:p-4 md:p-6">
-                          <div className="flex items-start gap-3 sm:gap-4">
+                      <div className="bg-gradient-to-r from-muted/30 to-muted/20 border-b border-border/30">
+                        <div className="p-4">
+                          <div className="flex items-start gap-2">
                             <motion.button
-                              animate={{ rotate: step.isExpanded ? 90 : 0 }}
+                              animate={{ rotate: step.isExpanded ? 45 : 0 }}
                               transition={{ duration: 0.2 }}
-                              className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                              className="mt-1 text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-primary/10 flex-shrink-0"
                               disabled={
                                 step.subSteps.length === 0 &&
                                 !step.isLoadingSubSteps
                               }
                               onClick={() => handleStepClick(step.id)}
                             >
-                              <ChevronRight
-                                size={18}
-                                className="sm:w-5 sm:h-5"
-                              />
+                              {step.isLoadingSubSteps ? (
+                                <Loader2 className="animate-spin w-4 h-4" />
+                              ) : step.subSteps.length > 0 ? (
+                                <CheckCircle size={16} />
+                              ) : (
+                                <Plus size={16} />
+                              )}
                             </motion.button>
                             <div
                               className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
@@ -2549,52 +2576,36 @@ export default function StepsBot() {
                             >
                               <SimpleMathRenderer
                                 content={step.content}
-                                className="text-foreground font-medium leading-relaxed break-words text-sm sm:text-base"
+                                className="text-foreground font-medium leading-relaxed break-words text-default"
                               />
                             </div>
-                            {/* Mobile: Compact action button */}
-                            <div className="flex-shrink-0 self-start sm:hidden">
-                              <button
+                            
+                            {/* Further Breakdown Button - Desktop Only */}
+                            <div className="hidden md:flex items-center">
+                              <Button
                                 onClick={() => handleGetSubSteps(step.id)}
-                                disabled={
-                                  step.isLoadingSubSteps ||
-                                  step.subSteps.length > 0
-                                }
-                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-primary/20 disabled:border-muted"
+                                disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                variant="outline"
+                                size="sm"
+                                className="text-xs bg-background/95 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm transition-all duration-200"
                               >
                                 {step.isLoadingSubSteps ? (
-                                  <Loader2 className="animate-spin w-4 h-4" />
+                                  <>
+                                    <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                    Loading...
+                                  </>
                                 ) : step.subSteps.length > 0 ? (
-                                  <CheckCircle size={16} />
+                                  <>
+                                    <CheckCircle className="mr-1 h-3 w-3" />
+                                    Breakdown Complete
+                                  </>
                                 ) : (
-                                  <Plus size={16} />
+                                  <>
+                                    <ChevronDown className="mr-1 h-3 w-3" />
+                                    Further Breakdown
+                                  </>
                                 )}
-                              </button>
-                            </div>
-                            {/* Desktop: Full action button */}
-                            <div className="flex-shrink-0 self-start hidden sm:block">
-                              <button
-                                onClick={() => handleGetSubSteps(step.id)}
-                                disabled={
-                                  step.isLoadingSubSteps ||
-                                  step.subSteps.length > 0
-                                }
-                                className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted text-primary disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted whitespace-nowrap"
-                              >
-                                {step.isLoadingSubSteps ? (
-                                  <Loader2 className="animate-spin w-4 h-4" />
-                                ) : step.subSteps.length > 0 ? (
-                                  <CheckCircle
-                                    size={14}
-                                    className="sm:w-4 sm:h-4"
-                                  />
-                                ) : (
-                                  <Plus size={14} className="sm:w-4 sm:h-4" />
-                                )}
-                                {step.subSteps.length > 0
-                                  ? "Expanded"
-                                  : "Further Breakdown"}
-                              </button>
+                              </Button>
                             </div>
                           </div>
                         </div>
@@ -2619,18 +2630,18 @@ export default function StepsBot() {
                                   duration: 0.3,
                                   delay: subStepIndex * 0.05,
                                 }}
-                                className="border-b border-border/50 last:border-b-0 step-container"
+                                className="border-b border-border/30 last:border-b-0 step-container"
                               >
                                 {/* Sub Step Header */}
-                                <div className="bg-card/20">
-                                  <div className="p-3 sm:p-4 md:p-6 pl-6 sm:pl-8 md:pl-12">
-                                    <div className="flex items-start gap-3 sm:gap-4">
+                                <div className="bg-gradient-to-r from-card/40 to-card/20">
+                                  <div className="p-4 pl-4">
+                                    <div className="flex items-start gap-2">
                                       <motion.button
                                         animate={{
-                                          rotate: subStep.isExpanded ? 90 : 0,
+                                          rotate: subStep.isExpanded ? 45 : 0,
                                         }}
                                         transition={{ duration: 0.2 }}
-                                        className="mt-0.5 sm:mt-1 text-muted-foreground hover:text-primary transition-colors p-1 flex-shrink-0"
+                                        className="mt-1 text-muted-foreground hover:text-primary transition-colors p-1 rounded hover:bg-primary/10 flex-shrink-0"
                                         disabled={
                                           !subStep.theory &&
                                           !subStep.isLoadingTheory
@@ -2642,10 +2653,13 @@ export default function StepsBot() {
                                           )
                                         }
                                       >
-                                        <ChevronRight
-                                          size={16}
-                                          className="sm:w-[18px] sm:h-[18px]"
-                                        />
+                                        {subStep.isLoadingTheory ? (
+                                          <Loader2 className="animate-spin w-3.5 h-3.5" />
+                                        ) : subStep.theory ? (
+                                          <CheckCircle size={14} />
+                                        ) : (
+                                          <FileText size={14} />
+                                        )}
                                       </motion.button>
                                       <div
                                         className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
@@ -2658,59 +2672,36 @@ export default function StepsBot() {
                                       >
                                         <SimpleMathRenderer
                                           content={subStep.content}
-                                          className="text-muted-foreground leading-relaxed break-words text-sm sm:text-base"
+                                          className="text-muted-foreground leading-relaxed break-words text-default"
                                         />
                                       </div>
-                                      {/* Mobile: Compact theory button */}
-                                      <div className="flex-shrink-0 self-start sm:hidden">
-                                        <button
-                                          onClick={() =>
-                                            handleGetTheory(step.id, subStep.id)
-                                          }
-                                          disabled={
-                                            subStep.isLoadingTheory ||
-                                            !!subStep.theory
-                                          }
-                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground p-2 rounded-lg transition-all duration-200 border border-secondary/20 disabled:border-muted"
+                                      
+                                      {/* Get Explanation Button - Desktop Only */}
+                                      <div className="hidden md:flex items-center">
+                                        <Button
+                                          onClick={() => handleGetTheory(step.id, subStep.id)}
+                                          disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                          variant="outline"
+                                          size="sm"
+                                          className="text-xs bg-background/95 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm transition-all duration-200"
                                         >
                                           {subStep.isLoadingTheory ? (
-                                            <Loader2 className="animate-spin w-4 h-4" />
+                                            <>
+                                              <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                              Loading...
+                                            </>
                                           ) : subStep.theory ? (
-                                            <CheckCircle size={14} />
+                                            <>
+                                              <CheckCircle className="mr-1 h-3 w-3" />
+                                              Explanation Complete
+                                            </>
                                           ) : (
-                                            <FileText size={14} />
+                                            <>
+                                              <Info className="mr-1 h-3 w-3" />
+                                              Get Explanation
+                                            </>
                                           )}
-                                        </button>
-                                      </div>
-                                      {/* Desktop: Full theory button */}
-                                      <div className="flex-shrink-0 self-start hidden sm:block">
-                                        <button
-                                          onClick={() =>
-                                            handleGetTheory(step.id, subStep.id)
-                                          }
-                                          disabled={
-                                            subStep.isLoadingTheory ||
-                                            !!subStep.theory
-                                          }
-                                          className="bg-secondary/50 hover:bg-secondary/70 disabled:bg-muted text-secondary-foreground disabled:text-muted-foreground px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted whitespace-nowrap"
-                                        >
-                                          {subStep.isLoadingTheory ? (
-                                            <Loader2 className="animate-spin w-3 h-3 sm:w-[14px] sm:h-[14px]" />
-                                          ) : subStep.theory ? (
-                                            <CheckCircle
-                                              size={12}
-                                              className="sm:w-[14px] sm:h-[14px]"
-                                            />
-                                          ) : (
-                                            <FileText
-                                              size={12}
-                                              className="sm:w-[14px] sm:h-[14px]"
-                                            />
-                                          )}
-                                          {subStep.theory
-                                            ? "Theory Loaded"
-                                            : "Get Explanation"}
-                                        </button>
+                                        </Button>
                                       </div>
                                     </div>
                                   </div>
@@ -2726,11 +2717,11 @@ export default function StepsBot() {
                                       transition={{ duration: 0.3 }}
                                       className="overflow-hidden"
                                     >
-                                      <div className="p-3 sm:p-4 md:p-6 pl-8 sm:pl-12 md:pl-16 bg-primary/5 border-l-2 sm:border-l-4 border-primary/30">
-                                        <div className="bg-card/40 rounded-lg p-3 sm:p-4 border border-border/50">
+                                      <div className="p-4 pl-12 bg-gradient-to-r from-primary/5 to-primary/10 border-l-4 border-primary/40">
+                                        <div className="bg-card/60 rounded-xl p-4 border border-border/40 shadow-inner">
                                           <SimpleMathRenderer
                                             content={subStep.theory}
-                                            className="text-muted-foreground leading-relaxed text-sm sm:text-base"
+                                            className="text-muted-foreground leading-relaxed text-sm"
                                           />
                                         </div>
                                       </div>

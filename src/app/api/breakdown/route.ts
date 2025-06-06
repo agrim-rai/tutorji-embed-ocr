@@ -43,9 +43,12 @@ Keep each field concise and meaningful:
 - formulaeUsed: Key formulae, theorems, or principles needed (e.g., "Fundamental Theorem of Calculus, Integration by parts")
 - termDefinitions: Define all variables, constants, and key terms with their meanings and location in the original question (e.g., "\\( x \\) represents the independent variable in the function, \\( f(x) = x^2 \\) is the given function to integrate")
 
-For mathematical expressions, use LaTeX notation:
-- For inline math, use \\( and \\) like: \\( \\int_0^1 x^2 dx \\)
+CRITICAL - For mathematical expressions, use PROPER LaTeX notation with explicit multiplication operators:
+- For inline math, use \\( and \\) like: \\( \\int_0^1 x^2 \\, dx \\)
 - For display math, use \\[ and \\] like: \\[ f(x) = x^2 + 2x + 1 \\]
+- ALWAYS use \\cdot for multiplication: \\( 2 \\cdot x \\) not \\( 2x \\)
+- ALWAYS use proper spacing: \\( x^3 \\cdot 2\\sqrt{3 - x^2} \\) not \\( x^32\\sqrt{3 - x^2} \\)
+- Examples: \\( 2 \\cdot \\int x^3 \\cdot \\sqrt{x} \\, dx \\), \\( f(x) = 3 \\cdot x^2 \\cdot \\sin(x) \\)
 
 Return ONLY the JSON object, no other text.`;
         
@@ -91,9 +94,12 @@ Return your response as a valid JSON object with this exact structure:
   ]
 }
 
-For mathematical expressions, use LaTeX notation:
+CRITICAL - For mathematical expressions, use PROPER LaTeX notation with explicit multiplication operators:
 - For inline math, use \\( and \\) like: \\( x^2 + 2x + 1 \\)
-- For display math, use \\[ and \\] like: \\[ f(x) = \\int_0^x t^2 dt \\]
+- For display math, use \\[ and \\] like: \\[ f(x) = \\int_0^x t^2 \\, dt \\]
+- ALWAYS use \\cdot for multiplication: \\( 2 \\cdot x \\) not \\( 2x \\)
+- ALWAYS use proper spacing: \\( x^3 \\cdot 2\\sqrt{3 - x^2} \\) not \\( x^32\\sqrt{3 - x^2} \\)
+- Examples: \\( 2 \\cdot \\int x^3 \\cdot \\sqrt{x} \\, dx \\), \\( f(x) = 3 \\cdot x^2 \\cdot \\sin(x) \\)
 
 Return ONLY the JSON object, no other text.`;
         
@@ -138,9 +144,12 @@ Return your response as a valid JSON object with this exact structure:
   ]
 }
 
-For mathematical expressions, use LaTeX notation:
+CRITICAL - For mathematical expressions, use PROPER LaTeX notation with explicit multiplication operators:
 - For inline math, use \\( and \\) like: \\( \\frac{d}{dx}[f(x)] \\)
-- For display math, use \\[ and \\] like: \\[ \\int_0^1 x^2 dx = \\frac{1}{3} \\]
+- For display math, use \\[ and \\] like: \\[ \\int_0^1 x^2 \\, dx = \\frac{1}{3} \\]
+- ALWAYS use \\cdot for multiplication: \\( 2 \\cdot x \\) not \\( 2x \\)
+- ALWAYS use proper spacing: \\( x^3 \\cdot 2\\sqrt{3 - x^2} \\) not \\( x^32\\sqrt{3 - x^2} \\)
+- Examples: \\( 2 \\cdot \\int x^3 \\cdot \\sqrt{x} \\, dx \\), \\( f(x) = 3 \\cdot x^2 \\cdot \\sin(x) \\)
 
 Original step: ${stepContext}
 
@@ -162,9 +171,12 @@ Return ONLY the JSON object, no other text.`;
 - Why this step is important  
 - Practical tip or formula if applicable
 
-For mathematical expressions, use LaTeX notation:
+CRITICAL - For mathematical expressions, use PROPER LaTeX notation with explicit multiplication operators:
 - For inline math, use \\( and \\) like: \\( f'(x) = 2x \\)
-- For display math, use \\[ and \\] like: \\[ \\int x^n dx = \\frac{x^{n+1}}{n+1} + C \\]
+- For display math, use \\[ and \\] like: \\[ \\int x^n \\, dx = \\frac{x^{n+1}}{n+1} + C \\]
+- ALWAYS use \\cdot for multiplication: \\( 2 \\cdot x \\) not \\( 2x \\)
+- ALWAYS use proper spacing: \\( x^3 \\cdot 2\\sqrt{3 - x^2} \\) not \\( x^32\\sqrt{3 - x^2} \\)
+- Examples: \\( 2 \\cdot \\int x^3 \\cdot \\sqrt{x} \\, dx \\), \\( f(x) = 3 \\cdot x^2 \\cdot \\sin(x) \\)
 
 Sub-step: ${stepContext}
 

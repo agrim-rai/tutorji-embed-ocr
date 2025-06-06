@@ -652,7 +652,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
             
             {/* Share Info */}
             {shareData && (
-              <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2 text-xs sm:text-sm text-muted-foreground">
+              <div className="mt-3 sm:mt-4 flex items-center justify-center gap-2 text-sm sm:text-sm text-muted-foreground">
                 <Clock className="w-3 h-3 sm:w-4 sm:h-4" />
                 <span>Shared on {formatDate(shareData.createdAt)}</span>
               </div>
@@ -779,7 +779,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                         onClick={() => setShowFullQuestion(true)}
                         variant="outline"
                         size="sm"
-                        className="w-full text-xs sm:text-sm hover:bg-muted/50"
+                        className="w-full text-sm  sm:text-sm hover:bg-muted/50"
                       >
                         <Maximize2 className="mr-2 h-3 w-3 sm:h-4 sm:w-4" />
                         View Full Screen
@@ -796,51 +796,52 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                   className="lg:col-span-1"
                 >
                   {shareData.summaryData && (
-                    <div className="bg-gradient-to-br from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200/60 dark:border-blue-800/40 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 h-full">
-                      <div className="flex items-start gap-3">
-                        <div className="p-2 bg-blue-100 dark:bg-blue-900/40 rounded-lg flex-shrink-0 mt-0.5">
-                          <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-600 dark:text-blue-400" />
-                        </div>
-                        <div className="flex-1 min-w-0">
-                          <h3 className="text-base sm:text-lg font-semibold text-blue-900 dark:text-blue-100 mb-4">
+                    <div className="bg-gradient-to-br from-slate-900/95 to-slate-800/95 dark:from-slate-900/95 dark:to-slate-800/95 border border-slate-700/60 dark:border-slate-700/60 rounded-2xl p-4 sm:p-6 backdrop-blur-sm shadow-xl hover:shadow-2xl transition-all duration-300 h-full">
+                      <div className="space-y-6">
+                        <div className="flex items-center gap-3">
+                          {/* <div className="p-2 bg-blue-500/20 rounded-lg flex-shrink-0">
+                            <Info className="w-4 h-4 sm:w-5 sm:h-5 text-blue-400" />
+                          </div> */}
+                          <h3 className="text-base sm:text-lg font-semibold text-white">
                             Analytic Breakdown
                           </h3>
-                          <div className="space-y-4">
-                            {/* Crux of Problem */}
-                            <div>
-                              <h4 className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                                <Target className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Crux of the Problem:
-                              </h4>
-                              <SimpleMathRenderer
-                                content={shareData.summaryData.cruxOfProblem || "Not available"}
-                                className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm leading-relaxed ml-5"
-                              />
-                            </div>
+                        </div>
+                        
+                        <div className="space-y-5">
+                          {/* Crux of Problem */}
+                          <div>
+                            <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                              <Target className="w-4 h-4 text-blue-400" />
+                              Crux of the Problem:
+                            </h4>
+                            <SimpleMathRenderer
+                              content={shareData.summaryData.cruxOfProblem || "Not available"}
+                              className="text-slate-200 text-default leading-relaxed"
+                            />
+                          </div>
 
-                            {/* Formulae Used */}
-                            <div>
-                              <h4 className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                                <FileText className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Key Formulae & Principles:
-                              </h4>
-                              <SimpleMathRenderer
-                                content={shareData.summaryData.formulaeUsed || "Not available"}
-                                className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm leading-relaxed ml-5"
-                              />
-                            </div>
+                          {/* Formulae Used */}
+                          <div>
+                            <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                              <FileText className="w-4 h-4 text-blue-400" />
+                              Key Formulae & Principles:
+                            </h4>
+                            <SimpleMathRenderer
+                              content={shareData.summaryData.formulaeUsed || "Not available"}
+                              className="text-slate-200 text-default leading-relaxed"
+                            />
+                          </div>
 
-                            {/* Term Definitions */}
-                            <div>
-                              <h4 className="text-xs sm:text-sm font-semibold text-blue-900 dark:text-blue-100 mb-2 flex items-center gap-2">
-                                <Brain className="w-3 h-3 sm:w-4 sm:h-4" />
-                                Term Definitions:
-                              </h4>
-                              <SimpleMathRenderer
-                                content={shareData.summaryData.termDefinitions || "Not available"}
-                                className="text-blue-800 dark:text-blue-200 text-xs sm:text-sm leading-relaxed ml-5"
-                              />
-                            </div>
+                          {/* Term Definitions */}
+                          <div>
+                            <h4 className="text-default font-semibold text-white mb-3 flex items-center gap-2">
+                              <Brain className="w-4 h-4 text-blue-400" />
+                              Term Definitions:
+                            </h4>
+                            <SimpleMathRenderer
+                              content={shareData.summaryData.termDefinitions || "Not available"}
+                              className="text-slate-200 text-default leading-relaxed"
+                            />
                           </div>
                         </div>
                       </div>
@@ -868,7 +869,7 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
 
                     {/* Interactive Features Info */}
                     <div className="mb-6 p-4 bg-gradient-to-r from-blue-50/90 to-indigo-50/90 dark:from-blue-950/40 dark:to-indigo-950/40 border border-blue-200/60 dark:border-blue-800/40 rounded-xl">
-                      <div className="flex items-start gap-3">
+                      <div className="flex items-start gap-2">
                         <div className="p-1.5 bg-blue-100 dark:bg-blue-900/40 rounded-lg">
                           <Info className="w-4 h-4 text-blue-600 dark:text-blue-400" />
                         </div>
@@ -876,14 +877,14 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                           <p className="text-blue-800 dark:text-blue-200 font-medium mb-1">
                             Interactive Learning Available
                           </p>
-                          <p className="text-blue-700 dark:text-blue-300 text-xs">
+                          <p className="text-blue-700 dark:text-blue-300">
                             Click on any step to get a detailed breakdown, then click on sub-steps to get theory explanations. No login required!
                           </p>
                         </div>
                       </div>
                     </div>
 
-                    <div className="space-y-3 sm:space-y-4">
+                    <div className="space-y-4 sm:space-y-4">
                       {steps.map((step, stepIndex) => (
                         <motion.div
                           key={step.id}
@@ -894,10 +895,10 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                         >
                           {/* Main Step */}
                           <div className="bg-gradient-to-r from-muted/30 to-muted/20 border-b border-border/30">
-                            <div className="p-4">
-                              <div className="flex items-start gap-3">
+                            <div className="p-3">
+                              <div className="flex items-start gap-2">
                                 <motion.button
-                                  animate={{ rotate: step.isExpanded ? 90 : 0 }}
+                                  animate={{ rotate: step.isExpanded ? 45 : 0 }}
                                   transition={{ duration: 0.2 }}
                                   className="mt-1 text-muted-foreground hover:text-primary transition-colors p-1.5 rounded-lg hover:bg-primary/10 flex-shrink-0"
                                   disabled={
@@ -906,7 +907,13 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                                   }
                                   onClick={() => handleStepClick(step.id)}
                                 >
-                                  <ChevronRight size={16} />
+                                  {step.isLoadingSubSteps ? (
+                                    <Loader2 className="animate-spin w-4 h-4" />
+                                  ) : step.subSteps.length > 0 ? (
+                                    <CheckCircle size={16} />
+                                  ) : (
+                                    <Plus size={16} />
+                                  )}
                                 </motion.button>
                                 <div
                                   className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
@@ -914,32 +921,36 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                                 >
                                   <SimpleMathRenderer
                                     content={step.content}
-                                    className="text-foreground font-medium leading-relaxed break-words text-sm"
+                                    className="text-foreground font-medium leading-relaxed break-words text-default"
                                   />
                                 </div>
-                                {/* Action button */}
-                                <div className="flex-shrink-0 self-start">
-                                  <button
+                                
+                                {/* Further Breakdown Button - Desktop Only */}
+                                <div className="hidden md:flex items-center">
+                                  <Button
                                     onClick={() => handleGetSubSteps(step.id)}
-                                    disabled={
-                                      step.isLoadingSubSteps ||
-                                      step.subSteps.length > 0
-                                    }
-                                    className="bg-primary/10 hover:bg-primary/20 disabled:bg-muted/50 text-primary disabled:text-muted-foreground px-3 py-1.5 sm:px-4 sm:py-2 rounded-lg text-xs sm:text-sm font-medium transition-all duration-200 flex items-center gap-2 border border-primary/20 disabled:border-muted/30 whitespace-nowrap shadow-sm"
+                                    disabled={step.isLoadingSubSteps || step.subSteps.length > 0}
+                                    variant="outline"
+                                    size="sm"
+                                    className="text-xs bg-background/95 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm transition-all duration-200"
                                   >
                                     {step.isLoadingSubSteps ? (
-                                      <Loader2 className="animate-spin w-3 h-3 sm:w-4 sm:h-4" />
+                                      <>
+                                        <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                        Loading...
+                                      </>
                                     ) : step.subSteps.length > 0 ? (
-                                      <CheckCircle size={14} />
+                                      <>
+                                        <CheckCircle className="mr-1 h-3 w-3" />
+                                        Breakdown Complete
+                                      </>
                                     ) : (
-                                      <Plus size={14} />
+                                      <>
+                                        <ChevronDown className="mr-1 h-3 w-3" />
+                                        Further Breakdown
+                                      </>
                                     )}
-                                    <span className="hidden sm:inline">
-                                      {step.subSteps.length > 0
-                                        ? "Expanded"
-                                        : "Further Breakdown"}
-                                    </span>
-                                  </button>
+                                  </Button>
                                 </div>
                               </div>
                             </div>
@@ -968,11 +979,11 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                                   >
                                     {/* Sub Step Header */}
                                     <div className="bg-gradient-to-r from-card/40 to-card/20">
-                                      <div className="p-4 pl-8">
-                                        <div className="flex items-start gap-3">
+                                      <div className="p-4 pl-4">
+                                        <div className="flex items-start gap-2">
                                           <motion.button
                                             animate={{
-                                              rotate: subStep.isExpanded ? 90 : 0,
+                                              rotate: subStep.isExpanded ? 45 : 0,
                                             }}
                                             transition={{ duration: 0.2 }}
                                             className="mt-1 text-muted-foreground hover:text-primary transition-colors p-1 rounded hover:bg-primary/10 flex-shrink-0"
@@ -987,7 +998,13 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                                               )
                                             }
                                           >
-                                            <ChevronRight size={14} />
+                                            {subStep.isLoadingTheory ? (
+                                              <Loader2 className="animate-spin w-3.5 h-3.5" />
+                                            ) : subStep.theory ? (
+                                              <CheckCircle size={14} />
+                                            ) : (
+                                              <FileText size={14} />
+                                            )}
                                           </motion.button>
                                           <div
                                             className="flex-1 min-w-0 cursor-pointer hover:text-primary transition-colors"
@@ -1000,34 +1017,36 @@ export default function SharePage({ params }: { params: Promise<{ id: string }> 
                                           >
                                             <SimpleMathRenderer
                                               content={subStep.content}
-                                              className="text-muted-foreground leading-relaxed break-words text-sm"
+                                              className="text-muted-foreground leading-relaxed break-words text-default"
                                             />
                                           </div>
-                                          {/* Theory button */}
-                                          <div className="flex-shrink-0 self-start">
-                                            <button
-                                              onClick={() =>
-                                                handleGetTheory(step.id, subStep.id)
-                                              }
-                                              disabled={
-                                                subStep.isLoadingTheory ||
-                                                !!subStep.theory
-                                              }
-                                              className="bg-secondary/40 hover:bg-secondary/60 disabled:bg-muted/30 text-secondary-foreground disabled:text-muted-foreground px-3 py-1.5 rounded-lg text-xs font-medium transition-all duration-200 flex items-center gap-2 border border-secondary/20 disabled:border-muted/20 whitespace-nowrap shadow-sm"
+                                          
+                                          {/* Get Explanation Button - Desktop Only */}
+                                          <div className="hidden md:flex items-center">
+                                            <Button
+                                              onClick={() => handleGetTheory(step.id, subStep.id)}
+                                              disabled={subStep.isLoadingTheory || !!subStep.theory}
+                                              variant="outline"
+                                              size="sm"
+                                              className="text-xs bg-background/95 backdrop-blur-sm hover:bg-background border-border/50 shadow-sm transition-all duration-200"
                                             >
                                               {subStep.isLoadingTheory ? (
-                                                <Loader2 className="animate-spin w-3 h-3" />
+                                                <>
+                                                  <Loader2 className="mr-1 h-3 w-3 animate-spin" />
+                                                  Loading...
+                                                </>
                                               ) : subStep.theory ? (
-                                                <CheckCircle size={12} />
+                                                <>
+                                                  <CheckCircle className="mr-1 h-3 w-3" />
+                                                  Explanation Complete
+                                                </>
                                               ) : (
-                                                <FileText size={12} />
+                                                <>
+                                                  <Info className="mr-1 h-3 w-3" />
+                                                  Get Explanation
+                                                </>
                                               )}
-                                              <span className="hidden sm:inline">
-                                                {subStep.theory
-                                                  ? "Theory Loaded"
-                                                  : "Get Explanation"}
-                                              </span>
-                                            </button>
+                                            </Button>
                                           </div>
                                         </div>
                                       </div>
