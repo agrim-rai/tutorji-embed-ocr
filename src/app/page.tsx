@@ -43,6 +43,7 @@ import { Footer } from "@/components/ui/footer";
 import { SimpleMathRenderer } from "@/components/ui/simple-math-renderer";
 import { ShiningText } from "@/components/ui/shining-text";
 import { ResponseStream } from "@/components/ui/response-stream";
+import { RatingComponent } from "@/components/ratingComponent";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import dynamic from "next/dynamic";
 import Link from "next/link";
@@ -433,6 +434,10 @@ export default function StepsBot() {
     StreamingMessage[]
   >([]);
   const [showDesktopLayout, setShowDesktopLayout] = useState(false);
+
+  // Rating states
+  const [ratingSubmitted, setRatingSubmitted] = useState(false);
+  const [ratingLoading, setRatingLoading] = useState(false);
 
   // General states
   const [error, setError] = useState("");
@@ -1245,6 +1250,8 @@ export default function StepsBot() {
     setSummaryData(null);
     setIsLoadingSummary(false);
     setUploadingToCloudinary(false);
+    setRatingSubmitted(false);
+    setRatingLoading(false);
     
     // Clear current image URL from localStorage
     try {
@@ -1787,6 +1794,46 @@ export default function StepsBot() {
     }
   };
 
+  // Rating submission function
+  const handleRatingSubmit = async (rating: number) => {
+    const currentImageUrl = getCurrentImageUrlFromStorage();
+    if (!currentImageUrl) {
+      setError("No image found to rate");
+      return;
+    }
+
+    setRatingLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch('/api/rating', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          rating,
+          imageUrl: currentImageUrl,
+          ratingType: 'breakdown_experience'
+        }),
+      });
+
+      const result = await response.json();
+
+      if (result.success) {
+        setRatingSubmitted(true);
+        console.log('Rating submitted successfully:', result.data);
+      } else {
+        setError(result.error || 'Failed to submit rating');
+      }
+    } catch (err) {
+      setError('Network error occurred while submitting rating');
+      console.error('Error submitting rating:', err);
+    } finally {
+      setRatingLoading(false);
+    }
+  };
+
   // Show login wall if not authenticated
   if (status === "loading") {
     return (
@@ -1802,9 +1849,16 @@ export default function StepsBot() {
   // For unauthenticated users, show different layouts for desktop vs mobile
   if (status === "unauthenticated") {
     return (
-      <div className="min-h-screen flex flex-col bg-background">
-        <Navbar />
-        <main className="flex-1 pt-16">
+          <div className="min-h-screen flex flex-col bg-background">
+      <Navbar 
+        shareUrl={shareUrl}
+        isCreatingShare={isCreatingShare}
+        shareCopied={shareCopied}
+        onCreateShare={createShareableLink}
+        onCopyLink={copyShareLink}
+        hasContent={steps.length > 0}
+      />
+      <main className="flex-1 pt-16">
           <div className="container mx-auto max-w-7xl p-6 space-y-8">
             {/* Header Section */}
             <motion.div
@@ -1984,7 +2038,14 @@ export default function StepsBot() {
 
   return (
     <div className="min-h-screen flex flex-col bg-background">
-      <Navbar />
+      <Navbar 
+        shareUrl={shareUrl}
+        isCreatingShare={isCreatingShare}
+        shareCopied={shareCopied}
+        onCreateShare={createShareableLink}
+        onCopyLink={copyShareLink}
+        hasContent={steps.length > 0}
+      />
 
       <main className="flex-1 pt-16">
         <div className="container mx-auto max-w-7xl p-6 space-y-8">
@@ -2685,88 +2746,7 @@ export default function StepsBot() {
                   ))}
                 </div>
 
-                {/* Share Section - Always visible when steps exist */}
-                {steps.length > 0 && (
-                  <motion.div
-                    initial={{ opacity: 0, y: 10 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    transition={{ duration: 0.4, delay: 0.2 }}
-                    className="mt-8"
-                  >
-                    <div className="p-6 bg-gradient-to-r from-purple-50 to-pink-50 dark:from-purple-950/20 dark:to-pink-950/20 rounded-xl border-2 border-purple-200 dark:border-purple-800/40">
-                      <div className="text-center space-y-4">
-                        <div className="flex items-center justify-center gap-3">
-                          <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-full">
-                            <Share2 className="w-6 h-6 text-purple-600" />
-                          </div>
-                          <h3 className="text-xl font-bold text-purple-800 dark:text-purple-400">
-                            Share This Breakdown
-                          </h3>
-                        </div>
 
-                        <p className="text-muted-foreground text-center">
-                          Share this step-by-step breakdown with friends, classmates, or anyone who needs help with this problem!
-                        </p>
-
-                        <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
-                          {!shareUrl ? (
-                            <button
-                              onClick={createShareableLink}
-                              disabled={isCreatingShare}
-                              className="bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700 disabled:from-muted disabled:to-muted text-white px-6 py-3 rounded-xl font-semibold transition-all duration-300 flex items-center justify-center gap-2 shadow-lg disabled:shadow-none"
-                            >
-                              {isCreatingShare ? (
-                                <>
-                                  <Loader2 className="animate-spin w-5 h-5" />
-                                  Creating Share Link...
-                                </>
-                              ) : (
-                                <>
-                                  <Share2 className="w-5 h-5" />
-                                  Create Share Link
-                                </>
-                              )}
-                            </button>
-                          ) : (
-                            <div className="flex flex-col sm:flex-row items-center gap-3 w-full max-w-md">
-                              <div className="flex-1 p-3 bg-background/60 border border-border/50 rounded-lg text-sm font-mono truncate min-w-0">
-                                {shareUrl}
-                              </div>
-                              <Button
-                                onClick={copyShareLink}
-                                variant="outline"
-                                className="flex-shrink-0"
-                              >
-                                {shareCopied ? (
-                                  <>
-                                    <CheckCircle className="mr-2 h-4 w-4 text-green-600" />
-                                    Copied!
-                                  </>
-                                ) : (
-                                  <>
-                                    <Clipboard className="mr-2 h-4 w-4" />
-                                    Copy Link
-                                  </>
-                                )}
-                              </Button>
-                            </div>
-                          )}
-                        </div>
-
-                        {shareUrl && (
-                          <motion.p
-                            initial={{ opacity: 0 }}
-                            animate={{ opacity: 1 }}
-                            transition={{ duration: 0.3 }}
-                            className="text-sm text-purple-700 dark:text-purple-300 font-medium"
-                          >
-                            ✓ Anyone with this link can view the breakdown without signing in
-                          </motion.p>
-                        )}
-                      </div>
-                    </div>
-                  </motion.div>
-                )}
 
                 {/* Interactive Learning Section - Only when no bot result */}
                 {steps.length > 0 && !botResult && !isStreaming && (
@@ -2820,6 +2800,26 @@ export default function StepsBot() {
                     </div>
                   </motion.div>
                 )}
+              </motion.div>
+            )}
+          </AnimatePresence>
+
+          {/* Rating Component - Show after successful breakdown */}
+          <AnimatePresence>
+            {steps.length > 0 && !isLoadingMainSteps && !isLoadingSummary && (
+              <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: -20 }}
+                transition={{ duration: 0.6, delay: 0.5 }}
+                className="mb-6 sm:mb-8"
+              >
+                <RatingComponent
+                  onSubmit={handleRatingSubmit}
+                  loading={ratingLoading}
+                  submitted={ratingSubmitted}
+                  className="max-w-2xl mx-auto"
+                />
               </motion.div>
             )}
           </AnimatePresence>
