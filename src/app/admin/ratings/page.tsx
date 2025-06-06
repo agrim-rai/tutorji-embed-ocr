@@ -1,12 +1,11 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-// Temporarily commented out recharts imports due to TypeScript module resolution
-// import { 
-//   BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
-//   PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer,
-//   Area, AreaChart
-// } from 'recharts';
+import { 
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, 
+  PieChart, Pie, Cell, LineChart, Line, ResponsiveContainer,
+  Area, AreaChart
+} from 'recharts';
 import { 
   Star, TrendingUp, Users, Image, Calendar, 
   Filter, Download, Search, Eye, BarChart3, ArrowLeft 
@@ -142,6 +141,28 @@ export default function RatingsAdminPage() {
 
   return (
     <div className="min-h-screen flex flex-col bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800">
+      <style jsx global>{`
+        :root {
+          --tooltip-bg: #f9fafb;
+          --tooltip-border: #e5e7eb;
+          --chart-text: #6b7280;
+          --chart-grid: #e5e7eb;
+        }
+        
+        [data-theme="dark"] {
+          --tooltip-bg: #374151;
+          --tooltip-border: #4b5563;
+          --chart-text: #9ca3af;
+          --chart-grid: #4b5563;
+        }
+        
+        .dark {
+          --tooltip-bg: #374151;
+          --tooltip-border: #4b5563;
+          --chart-text: #9ca3af;
+          --chart-grid: #4b5563;
+        }
+      `}</style>
       <Navbar />
       
       <main className="flex-1 px-4 py-8 pt-24 sm:px-6 lg:px-8">
@@ -183,55 +204,55 @@ export default function RatingsAdminPage() {
         {/* Stats Overview */}
         {stats && (
           <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-blue-100 rounded-lg">
-                  <Star className="h-6 w-6 text-blue-600" />
+                <div className="p-2 bg-blue-100 dark:bg-blue-900/30 rounded-lg">
+                  <Star className="h-6 w-6 text-blue-600 dark:text-blue-400" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Total Ratings</p>
-                  <p className="text-2xl font-bold text-gray-900">{stats.totalRatings.toLocaleString()}</p>
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Total Ratings</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">{stats.totalRatings.toLocaleString()}</p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-green-100 rounded-lg">
-                  <TrendingUp className="h-6 w-6 text-green-600" />
+                <div className="p-2 bg-green-100 dark:bg-green-900/30 rounded-lg">
+                  <TrendingUp className="h-6 w-6 text-green-600 dark:text-green-400" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Average Rating</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Average Rating</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {stats.averageRating.toFixed(2)}
-                    <span className="text-sm text-gray-500 ml-1">/ 5.0</span>
+                    <span className="text-sm text-gray-500 dark:text-gray-400 ml-1">/ 5.0</span>
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-purple-100 rounded-lg">
-                  <Users className="h-6 w-6 text-purple-600" />
+                <div className="p-2 bg-purple-100 dark:bg-purple-900/30 rounded-lg">
+                  <Users className="h-6 w-6 text-purple-600 dark:text-purple-400" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Unique Users</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Unique Users</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {new Set(ratings.filter(r => r.userEmail).map(r => r.userEmail)).size}
                   </p>
                 </div>
               </div>
             </div>
 
-            <div className="bg-white rounded-lg shadow p-6">
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
               <div className="flex items-center">
-                <div className="p-2 bg-orange-100 rounded-lg">
-                  <Image className="h-6 w-6 text-orange-600" />
+                <div className="p-2 bg-orange-100 dark:bg-orange-900/30 rounded-lg">
+                  <Image className="h-6 w-6 text-orange-600 dark:text-orange-400" />
                 </div>
                 <div className="ml-4">
-                  <p className="text-sm font-medium text-gray-600">Rated Images</p>
-                  <p className="text-2xl font-bold text-gray-900">
+                  <p className="text-sm font-medium text-gray-600 dark:text-gray-300">Rated Images</p>
+                  <p className="text-2xl font-bold text-gray-900 dark:text-white">
                     {new Set(ratings.map(r => r.imageUrl)).size}
                   </p>
                 </div>
@@ -244,106 +265,182 @@ export default function RatingsAdminPage() {
         {stats && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
             {/* Rating Distribution */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Rating Distribution</h3>
-              {/* <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={stats.ratingDistribution}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="rating" />
-                  <YAxis />
-                  <Tooltip formatter={(value: any, name: any) => [value, name === 'count' ? 'Count' : 'Percentage']} />
-                  <Legend />
-                  <Bar dataKey="count" fill="#3B82F6" name="Count" />
-                </BarChart>
-              </ResponsiveContainer> */}
-              <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <BarChart3 className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Rating Distribution Chart</p>
-                  <p className="text-sm text-gray-400">Chart temporarily unavailable</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Rating Distribution</h3>
+              {stats.ratingDistribution.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <BarChart data={stats.ratingDistribution}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                    <XAxis 
+                      dataKey="rating" 
+                      tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+                      axisLine={{ stroke: 'var(--chart-grid)' }}
+                    />
+                    <YAxis 
+                      tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+                      axisLine={{ stroke: 'var(--chart-grid)' }}
+                    />
+                    <Tooltip 
+                      formatter={(value: any, name: any) => [
+                        value.toLocaleString(), 
+                        name === 'count' ? 'Ratings' : 'Percentage'
+                      ]}
+                      labelFormatter={(label) => `${label} Star${label !== 1 ? 's' : ''}`}
+                      contentStyle={{
+                        backgroundColor: 'var(--tooltip-bg)',
+                        border: '1px solid var(--tooltip-border)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend />
+                    <Bar dataKey="count" fill="#3b82f6" name="Count" radius={[4, 4, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="text-center">
+                    <BarChart3 className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300">No rating data available</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Rating Types */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Ratings by Type</h3>
-              {/* <ResponsiveContainer width="100%" height={300}>
-                <PieChart>
-                  <Pie
-                    data={stats.ratingsByType}
-                    cx="50%"
-                    cy="50%"
-                    labelLine={false}
-                    label={({ type, count }: any) => `${type}: ${count}`}
-                    outerRadius={80}
-                    fill="#8884d8"
-                    dataKey="count"
-                  >
-                    {stats.ratingsByType.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                </PieChart>
-              </ResponsiveContainer> */}
-              <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <div className="w-20 h-20 rounded-full bg-blue-200 mx-auto mb-4 flex items-center justify-center">
-                    <BarChart3 className="h-8 w-8 text-blue-600" />
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Ratings by Type</h3>
+              {stats.ratingsByType.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <PieChart>
+                    <Pie
+                      data={stats.ratingsByType.map(item => ({
+                        ...item,
+                        name: item.type.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())
+                      }))}
+                      cx="50%"
+                      cy="50%"
+                      labelLine={false}
+                      label={({ name, count, percent }: any) => 
+                        `${name}: ${count} (${(percent * 100).toFixed(1)}%)`
+                      }
+                      outerRadius={100}
+                      fill="#8884d8"
+                      dataKey="count"
+                    >
+                      {stats.ratingsByType.map((_, index) => (
+                        <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
+                      ))}
+                    </Pie>
+                    <Tooltip 
+                      formatter={(value: any, name: any) => [value, 'Count']}
+                      labelFormatter={(label) => label}
+                      contentStyle={{
+                        backgroundColor: 'var(--tooltip-bg)',
+                        border: '1px solid var(--tooltip-border)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                    />
+                    <Legend />
+                  </PieChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="text-center">
+                    <div className="w-20 h-20 rounded-full bg-blue-200 dark:bg-blue-900/30 mx-auto mb-4 flex items-center justify-center">
+                      <BarChart3 className="h-8 w-8 text-blue-600 dark:text-blue-400" />
+                    </div>
+                    <p className="text-gray-600 dark:text-gray-300">No rating type data available</p>
                   </div>
-                  <p className="text-gray-600">Rating Types Chart</p>
-                  <p className="text-sm text-gray-400">Chart temporarily unavailable</p>
                 </div>
-              </div>
+              )}
             </div>
 
             {/* Daily Ratings Trend */}
-            <div className="bg-white rounded-lg shadow p-6 lg:col-span-2">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4">Daily Ratings Trend</h3>
-              {/* <ResponsiveContainer width="100%" height={300}>
-                <AreaChart data={stats.dailyRatings}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis yAxisId="left" />
-                  <YAxis yAxisId="right" orientation="right" />
-                  <Tooltip />
-                  <Legend />
-                  <Area
-                    yAxisId="left"
-                    type="monotone"
-                    dataKey="count"
-                    stackId="1"
-                    stroke="#3B82F6"
-                    fill="#3B82F6"
-                    fillOpacity={0.6}
-                    name="Daily Count"
-                  />
-                  <Line
-                    yAxisId="right"
-                    type="monotone"
-                    dataKey="averageRating"
-                    stroke="#10B981"
-                    strokeWidth={3}
-                    name="Average Rating"
-                  />
-                </AreaChart>
-              </ResponsiveContainer> */}
-              <div className="h-[300px] flex items-center justify-center bg-gray-50 rounded-lg">
-                <div className="text-center">
-                  <TrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                  <p className="text-gray-600">Daily Ratings Trend Chart</p>
-                  <p className="text-sm text-gray-400">Chart temporarily unavailable</p>
+            <div className="bg-white dark:bg-gray-800 rounded-lg shadow p-6 lg:col-span-2">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Daily Ratings Trend</h3>
+              {stats.dailyRatings.length > 0 ? (
+                <ResponsiveContainer width="100%" height={300}>
+                  <LineChart data={stats.dailyRatings.map(item => ({
+                    ...item,
+                    date: new Date(item.date).toLocaleDateString('en-US', { 
+                      month: 'short', 
+                      day: 'numeric' 
+                    })
+                  }))}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--chart-grid)" />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+                      axisLine={{ stroke: 'var(--chart-grid)' }}
+                    />
+                    <YAxis 
+                      yAxisId="left" 
+                      tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+                      axisLine={{ stroke: 'var(--chart-grid)' }}
+                      label={{ value: 'Count', angle: -90, position: 'insideLeft', style: { textAnchor: 'middle', fill: 'var(--chart-text)' } }}
+                    />
+                    <YAxis 
+                      yAxisId="right" 
+                      orientation="right"
+                      tick={{ fill: 'var(--chart-text)', fontSize: 12 }}
+                      axisLine={{ stroke: 'var(--chart-grid)' }}
+                      domain={[0, 5]}
+                      label={{ value: 'Rating', angle: 90, position: 'insideRight', style: { textAnchor: 'middle', fill: 'var(--chart-text)' } }}
+                    />
+                    <Tooltip 
+                      contentStyle={{
+                        backgroundColor: 'var(--tooltip-bg)',
+                        border: '1px solid var(--tooltip-border)',
+                        borderRadius: '8px',
+                        boxShadow: '0 4px 6px -1px rgba(0, 0, 0, 0.1)'
+                      }}
+                      labelFormatter={(label) => `Date: ${label}`}
+                      formatter={(value: any, name: any) => [
+                        typeof value === 'number' ? value.toLocaleString() : value, 
+                        name
+                      ]}
+                    />
+                    <Legend />
+                    <Line
+                      yAxisId="left"
+                      type="monotone"
+                      dataKey="count"
+                      stroke="#3b82f6"
+                      strokeWidth={3}
+                      name="Daily Count"
+                      dot={{ fill: '#3b82f6', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                    <Line
+                      yAxisId="right"
+                      type="monotone"
+                      dataKey="averageRating"
+                      stroke="#10b981"
+                      strokeWidth={3}
+                      name="Average Rating"
+                      dot={{ fill: '#10b981', strokeWidth: 2, r: 4 }}
+                      activeDot={{ r: 6 }}
+                    />
+                  </LineChart>
+                </ResponsiveContainer>
+              ) : (
+                <div className="h-[300px] flex items-center justify-center bg-gray-50 dark:bg-gray-700/50 rounded-lg">
+                  <div className="text-center">
+                    <TrendingUp className="h-12 w-12 text-gray-400 dark:text-gray-500 mx-auto mb-4" />
+                    <p className="text-gray-600 dark:text-gray-300">No daily trend data available</p>
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           </div>
         )}
 
         {/* Filters */}
-        <div className="bg-white rounded-lg shadow mb-8">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white flex items-center gap-2">
               <Filter className="h-5 w-5" />
               Filters
             </h3>
@@ -351,29 +448,29 @@ export default function RatingsAdminPage() {
           <div className="p-6">
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-4 gap-4">
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date From</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date From</label>
                 <input
                   type="date"
                   value={filters.dateFrom}
                   onChange={(e) => setFilters({...filters, dateFrom: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Date To</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Date To</label>
                 <input
                   type="date"
                   value={filters.dateTo}
                   onChange={(e) => setFilters({...filters, dateTo: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Rating Type</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Rating Type</label>
                 <select
                   value={filters.ratingType}
                   onChange={(e) => setFilters({...filters, ratingType: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">All Types</option>
                   <option value="breakdown_experience">Breakdown Experience</option>
@@ -382,11 +479,11 @@ export default function RatingsAdminPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Min Rating</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Min Rating</label>
                 <select
                   value={filters.minRating}
                   onChange={(e) => setFilters({...filters, minRating: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Any</option>
                   <option value="1">1 Star</option>
@@ -397,11 +494,11 @@ export default function RatingsAdminPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Max Rating</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Max Rating</label>
                 <select
                   value={filters.maxRating}
                   onChange={(e) => setFilters({...filters, maxRating: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
                   <option value="">Any</option>
                   <option value="1">1 Star</option>
@@ -412,23 +509,23 @@ export default function RatingsAdminPage() {
                 </select>
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">Image URL</label>
                 <input
                   type="text"
                   placeholder="Filter by image URL..."
                   value={filters.imageUrl}
                   onChange={(e) => setFilters({...filters, imageUrl: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">User Email</label>
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1">User Email</label>
                 <input
                   type="email"
                   placeholder="Filter by user email..."
                   value={filters.userEmail}
                   onChange={(e) => setFilters({...filters, userEmail: e.target.value})}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="w-full px-3 py-2 border border-gray-300 dark:border-gray-600 dark:bg-gray-700 dark:text-white dark:placeholder-gray-400 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
             </div>
@@ -441,13 +538,13 @@ export default function RatingsAdminPage() {
                   });
                   setCurrentPage(1);
                 }}
-                className="px-4 py-2 border border-gray-300 rounded-md text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-md text-sm font-medium text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-700"
               >
                 Clear Filters
               </button>
               <button
                 onClick={() => setCurrentPage(1)}
-                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700"
+                className="px-4 py-2 bg-blue-600 border border-transparent rounded-md text-sm font-medium text-white hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600"
               >
                 Apply Filters
               </button>
@@ -457,14 +554,14 @@ export default function RatingsAdminPage() {
 
         {/* Top Rated Images */}
         {stats && stats.topRatedImages.length > 0 && (
-          <div className="bg-white rounded-lg shadow mb-8">
-            <div className="px-6 py-4 border-b border-gray-200">
-              <h3 className="text-lg font-semibold text-gray-900">Top Rated Images</h3>
+          <div className="bg-white dark:bg-gray-800 rounded-lg shadow mb-8">
+            <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Top Rated Images</h3>
             </div>
             <div className="p-6">
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {stats.topRatedImages.slice(0, 6).map((image, index) => (
-                  <div key={index} className="flex items-center p-4 border border-gray-200 rounded-lg">
+                  <div key={index} className="flex items-center p-4 border border-gray-200 dark:border-gray-700 rounded-lg">
                     <img
                       src={image.imageUrl}
                       alt="Rated content"
@@ -474,7 +571,7 @@ export default function RatingsAdminPage() {
                       }}
                     />
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900 truncate">
+                      <p className="text-sm font-medium text-gray-900 dark:text-white truncate">
                         {image.imageUrl}
                       </p>
                       <div className="flex items-center mt-1">
@@ -485,12 +582,12 @@ export default function RatingsAdminPage() {
                               className={`h-4 w-4 ${
                                 i < Math.round(image.averageRating)
                                   ? 'text-yellow-400 fill-current'
-                                  : 'text-gray-300'
+                                  : 'text-gray-300 dark:text-gray-600'
                               }`}
                             />
                           ))}
                         </div>
-                        <span className="ml-2 text-sm text-gray-600">
+                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
                           {image.averageRating.toFixed(1)} ({image.totalRatings} ratings)
                         </span>
                       </div>
@@ -503,43 +600,43 @@ export default function RatingsAdminPage() {
         )}
 
         {/* Ratings Table */}
-        <div className="bg-white rounded-lg shadow">
-          <div className="px-6 py-4 border-b border-gray-200">
-            <h3 className="text-lg font-semibold text-gray-900">Recent Ratings</h3>
+        <div className="bg-white dark:bg-gray-800 rounded-lg shadow">
+          <div className="px-6 py-4 border-b border-gray-200 dark:border-gray-700">
+            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Recent Ratings</h3>
           </div>
           <div className="overflow-x-auto">
-            <table className="min-w-full divide-y divide-gray-200">
-              <thead className="bg-gray-50">
+            <table className="min-w-full divide-y divide-gray-200 dark:divide-gray-700">
+              <thead className="bg-gray-50 dark:bg-gray-700/50">
                 <tr>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     User
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Rating
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Type
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Image
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Date
                   </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 dark:text-gray-300 uppercase tracking-wider">
                     Actions
                   </th>
                 </tr>
               </thead>
-              <tbody className="bg-white divide-y divide-gray-200">
+              <tbody className="bg-white dark:bg-gray-800 divide-y divide-gray-200 dark:divide-gray-700">
                 {ratings.map((rating) => (
-                  <tr key={rating.id} className="hover:bg-gray-50">
+                  <tr key={rating.id} className="hover:bg-gray-50 dark:hover:bg-gray-700/50">
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <div className="text-sm text-gray-900">
+                      <div className="text-sm text-gray-900 dark:text-white">
                         {rating.userEmail || 'Anonymous'}
                       </div>
                       {rating.sessionId && (
-                        <div className="text-sm text-gray-500">
+                        <div className="text-sm text-gray-500 dark:text-gray-400">
                           Session: {rating.sessionId.slice(0, 8)}...
                         </div>
                       )}
@@ -553,18 +650,18 @@ export default function RatingsAdminPage() {
                               className={`h-4 w-4 ${
                                 i < rating.rating
                                   ? 'text-yellow-400 fill-current'
-                                  : 'text-gray-300'
+                                  : 'text-gray-300 dark:text-gray-600'
                               }`}
                             />
                           ))}
                         </div>
-                        <span className="ml-2 text-sm text-gray-600">
+                        <span className="ml-2 text-sm text-gray-600 dark:text-gray-300">
                           {rating.rating}/5 ({rating.ratingLabel})
                         </span>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                      <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 dark:bg-blue-900/30 text-blue-800 dark:text-blue-300">
                         {rating.ratingType.replace('_', ' ')}
                       </span>
                     </td>
@@ -578,19 +675,19 @@ export default function RatingsAdminPage() {
                             (e.target as HTMLImageElement).src = '/placeholder-image.png';
                           }}
                         />
-                        <div className="text-sm text-gray-900 truncate max-w-xs">
+                        <div className="text-sm text-gray-900 dark:text-white truncate max-w-xs">
                           {rating.imageUrl}
                         </div>
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500 dark:text-gray-400">
                       {new Date(rating.createdAt).toLocaleDateString()} <br />
                       {new Date(rating.createdAt).toLocaleTimeString()}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       <button
                         onClick={() => window.open(rating.imageUrl, '_blank')}
-                        className="text-blue-600 hover:text-blue-900 flex items-center gap-1"
+                        className="text-blue-600 dark:text-blue-400 hover:text-blue-900 dark:hover:text-blue-300 flex items-center gap-1"
                       >
                         <Eye className="h-4 w-4" />
                         View
@@ -603,26 +700,26 @@ export default function RatingsAdminPage() {
           </div>
           
           {/* Pagination */}
-          <div className="bg-white px-4 py-3 flex items-center justify-between border-t border-gray-200 sm:px-6">
+          <div className="bg-white dark:bg-gray-800 px-4 py-3 flex items-center justify-between border-t border-gray-200 dark:border-gray-700 sm:px-6">
             <div className="flex-1 flex justify-between sm:hidden">
               <button
                 onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                 disabled={currentPage === 1}
-                className="relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
               >
                 Previous
               </button>
               <button
                 onClick={() => setCurrentPage(currentPage + 1)}
                 disabled={ratings.length < itemsPerPage}
-                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 disabled:opacity-50"
+                className="ml-3 relative inline-flex items-center px-4 py-2 border border-gray-300 dark:border-gray-600 text-sm font-medium rounded-md text-gray-700 dark:text-gray-300 bg-white dark:bg-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
               >
                 Next
               </button>
             </div>
             <div className="hidden sm:flex-1 sm:flex sm:items-center sm:justify-between">
               <div>
-                <p className="text-sm text-gray-700">
+                <p className="text-sm text-gray-700 dark:text-gray-300">
                   Showing page <span className="font-medium">{currentPage}</span>
                 </p>
               </div>
@@ -631,14 +728,14 @@ export default function RatingsAdminPage() {
                   <button
                     onClick={() => setCurrentPage(Math.max(1, currentPage - 1))}
                     disabled={currentPage === 1}
-                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-2 py-2 rounded-l-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
                   >
                     Previous
                   </button>
                   <button
                     onClick={() => setCurrentPage(currentPage + 1)}
                     disabled={ratings.length < itemsPerPage}
-                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 bg-white text-sm font-medium text-gray-500 hover:bg-gray-50 disabled:opacity-50"
+                    className="relative inline-flex items-center px-2 py-2 rounded-r-md border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-700 text-sm font-medium text-gray-500 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-600 disabled:opacity-50"
                   >
                     Next
                   </button>

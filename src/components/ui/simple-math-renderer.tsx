@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useRef, useEffect, useState } from 'react';
 import 'katex/dist/katex.min.css';
 import { InlineMath, BlockMath } from 'react-katex';
 
@@ -11,6 +11,37 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
   content, 
   className = '' 
 }) => {
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [hasOverflow, setHasOverflow] = useState(false);
+
+  // Check for overflow after content renders
+  useEffect(() => {
+    const checkOverflow = () => {
+      if (containerRef.current) {
+        const container = containerRef.current;
+        const hasHorizontalOverflow = container.scrollWidth > container.clientWidth;
+        setHasOverflow(hasHorizontalOverflow);
+      }
+    };
+
+    // Check immediately
+    checkOverflow();
+
+    // Check after a short delay to ensure KaTeX has rendered
+    const timeoutId = setTimeout(checkOverflow, 100);
+
+    // Add resize observer to check on window resize
+    const resizeObserver = new ResizeObserver(checkOverflow);
+    if (containerRef.current) {
+      resizeObserver.observe(containerRef.current);
+    }
+
+    return () => {
+      clearTimeout(timeoutId);
+      resizeObserver.disconnect();
+    };
+  }, [content]);
+
   const renderContent = (text: string) => {
     if (!text || typeof text !== 'string') {
       return <span>{text}</span>;
@@ -83,8 +114,10 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
       try {
         if (expr.type === 'display') {
           parts.push(
-            <div key={`display-${keyCounter++}`} className="my-4 text-center">
-              <BlockMath math={expr.content} />
+            <div key={`display-${keyCounter++}`} className="my-4 text-center overflow-x-auto">
+              <div className="inline-block min-w-fit">
+                <BlockMath math={expr.content} />
+              </div>
             </div>
           );
         } else {
@@ -132,10 +165,48 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
   };
 
   return (
-    <div className={`simple-math-renderer ${className}`}>
+    <div 
+      ref={containerRef}
+      className={`simple-math-renderer ${className} ${hasOverflow ? 'overflow-x-auto' : 'overflow-x-hidden'}`}
+      style={{
+        // Only show scrollbar when there's overflow
+        scrollbarWidth: hasOverflow ? 'thin' : 'none',
+        msOverflowStyle: hasOverflow ? 'auto' : 'none',
+      }}
+    >
       {renderContent(content)}
       
       <style jsx global>{`
+        .simple-math-renderer {
+          /* Custom scrollbar styling for webkit browsers */
+          scrollbar-width: thin;
+          scrollbar-color: rgba(156, 163, 175, 0.5) transparent;
+        }
+        
+        .simple-math-renderer::-webkit-scrollbar {
+          height: 6px;
+        }
+        
+        .simple-math-renderer::-webkit-scrollbar-track {
+          background: transparent;
+          border-radius: 3px;
+        }
+        
+        .simple-math-renderer::-webkit-scrollbar-thumb {
+          background-color: rgba(156, 163, 175, 0.5);
+          border-radius: 3px;
+          transition: background-color 0.2s ease;
+        }
+        
+        .simple-math-renderer::-webkit-scrollbar-thumb:hover {
+          background-color: rgba(156, 163, 175, 0.8);
+        }
+        
+        /* Hide scrollbar when there's no overflow */
+        .simple-math-renderer.overflow-x-hidden::-webkit-scrollbar {
+          display: none;
+        }
+        
         .simple-math-renderer .katex {
           font-size: inherit !important;
         }
@@ -143,6 +214,7 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
         .simple-math-renderer .katex-display {
           margin: 1rem 0 !important;
           text-align: center !important;
+          white-space: nowrap;
         }
         
         .simple-math-renderer .inline-math {
@@ -156,6 +228,16 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
         
         .simple-math-renderer .inline-math .katex .katex-html {
           display: inline;
+        }
+        
+        /* Ensure long math expressions don't break layout */
+        .simple-math-renderer .katex .katex-html {
+          white-space: nowrap;
+        }
+        
+        /* Smooth scroll behavior */
+        .simple-math-renderer {
+          scroll-behavior: smooth;
         }
       `}</style>
     </div>
