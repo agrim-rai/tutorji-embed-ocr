@@ -7,9 +7,9 @@ interface SimpleMathRendererProps {
   className?: string;
 }
 
-export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
-  content,
-  className = ''
+export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({ 
+  content, 
+  className = '' 
 }) => {
   const renderContent = (text: string) => {
     if (!text || typeof text !== 'string') {
@@ -45,10 +45,10 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
     const inlineRegex = /\\\(([^]*?)\\\)/g;
     while ((match = inlineRegex.exec(text)) !== null) {
       // Check if this overlaps with any display math
-      const hasOverlap = mathExpressions.some(existing =>
+      const hasOverlap = mathExpressions.some(existing => 
         (match!.index < existing.end && match!.index + match![0].length > existing.start)
       );
-
+      
       if (!hasOverlap) {
         mathExpressions.push({
           start: match.index,
@@ -98,8 +98,8 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
         console.warn('Math rendering error for:', expr.content, error);
         // Fallback: show the original text
         parts.push(
-          <span
-            key={`error-${keyCounter++}`}
+          <span 
+            key={`error-${keyCounter++}`} 
             className="bg-red-100 dark:bg-red-900/20 px-1 py-0.5 rounded text-red-700 dark:text-red-400 font-mono text-sm"
             title={`Math rendering failed: ${error}`}
           >
@@ -134,30 +134,30 @@ export const SimpleMathRenderer: React.FC<SimpleMathRendererProps> = ({
   return (
     <div className={`simple-math-renderer ${className}`}>
       {renderContent(content)}
-
+      
       <style jsx global>{`
         .simple-math-renderer .katex {
           font-size: inherit !important;
         }
-
+        
         .simple-math-renderer .katex-display {
           margin: 1rem 0 !important;
           text-align: center !important;
         }
-
+        
         .simple-math-renderer .inline-math {
           display: inline;
           vertical-align: baseline;
         }
-
+        
         .simple-math-renderer .inline-math .katex {
           display: inline;
         }
-
+        
         .simple-math-renderer .inline-math .katex .katex-html {
           display: inline;
         }
       `}</style>
     </div>
   );
-};
+}; 

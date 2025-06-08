@@ -8,7 +8,7 @@ const openai = new OpenAI({
 export async function POST(request: NextRequest) {
   let model = '';
   let requestType = '';
-
+  
   try {
     const { problem, type, stepContext, imageData } = await request.json();
     requestType = type;
@@ -17,16 +17,16 @@ export async function POST(request: NextRequest) {
 
     let prompt = '';
     let messages: any[] = [];
-
+    
     // Choose model based on request type
-    if (type === 'theory') {
+    if (type === 'theory') {  
       model = "gpt-4o-mini"; // Use gpt-4o-mini for theory
     } else if (type === 'summary' || type === 'main' || type === 'sub') {
       model = "o4-mini"; // Use o4-mini for breakdown (main and sub steps)
     }
 
     console.log(`[Breakdown API] Using model: ${model} for type: ${type}`);
-
+    
     if (type === 'summary') {
       if (imageData) {
         prompt = `Analyze this image and provide a structured summary of the question/problem shown.
@@ -48,7 +48,7 @@ For mathematical expressions, use LaTeX notation:
 - For display math, use \\[ and \\] like: \\[ f(x) = x^2 + 2x + 1 \\]
 
 Return ONLY the JSON object, no other text.`;
-
+        
         messages = [
           {
             role: "system",
@@ -84,7 +84,7 @@ Return your response as a valid JSON object with this exact structure:
       "description": "[Detailed description of what to do in this step]"
     },
     {
-      "id": 2,
+      "id": 2, 
       "title": "Step 2: [Brief title]",
       "description": "[Detailed description of what to do in this step]"
     }
@@ -96,7 +96,7 @@ For mathematical expressions, use LaTeX notation:
 - For display math, use \\[ and \\] like: \\[ f(x) = \\int_0^x t^2 dt \\]
 
 Return ONLY the JSON object, no other text.`;
-
+        
         messages = [
           {
             role: "system",
@@ -127,7 +127,7 @@ Return your response as a valid JSON object with this exact structure:
   "subSteps": [
     {
       "id": 1,
-      "title": "Sub-step 1: [Brief title]",
+      "title": "Sub-step 1: [Brief title]", 
       "description": "[Detailed description of what to do in this sub-step]"
     },
     {
@@ -145,7 +145,7 @@ For mathematical expressions, use LaTeX notation:
 Original step: ${stepContext}
 
 Return ONLY the JSON object, no other text.`;
-
+      
       messages = [
         {
           role: "system",
@@ -159,7 +159,7 @@ Return ONLY the JSON object, no other text.`;
     } else if (type === 'theory') {
       prompt = `For the following sub-step: "${stepContext}", provide a concise, practical explanation focused on solving the problem. Keep it brief (2-3 sentences max) and focus on:
 - Key concept or principle
-- Why this step is important
+- Why this step is important  
 - Practical tip or formula if applicable
 
 For mathematical expressions, use LaTeX notation:
@@ -169,7 +169,7 @@ For mathematical expressions, use LaTeX notation:
 Sub-step: ${stepContext}
 
 Provide only the concise explanation, nothing else.`;
-
+      
       messages = [
         {
           role: "system",
@@ -208,7 +208,7 @@ Provide only the concise explanation, nothing else.`;
       } catch (parseError) {
         console.error(`[Breakdown API] JSON parse error for type ${type}:`, parseError);
         console.log(`[Breakdown API] Raw content:`, content);
-
+        
         // Fallback: try to extract structured data from text
         if (type === 'main') {
           parsedData = extractStepsFromText(content || '');
@@ -225,8 +225,8 @@ Provide only the concise explanation, nothing else.`;
       }
     }
 
-    return NextResponse.json({
-      success: true,
+    return NextResponse.json({ 
+      success: true, 
       content: type === 'main' || type === 'sub' || type === 'summary' ? null : content, // For backward compatibility
       data: parsedData, // New structured data
       type: type,
@@ -235,15 +235,15 @@ Provide only the concise explanation, nothing else.`;
   } catch (error) {
     console.error('[Breakdown API] Error occurred:', error);
     console.log(`[Breakdown API] Error context - Model: ${model}, Type: ${requestType}`);
-
+    
     // Enhanced error handling for model configuration testing
     let errorMessage = 'Failed to process request';
     let errorDetails = '';
-
+    
     if (error instanceof Error) {
       errorMessage = error.message;
       console.log(`[Breakdown API] Error message: ${errorMessage}`);
-
+      
       // Check for specific OpenAI API errors
       if (error.message.includes('model') || error.message.includes('Model')) {
         errorDetails = `Model configuration error. Attempted to use model: ${model}`;
@@ -255,10 +255,10 @@ Provide only the concise explanation, nothing else.`;
         errorDetails = `General API error with model: ${model}`;
       }
     }
-
+    
     return NextResponse.json(
-      {
-        success: false,
+      { 
+        success: false, 
         error: errorMessage,
         errorDetails: errorDetails,
         model: model,
@@ -275,7 +275,7 @@ function extractStepsFromText(text: string) {
   const lines = text.split('\n').filter(line => line.trim());
   const steps: any[] = [];
   let currentStep = null;
-
+  
   for (const line of lines) {
     const stepMatch = line.match(/^Step\s+(\d+):\s*(.+)/i);
     if (stepMatch) {
@@ -291,11 +291,11 @@ function extractStepsFromText(text: string) {
       currentStep.description += '\n' + line.trim();
     }
   }
-
+  
   if (currentStep) {
     steps.push(currentStep);
   }
-
+  
   return { steps };
 }
 
@@ -304,7 +304,7 @@ function extractSubStepsFromText(text: string) {
   const lines = text.split('\n').filter(line => line.trim());
   const subSteps: any[] = [];
   let currentSubStep = null;
-
+  
   for (const line of lines) {
     const subStepMatch = line.match(/^Sub-step\s+(\d+(?:\.\d+)?):\s*(.+)/i);
     if (subStepMatch) {
@@ -320,10 +320,10 @@ function extractSubStepsFromText(text: string) {
       currentSubStep.description += '\n' + line.trim();
     }
   }
-
+  
   if (currentSubStep) {
     subSteps.push(currentSubStep);
   }
-
+  
   return { subSteps };
-}
+} 
