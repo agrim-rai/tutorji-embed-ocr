@@ -13,6 +13,10 @@ const AIResponseSchema = new mongoose.Schema({
     type: String,
     required: true,
   },
+  heading: {
+    type: String,
+    default: null,
+  },
   imageId: {
     type: String,
     default: null,

@@ -28,13 +28,29 @@ async function streamToIncomingMessage(request) {
 }
 
 export async function POST(request) {
+  // Validate environment variables
+  if (!process.env.AWS_REGION || !process.env.AWS_ACCESS_KEY_ID || !process.env.AWS_SECRET_ACCESS_KEY || !process.env.S3_BUCKET_NAME) {
+    console.error('Missing AWS environment variables:', {
+      AWS_REGION: !!process.env.AWS_REGION,
+      AWS_ACCESS_KEY_ID: !!process.env.AWS_ACCESS_KEY_ID,
+      AWS_SECRET_ACCESS_KEY: !!process.env.AWS_SECRET_ACCESS_KEY,
+      S3_BUCKET_NAME: !!process.env.S3_BUCKET_NAME
+    });
+    return new Response(JSON.stringify({ 
+      error: "AWS configuration incomplete. Please check environment variables." 
+    }), { status: 500 });
+  }
+
+  console.log('Upload API: Using bucket:', BUCKET, 'in region:', process.env.AWS_REGION);
+
   const req = await streamToIncomingMessage(request);
   const form = new IncomingForm();
 
   return new Promise((resolve) => {
     form.parse(req, async (err, fields, files) => {
       if (err) {
-        return resolve(new Response(JSON.stringify({ error: "Form parse error" }), { status: 500 }));
+        console.error('Form parse error:', err);
+        return resolve(new Response(JSON.stringify({ error: "Form parse error: " + err.message }), { status: 500 }));
       }
 
       // Grab the temp file path from formidable
@@ -42,8 +58,11 @@ export async function POST(request) {
       const originalFilename = files.image?.[0]?.originalFilename || files.image?.originalFilename;
       
       if (!filePath) {
-        return resolve(new Response(JSON.stringify({ error: "No file" }), { status: 400 }));
+        console.error('No file provided in upload request');
+        return resolve(new Response(JSON.stringify({ error: "No file provided" }), { status: 400 }));
       }
+
+      console.log('Upload API: Processing file:', originalFilename, 'from temp path:', filePath);
 
       // Read the file into a Buffer (or createReadStream)
       const fileStream = fs.createReadStream(filePath);
@@ -51,12 +70,12 @@ export async function POST(request) {
       // Get the extension from the original filename, not the temp file path
       const ext = originalFilename ? path.extname(originalFilename).toLowerCase() : '';
 
-
-
       const key = `uploads/${nanoid()}${ext}`;    // generate a unique key
+      console.log('Upload API: Generated S3 key:', key);
 
       try {
         // Upload to S3
+        console.log('Upload API: Attempting to upload to S3...');
         await s3.send(new PutObjectCommand({
           Bucket: BUCKET,
           Key: key,
@@ -64,9 +83,12 @@ export async function POST(request) {
           ContentType: files.image?.[0]?.mimetype || "application/octet-stream"
         }));
 
+        console.log('Upload API: Successfully uploaded to S3');
+
         // Construct the URL
         // If you have a CloudFront distro, swap this URL out for your CF domain.
         const imageUrl = `https://${BUCKET}.s3.${process.env.AWS_REGION}.amazonaws.com/${key}`;
+        console.log('Upload API: Generated image URL:', imageUrl);
 
         return resolve(new Response(JSON.stringify({
           imageId: key,
@@ -76,8 +98,26 @@ export async function POST(request) {
           headers: { "Content-Type": "application/json" }
         }));
       } catch (uploadErr) {
-        console.error(uploadErr);
-        return resolve(new Response(JSON.stringify({ error: "Upload failed" }), { status: 500 }));
+        console.error('S3 Upload Error:', uploadErr);
+        
+        // Provide more specific error messages
+        let errorMessage = "Upload failed";
+        if (uploadErr.code === 'ENOTFOUND') {
+          errorMessage = `S3 bucket '${BUCKET}' not found or region '${process.env.AWS_REGION}' is incorrect`;
+        } else if (uploadErr.code === 'NoSuchBucket') {
+          errorMessage = `S3 bucket '${BUCKET}' does not exist`;
+        } else if (uploadErr.code === 'AccessDenied') {
+          errorMessage = "Access denied. Check your AWS credentials and bucket permissions";
+        } else if (uploadErr.code === 'InvalidAccessKeyId') {
+          errorMessage = "Invalid AWS Access Key ID";
+        } else if (uploadErr.code === 'SignatureDoesNotMatch') {
+          errorMessage = "Invalid AWS Secret Access Key";
+        }
+
+        return resolve(new Response(JSON.stringify({ 
+          error: errorMessage,
+          details: uploadErr.message 
+        }), { status: 500 }));
       }
     });
   });

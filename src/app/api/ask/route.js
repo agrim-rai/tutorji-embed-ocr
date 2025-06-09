@@ -1,0 +1,342 @@
+/**
+ * AI Question-Answering API Route
+ * 
+ * This endpoint provides the core AI functionality of the ProdiJEE application,
+ * allowing students to submit academic questions and receive detailed answers.
+ * 
+ * Features:
+ * - User authentication with session validation
+ * - Credit system to limit API usage
+ * - Support for text-based questions and image references
+ * - Integration with OpenAI's models for generating responses
+ * - Structured response format with question analysis and step-by-step solutions
+ * - Storage of question-answer history in the database
+ * 
+ * @route POST /api/ask
+ * @access Private - Requires authenticated user with available credits
+ */
+
+import { NextResponse } from 'next/server';
+import { getServerSession } from 'next-auth';
+import OpenAI from 'openai';
+import path from 'path';
+import fs from 'fs/promises';
+import dbConnect from '@/lib/mongoose';
+import User from '@/models/User';
+import AIResponse from '@/models/AIResponse';
+import { authOptions } from '@/lib/auth';
+
+// Check if OpenAI API key is available
+const hasOpenAIKey = process.env.OPENAI_API_KEY && process.env.OPENAI_API_KEY.length > 10;
+
+// Initialize OpenAI SDK with API key from environment variables (if available)
+let openai;
+try {
+  openai = hasOpenAIKey ? new OpenAI({
+    apiKey: process.env.OPENAI_API_KEY,
+  }) : null;
+} catch (error) {
+  console.error('Failed to initialize OpenAI client:', error);
+  openai = null;
+}
+
+/**
+ * Generate a fallback mock response for development without OpenAI API
+ */
+const generateMockResponse = (question) => {
+  return {
+    questionAnalysis: `This is a development mode response for: "${question.substring(0, 50)}${question.length > 50 ? '...' : ''}"\n\nIn development mode, we simulate an AI response without calling the actual OpenAI API.`,
+    finalAnswer: `To get real AI responses, please add your OPENAI_API_KEY to the .env.local file in your project root.\n\nFor now, this is a placeholder answer to your question. In a real setup, this would contain a detailed step-by-step solution.`
+  };
+};
+
+/**
+ * Generate a short heading for the question using OpenAI
+ */
+const generateQuestionHeading = async (question, hasImage) => {
+  if (!openai) {
+    // Fallback heading generation for development
+    if (hasImage) return "Image Question";
+    const words = question.split(' ').slice(0, 3);
+    return words.length > 0 ? words.join(' ') : "Math Problem";
+  }
+
+  try {
+    const prompt = hasImage 
+      ? "Generate a 3-4 word heading for this academic question with image. Focus on the subject/chapter/topic (like 'Physics Mechanics' or 'Organic Chemistry' or 'Calculus Integration'):"
+      : `Generate a 3-4 word heading for this academic question. Focus on the subject/chapter/topic (like 'Physics Mechanics' or 'Organic Chemistry' or 'Calculus Integration'): ${question}`;
+
+    const completion = await openai.chat.completions.create({
+      model: 'gpt-4o-mini',
+      messages: [
+        {
+          role: 'system',
+          content: 'You are an expert at categorizing academic questions. Generate ONLY a 3-4 word heading that describes the subject, chapter, or topic. Examples: "Physics Thermodynamics", "Organic Chemistry", "Calculus Integration", "Algebra Equations"'
+        },
+        {
+          role: 'user',
+          content: prompt
+        }
+      ],
+      temperature: 0.3,
+      max_tokens: 20
+    });
+
+    const heading = completion.choices[0].message.content.trim();
+    return heading.length > 30 ? heading.substring(0, 30) : heading;
+  } catch (error) {
+    console.error('Error generating heading:', error);
+    // Fallback heading
+    if (hasImage) return "Image Question";
+    const words = question.split(' ').slice(0, 3);
+    return words.length > 0 ? words.join(' ') : "Academic Question";
+  }
+};
+
+/**
+ * Get the AWS S3 image URL from a key
+ */
+const getS3ImageUrl = (key) => {
+  if (!key) return null;
+  
+  try {
+    // Validate environment variables
+    const bucketName = process.env.S3_BUCKET_NAME;
+    const region = process.env.AWS_REGION;
+    
+    if (!bucketName || !region) {
+      console.error('Missing S3 configuration:', { bucketName: !!bucketName, region: !!region });
+      return null;
+    }
+    
+    // Construct S3 URL directly from the key
+    const imageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
+    console.log('Ask API: Constructed S3 URL:', imageUrl);
+    return imageUrl;
+  } catch (error) {
+    console.error('Error constructing S3 URL:', error);
+    return null;
+  }
+};
+
+/**
+ * POST handler for AI question answering
+ * 
+ * Processes a question (with optional image) from an authenticated user,
+ * generates an AI response, deducts user credits, and stores the interaction.
+ * 
+ * @param {Request} req - The incoming request with question data
+ * @returns {Promise<NextResponse>} JSON response with AI-generated answer
+ */
+export async function POST(req) {
+  try {
+    console.log('Ask API: Starting execution');
+    
+    // Connect to database
+    try {
+      await dbConnect();
+      console.log('Ask API: Connected to MongoDB');
+    } catch (dbError) {
+      console.error('Ask API: MongoDB connection error:', dbError);
+      return NextResponse.json(
+        { error: 'Database connection error: ' + dbError.message },
+        { status: 500 }
+      );
+    }
+    
+    // Get session for authentication
+    const session = await getServerSession(authOptions);
+    
+    // Check if user is authenticated
+    if (!session || !session.user || !session.user.email) {
+      console.log('Ask API: No authenticated user');
+      return NextResponse.json(
+        { error: 'Authentication required to ask questions' },
+        { status: 401 }
+      );
+    }
+    
+    // Find user in database
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
+      console.error('Ask API: User not found in database');
+      return NextResponse.json(
+        { error: 'User not found in database' },
+        { status: 404 }
+      );
+    }
+    
+    console.log('Ask API: User found:', user.email, 'Credits:', user.credits);
+    
+    // Check if user has enough credits
+    if (user.credits <= 0) {
+      console.log('Ask API: User has no credits remaining');
+      return NextResponse.json(
+        { error: 'No credits remaining. Please upgrade your account or wait for credits to reset.' },
+        { status: 403 }
+      );
+    }
+    
+    // Parse request body
+    const requestData = await req.json();
+    
+    // Validate request data - at least one of question or imageId must be present
+    if ((!requestData.question || requestData.question.trim() === '') && !requestData.imageId) {
+      console.log('Ask API: No question or image provided');
+      return NextResponse.json(
+        { error: 'Either a question or an image is required' },
+        { status: 400 }
+      );
+    }
+    
+    // Extract question and optional image ID
+    let { question = '', imageId } = requestData;
+    
+    // If no text question is provided but an image is provided, set a default question
+    if ((!question || question.trim() === '') && imageId) {
+      question = 'Solve the problem shown in the image';
+    }
+    
+    console.log('Ask API: Processing question with', imageId ? 'image' : 'no image');
+    
+    try {
+      // Get the AWS S3 image URL if imageId exists
+      let imageUrl = null;
+      if (imageId) {
+        imageUrl = getS3ImageUrl(imageId);
+        console.log('Ask API: Retrieved S3 image URL:', imageUrl);
+      }
+      
+      // Handle missing OpenAI API key
+      if (!openai) {
+        console.log('Ask API: No OpenAI API key found, using mock response');
+        const mockResponse = generateMockResponse(question);
+        
+        // Generate heading for the question
+        const heading = await generateQuestionHeading(question, !!imageUrl);
+
+        // Still store the interaction and deduct credits
+        const aiResponse = await AIResponse.create({
+          userId: user._id,
+          question,
+          heading,
+          imageId: imageId || null,
+          imageUrl: imageUrl || null,
+          answer: `${mockResponse.questionAnalysis}\n\n${mockResponse.finalAnswer}`,
+          createdAt: new Date()
+        });
+        
+        // Deduct one credit from the user's account
+        user.credits -= 1;
+        await user.save();
+        
+        // Send development mode response
+        return NextResponse.json({
+          success: true,
+          finalAnswer: `${mockResponse.questionAnalysis}\n\n${mockResponse.finalAnswer}`,
+          creditsRemaining: user.credits,
+          devFallback: true // Flag indicating this is a development fallback
+        });
+      }
+      
+      // Setup messages for OpenAI
+      const messages = [
+        { 
+          role: 'system', 
+          content: `You are an expert JEE (Joint Entrance Examination) and NEET (National Eligibility cum Entrance Test) tutor for Physics, Chemistry, Mathematics, Biology and Zoology. 
+
+STRICT RULES:
+1. ONLY respond to academic questions related to JEE or NEET syllabus
+2. For non-academic queries, respond with exactly:
+   "Please ask an academic question related to JEE Physics, Chemistry, Mathematics, Biology and Zoology."
+
+For academic questions, provide a detailed step-by-step solution with:
+1. Use LaTeX notation for mathematical expressions:
+   - For inline math, use \\( and \\) like: \\( f(x) = x^2 \\)
+   - For display math, use \\[ and \\] like: \\[ \\int_0^1 x^2 dx = \\frac{1}{3} \\]
+2. Provide clear explanations for each step
+3. Include the final answer using \\boxed{} notation: \\boxed{answer}
+4. Do not use any bold ** or italic * formatting
+5. The response should be in the same language as the question
+6. Focus on clarity and educational value with proper mathematical notation` 
+        }
+      ];
+      
+      // Add user message with text question
+      if (imageUrl) {
+        // If we have an image, use the Vision model with image content
+        const isImageOnlyQuestion = question === 'Solve the problem shown in the image';
+        const textContent = isImageOnlyQuestion
+          ? `Please solve the question shown in this image step by step. Provide a detailed step-by-step solution with clear explanations and proper LaTeX formatting.`
+          : `Please solve the following question step by step: ${question}\n\nProvide a detailed step-by-step solution with clear explanations and proper LaTeX formatting.`;
+        
+        messages.push({
+          role: 'user',
+          content: [
+            { type: 'text', text: textContent },
+            { type: 'image_url', image_url: { url: imageUrl } }
+          ]
+        });
+      } else {
+        // Text-only question
+        messages.push({
+          role: 'user',
+          content: `Please solve the following question step by step: ${question}\n\nProvide a detailed step-by-step solution with clear explanations and proper LaTeX formatting.`
+        });
+      }
+
+      // Query OpenAI API for the answer
+      const completion = await openai.chat.completions.create({
+      
+
+        // gpt-4o-mini if image is present
+        // gpt-3.5-turbo if image is not present
+        model: imageUrl ? 'gpt-4o-mini' : 'gpt-3.5-turbo',
+        messages: messages,
+        temperature: 1, // Balance between creativity and determinism  // Limit response length for vision model
+      });
+
+      // Extract the AI-generated response text
+      const responseText = completion.choices[0].message.content;
+
+      // Generate heading for the question
+      const heading = await generateQuestionHeading(question, !!imageUrl);
+
+      // Store the interaction in the database for history
+      const aiResponse = await AIResponse.create({
+        userId: user._id,
+        question,
+        heading,
+        imageId: imageId || null,
+        imageUrl: imageUrl || null,
+        answer: responseText,
+        createdAt: new Date()
+      });
+
+      // Deduct one credit from the user's account
+      user.credits -= 1;
+      await user.save();
+
+      // Send the response back to the client with only the final answer
+      return NextResponse.json({
+        success: true,
+        finalAnswer: responseText,
+        creditsRemaining: user.credits // Include remaining credits for UI updates
+      });
+
+    } catch (error) {
+      console.error('Ask API: Error generating or saving answer:', error);
+      return NextResponse.json(
+        { error: 'Failed to generate answer: ' + error.message },
+        { status: 500 }
+      );
+    }
+
+  } catch (error) {
+    console.error('Ask API: Unhandled error:', error);
+    return NextResponse.json(
+      { error: 'Server error: ' + error.message },
+      { status: 500 }
+    );
+  }
+} 
