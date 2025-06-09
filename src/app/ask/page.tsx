@@ -18,7 +18,7 @@ import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { FaCamera, FaCloudUploadAlt, FaTimes, FaInfoCircle, FaSpinner, FaMoon, FaSun, FaShare, FaDownload, FaCheck, FaLink, FaChevronLeft, FaChevronRight, FaBars, FaDiscord, FaReddit, FaExternalLinkAlt, FaSyncAlt, FaClipboard, FaRedo, FaUndo, FaCrop } from "react-icons/fa";
+import { FaCamera, FaCloudUploadAlt, FaTimes, FaInfoCircle, FaSpinner, FaMoon, FaSun, FaShare, FaDownload, FaCheck, FaLink, FaChevronLeft, FaChevronRight, FaBars, FaDiscord, FaReddit, FaExternalLinkAlt, FaSyncAlt, FaClipboard, FaRedo, FaUndo, FaCrop,FaRobot } from "react-icons/fa";
 import { v4 as uuidv4 } from 'uuid';
 import { FaUser, FaCrown, FaHistory, FaTrash, FaStar, FaQuestionCircle, FaBell, FaEllipsisV } from "react-icons/fa";
 import Link from "next/link";
@@ -230,12 +230,22 @@ type Theme = 'light' | 'dark';
 
 /**
  * Navbar Component
- * Displays the application header with logo, dark mode toggle, and help button
+ * Displays the application header with logo, dark mode toggle, share button, and help button
  */
-const Navbar: React.FC<{ onHowToUse: () => void; darkMode: boolean; toggleDarkMode: () => void }> = ({ 
+const Navbar: React.FC<{ 
+  onHowToUse: () => void; 
+  darkMode: boolean; 
+  toggleDarkMode: () => void;
+  onShare: () => void;
+  showShareButton: boolean;
+  shareStatus: { shared: boolean; url?: string };
+}> = ({ 
   onHowToUse, 
   darkMode,
-  toggleDarkMode 
+  toggleDarkMode,
+  onShare,
+  showShareButton,
+  shareStatus
 }) => {
   return (
     <nav className={`${darkMode ? 'bg-gray-900' : 'bg-indigo-700'} text-white shadow-lg fixed top-0 left-0 right-0 z-50`}>
@@ -254,6 +264,19 @@ const Navbar: React.FC<{ onHowToUse: () => void; darkMode: boolean; toggleDarkMo
           </div>
         </Link>
         <div className="flex space-x-3 items-center">
+          {showShareButton && (
+            <button
+              onClick={onShare}
+              className={`px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
+                shareStatus.shared 
+                  ? `${darkMode ? 'bg-green-700 text-white hover:bg-green-600' : 'bg-green-600 text-white hover:bg-green-700'}`
+                  : `${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white text-indigo-700 hover:bg-indigo-50'}`
+              }`}
+            >
+              {shareStatus.shared ? <FaCheck /> : <FaShare />}
+              <span className="hidden sm:inline">{shareStatus.shared ? 'Shared' : 'Share'}</span>
+            </button>
+          )}
           <button
             onClick={toggleDarkMode}
             className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-500'}`}
@@ -270,7 +293,7 @@ const Navbar: React.FC<{ onHowToUse: () => void; darkMode: boolean; toggleDarkMo
             } font-medium flex items-center space-x-2 transition-colors`}
           >
             <FaInfoCircle />
-            <span>How to Use?</span>
+            <span className="hidden sm:inline">How to Use?</span>
           </button>
         </div>
       </div>
@@ -294,7 +317,6 @@ const Footer: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
           />
         </div>
         <p className="text-sm">TutorJi.in • Powered by AI • © {new Date().getFullYear()}</p>
-        
         {/* Social Media Icons */}
         <div className="mt-3 flex justify-center items-center space-x-6">
           <a 
@@ -429,6 +451,130 @@ const ImageModal: React.FC<{
         {/* Zoom level indicator */}
         <div className="absolute bottom-4 left-4 z-10 p-2 bg-black bg-opacity-50 text-white rounded text-sm">
           {Math.round(zoom * 100)}%
+        </div>
+      </div>
+    </div>
+  );
+};
+
+/**
+ * ShareModal Component
+ * Displays a modal for sharing solutions with copy functionality
+ */
+const ShareModal: React.FC<{ 
+  isOpen: boolean; 
+  onClose: () => void; 
+  darkMode: boolean;
+  shareStatus: { shared: boolean; url?: string };
+  onShare: () => void;
+}> = ({ 
+  isOpen, 
+  onClose,
+  darkMode,
+  shareStatus,
+  onShare
+}) => {
+  const [copied, setCopied] = useState(false);
+
+  const handleCopyLink = async () => {
+    if (shareStatus.url) {
+      try {
+        await navigator.clipboard.writeText(shareStatus.url);
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      } catch (err) {
+        console.error('Failed to copy: ', err);
+      }
+    }
+  };
+
+  const handleShare = () => {
+    onShare();
+  };
+
+  if (!isOpen) return null;
+
+  return (
+    <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+      <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-xl shadow-2xl max-w-md w-full`}>
+        <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex justify-between items-center`}>
+          <h2 className="text-xl font-bold">Share Solution</h2>
+          <button
+            onClick={onClose}
+            className={`${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'} transition-colors`}
+          >
+            <FaTimes size={20} />
+          </button>
+        </div>
+        
+        <div className="p-6">
+          {!shareStatus.shared ? (
+            <div className="text-center">
+              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                darkMode ? 'bg-indigo-900' : 'bg-indigo-100'
+              }`}>
+                <FaShare className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+              </div>
+              <h3 className="text-lg font-semibold mb-2">Share this solution</h3>
+              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
+                Generate a shareable link for this question and solution
+              </p>
+              <button
+                onClick={handleShare}
+                className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
+              >
+                Generate Share Link
+              </button>
+            </div>
+          ) : (
+            <div>
+              <div className="text-center mb-4">
+                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                  darkMode ? 'bg-green-900' : 'bg-green-100'
+                }`}>
+                  <FaCheck className={`w-8 h-8 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                </div>
+                <h3 className="text-lg font-semibold mb-2">Share link ready!</h3>
+                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                  Anyone with this link can view the solution
+                </p>
+              </div>
+              
+              {shareStatus.url && (
+                <div className={`flex items-center p-3 rounded-lg border ${
+                  darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
+                } mb-4`}>
+                  <input 
+                    type="text"
+                    readOnly
+                    value={shareStatus.url}
+                    className={`flex-grow bg-transparent text-sm border-none focus:outline-none ${
+                      darkMode ? 'text-gray-300' : 'text-gray-700'
+                    }`}
+                  />
+                  <button
+                    onClick={handleCopyLink}
+                    className={`ml-2 px-3 py-1 rounded text-sm font-medium transition-colors ${
+                      copied 
+                        ? darkMode ? 'bg-green-700 text-white' : 'bg-green-100 text-green-700'
+                        : darkMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                    }`}
+                  >
+                    {copied ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              )}
+              
+              <button
+                onClick={onClose}
+                className={`w-full py-3 rounded-lg font-medium transition-colors ${
+                  darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                }`}
+              >
+                Close
+              </button>
+            </div>
+          )}
         </div>
       </div>
     </div>
@@ -1212,6 +1358,7 @@ export default function AskPage() {
   // UI state
   const [showHowTo, setShowHowTo] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
+  const [showShareModal, setShowShareModal] = useState(false);
   const [fullImageUrl, setFullImageUrl] = useState<string>('');
   const [darkMode, setDarkMode] = useState(true); // Default to dark mode
   const [shareStatus, setShareStatus] = useState<{ shared: boolean; url?: string }>({ shared: false });
@@ -1738,10 +1885,18 @@ export default function AskPage() {
   };
 
   /**
-   * Handle sharing solution via mock function
-   * In production, this would use a proper sharing API
+   * Handle opening share modal
    */
   const handleShareSolution = () => {
+    if (!response) return;
+    setShowShareModal(true);
+  };
+
+  /**
+   * Handle actual sharing solution via mock function
+   * In production, this would use a proper sharing API
+   */
+  const handleActualShare = () => {
     if (!response) return;
 
     const result = mockShareSolution({
@@ -1788,6 +1943,7 @@ export default function AskPage() {
     setResponse(null);
     setShareStatus({ shared: false });
     setShowImageModal(false);
+    setShowShareModal(false);
     setFullImageUrl('');
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
@@ -1859,11 +2015,31 @@ export default function AskPage() {
     // Set the image if available
     if (imageUrl) {
       setImage(imageUrl);
+      
+      // Extract imageId from imageUrl for bot navigation
+      const extractImageId = (url: string) => {
+        // Extract from S3 URL: https://tutorji.s3.us-east-1.amazonaws.com/uploads/MRw5FZHLtsOUK0hNNmaEl.jpg
+        const s3UrlMatch = url.match(/\/([^\/]+)\.(jpg|jpeg|png|gif|webp)$/i);
+        if (s3UrlMatch) {
+          return s3UrlMatch[1];
+        }
+        
+        // Extract from filename with extension: MRw5FZHLtsOUK0hNNmaEl.jpg
+        const filenameMatch = url.match(/^([^.]+)\.(jpg|jpeg|png|gif|webp)$/i);
+        if (filenameMatch) {
+          return filenameMatch[1];
+        }
+        
+        return null;
+      };
+      
+      const extractedImageId = extractImageId(imageUrl);
+      setImageId(extractedImageId);
     } else {
       setImage(null);
+      setImageId(null);
     }
     setImageFile(null);
-    setImageId(null);
     
     // If we have an answer, set the response
     if (answer) {
@@ -1871,6 +2047,10 @@ export default function AskPage() {
         finalAnswer: answer
       });
     }
+    
+    // Reset share status so the share button can be used for history items
+    setShareStatus({ shared: false });
+    setShowShareModal(false);
     
     // Close the sidebar on mobile
     setSidebarOpen(false);
@@ -1920,8 +2100,8 @@ export default function AskPage() {
   // Render the main page layout
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-800'} transition-colors duration-200`}>
-      {/* Navigation bar */}
-      <Navbar onHowToUse={() => setShowHowTo(true)} darkMode={darkMode} toggleDarkMode={toggleDarkMode} />
+              {/* Navigation bar */}
+        <Navbar onHowToUse={() => setShowHowTo(true)} darkMode={darkMode} toggleDarkMode={toggleDarkMode} onShare={handleShareSolution} showShareButton={!!response} shareStatus={shareStatus} />
       
       <div className="flex flex-grow relative pt-16">
         {/* Mobile backdrop overlay when sidebar is open */}
@@ -2273,48 +2453,22 @@ export default function AskPage() {
                   
                   {/* Share and download buttons */}
                   <div className={`mt-6 pt-5 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex flex-wrap justify-center gap-4`}>
-                    <button
-                      onClick={handleShareSolution}
-                      className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg ${
-                        shareStatus.shared 
-                          ? `${darkMode ? 'bg-green-700 text-white' : 'bg-green-100 text-green-700'}`
-                          : `${darkMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'}`
-                      } transition-colors`}
-                    >
-                      {shareStatus.shared ? <FaCheck /> : <FaShare />}
-                      <span>{shareStatus.shared ? 'Copied Link' : 'Share Solution'}</span>
-                    </button>
-                    
-                    <button
-                      onClick={handleDownloadSolution}
+                    <Link
+                      href={{
+                        pathname: '/bot',
+                        query: {
+                          imageId: imageId || undefined
+                        }
+                      }}
                       className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg ${
                         darkMode 
                           ? 'bg-gray-700 text-white hover:bg-gray-600' 
                           : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
                       } transition-colors`}
                     >
-                      <FaDownload />
-                      <span>Download Solution</span>
-                    </button>
-                    
-                    {/* Share URL display when shared */}
-                    {shareStatus.shared && shareStatus.url && (
-                      <div className={`w-full mt-2 flex items-center p-3 rounded-lg ${
-                        darkMode ? 'bg-gray-800 text-gray-300' : 'bg-gray-100 text-gray-700'
-                      }`}>
-                        <FaLink className="mr-2 flex-shrink-0" />
-                        <input 
-                          type="text"
-                          readOnly
-                          value={shareStatus.url}
-                          className={`flex-grow bg-transparent text-sm border-none focus:outline-none ${
-                            darkMode ? 'text-gray-300' : 'text-gray-700'
-                          }`}
-                          onClick={(e) => (e.target as HTMLInputElement).select()}
-                        />
-                        <span className="text-xs text-gray-500 ml-2">Click to copy</span>
-                      </div>
-                    )}
+                      <FaRobot />
+                      <span>Ask TutorJi Bot</span>
+                    </Link>
                   </div>
                 </div>
               </div>
@@ -2325,6 +2479,13 @@ export default function AskPage() {
       
       {/* Footer and modal components */}
       <Footer darkMode={darkMode} />
+      <ShareModal 
+        isOpen={showShareModal} 
+        onClose={() => setShowShareModal(false)} 
+        darkMode={darkMode}
+        shareStatus={shareStatus}
+        onShare={handleActualShare}
+      />
       <HowToUseModal isOpen={showHowTo} onClose={() => setShowHowTo(false)} darkMode={darkMode} />
       <ImageModal 
         isOpen={showImageModal} 

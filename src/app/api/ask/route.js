@@ -71,14 +71,14 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
       messages = [
         {
           role: 'system',
-          content: 'You are an expert at categorizing academic questions. Analyze the image and generate ONLY a 3-4 word heading that describes the subject, chapter, or topic shown in the image. Examples: "Physics Mechanics", "Organic Chemistry", "Calculus Integration", "Algebra Equations", "Geometry Triangles", "Biology Genetics"'
+          content: 'You are an expert at categorizing academic questions. Analyze the image and generate ONLY a 3-6 word heading that describes the subject, chapter, or topic shown in the image. Examples: "Physics Mechanics", "Organic Chemistry", "Calculus Integration", "Algebra Equations", "Geometry Triangles", "Biology Genetics"'
         },
         {
           role: 'user',
           content: [
             { 
               type: 'text', 
-              text: 'Analyze this academic question image and generate a 3-4 word heading that describes the subject/chapter/topic shown. Focus on the academic field and specific topic.' 
+              text: 'Analyze this academic question image and generate a 3-6 word heading that describes the subject/chapter/topic shown. Focus on the academic field and specific topic.' 
             },
             { 
               type: 'image_url', 
@@ -94,7 +94,7 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
       messages = [
         {
           role: 'system',
-          content: 'You are an expert at categorizing academic questions. Generate ONLY a 3-4 word heading that describes the subject, chapter, or topic. Examples: "Physics Thermodynamics", "Organic Chemistry", "Calculus Integration", "Algebra Equations"'
+          content: 'You are an expert at categorizing academic questions. Generate ONLY a 3-6 word heading that describes the subject, chapter, or topic. Examples: "Physics Thermodynamics", "Organic Chemistry", "Calculus Integration", "Algebra Equations"'
         },
         {
           role: 'user',
