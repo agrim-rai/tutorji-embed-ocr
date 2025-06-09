@@ -315,13 +315,11 @@ For academic questions, provide a detailed step-by-step solution with:
 
       // Query OpenAI API for the answer
       const completion = await openai.chat.completions.create({
+        // o4-mini if image is present
+        // gpt-4o-mini if image is not present  
+        model: imageUrl ? 'o4-mini' : 'gpt-4o-mini',
+        messages: messages  
       
-
-        // gpt-4o-mini if image is present
-        // gpt-3.5-turbo if image is not present
-        model: imageUrl ? 'gpt-4o-mini' : 'gpt-3.5-turbo',
-        messages: messages,
-        temperature: 1, // Balance between creativity and determinism  // Limit response length for vision model
       });
 
       // Extract the AI-generated response text
