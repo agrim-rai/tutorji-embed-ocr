@@ -13,10 +13,12 @@
 
 "use client";
 
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useCallback } from "react";
 import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
-import { FaCamera, FaCloudUploadAlt, FaTimes, FaInfoCircle, FaSpinner, FaMoon, FaSun, FaShare, FaDownload, FaCheck, FaLink, FaChevronLeft, FaChevronRight, FaBars, FaDiscord, FaReddit, FaExternalLinkAlt, FaSyncAlt } from "react-icons/fa";
+import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
+import "react-image-crop/dist/ReactCrop.css";
+import { FaCamera, FaCloudUploadAlt, FaTimes, FaInfoCircle, FaSpinner, FaMoon, FaSun, FaShare, FaDownload, FaCheck, FaLink, FaChevronLeft, FaChevronRight, FaBars, FaDiscord, FaReddit, FaExternalLinkAlt, FaSyncAlt, FaClipboard, FaRedo, FaUndo, FaCrop } from "react-icons/fa";
 import { v4 as uuidv4 } from 'uuid';
 import { FaUser, FaCrown, FaHistory, FaTrash, FaStar, FaQuestionCircle, FaBell, FaEllipsisV } from "react-icons/fa";
 import Link from "next/link";
@@ -1226,6 +1228,30 @@ export default function AskPage() {
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
+  // Additional state variables for crop and paste functionality
+  const [isMobile, setIsMobile] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
+  const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
+  const [clipboardFocused, setClipboardFocused] = useState(false);
+  
+  // Crop modal states
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
+  const [crop, setCrop] = useState<Crop>({
+    unit: "%",
+    width: 90,
+    height: 90,
+    x: 5,
+    y: 5,
+  });
+  const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
+  const [rotationAngle, setRotationAngle] = useState(0);
+  
+  // Additional refs for crop functionality
+  const uploadAreaRef = useRef<HTMLDivElement>(null);
+  const imgRef = useRef<HTMLImageElement>(null);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+
   /**
    * Fetch fresh credits from the API
    * Updates userCredits state with the latest value from the server
@@ -1257,12 +1283,14 @@ export default function AskPage() {
   };
 
   /**
-   * Handle sidebar state based on screen size
+   * Handle sidebar state and mobile detection based on screen size
    * Closes sidebar on mobile, keeps open on desktop
    */
   useEffect(() => {
     const handleResize = () => {
-      if (window.innerWidth < 768) {
+      const isMobileSize = window.innerWidth < 768;
+      setIsMobile(isMobileSize);
+      if (isMobileSize) {
         setSidebarOpen(false);
       }
     };
@@ -1285,6 +1313,8 @@ export default function AskPage() {
       fetchUserCredits();
     }
   }, [session, status]);
+
+
 
   // Toggle dark/light mode
   const toggleDarkMode = () => {
@@ -1310,17 +1340,269 @@ export default function AskPage() {
         return;
       }
       
-      // Create preview
+      // For mobile, show crop modal first
+      if (isMobile) {
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const imageSrc = e.target?.result as string;
+          setCropImageSrc(imageSrc);
+          setRotationAngle(0);
+          setShowCropModal(true);
+        };
+        reader.readAsDataURL(file);
+      } else {
+        // For desktop, process directly
+        handleImageUpload(file);
+      }
+    }
+  };
+
+  /**
+   * Handle image upload processing
+   * Creates preview and stores file
+   */
+  const handleImageUpload = async (file: File) => {
+    if (!file.type.startsWith("image/")) {
+      setWarningMessage("Please select a valid image file");
+      return;
+    }
+
+    setImageFile(file);
+    setImageId(null);
+    setWarningMessage(null);
+
+    // Create preview immediately
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      setImage(e.target?.result as string);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  /**
+   * Handle camera capture for mobile devices
+   */
+  const handleCameraCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file && file.type.startsWith("image/")) {
       const reader = new FileReader();
-      reader.onloadend = () => {
-        setImage(reader.result as string);
+      reader.onload = (e) => {
+        const imageSrc = e.target?.result as string;
+        setCropImageSrc(imageSrc);
+        setRotationAngle(0);
+        setShowCropModal(true);
       };
       reader.readAsDataURL(file);
-      
-      // Store file for upload
-      setImageFile(file);
-      setImageId(null);
+    } else if (file) {
+      setWarningMessage("Please capture a valid image file");
     }
+  };
+
+  /**
+   * Drag and drop handlers
+   */
+  const handleDrop = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+    const file = event.dataTransfer.files[0];
+    if (file) {
+      handleImageUpload(file);
+    }
+  };
+
+  const handleDragOver = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (event: React.DragEvent<HTMLDivElement>) => {
+    event.preventDefault();
+    setIsDragOver(false);
+  };
+
+  /**
+   * Handle clipboard paste functionality
+   */
+  const handlePaste = useCallback(
+    (event: ClipboardEvent) => {
+      if (!isUploadAreaFocused && !clipboardFocused) return;
+
+      const items = event.clipboardData?.items;
+      if (!items) return;
+
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        if (item.type.startsWith("image/")) {
+          const file = item.getAsFile();
+          if (file) {
+            handleImageUpload(file);
+            event.preventDefault();
+            break;
+          }
+        }
+      }
+    },
+    [isUploadAreaFocused, clipboardFocused]
+  );
+
+  const handleUploadAreaClick = () => {
+    setIsUploadAreaFocused(true);
+    uploadAreaRef.current?.focus();
+  };
+
+  const handleUploadAreaBlur = () => {
+    setIsUploadAreaFocused(false);
+  };
+
+  const handleClipboardAreaClick = () => {
+    setClipboardFocused(true);
+    setIsUploadAreaFocused(false);
+    if (uploadAreaRef.current) {
+      uploadAreaRef.current.focus();
+    }
+  };
+
+  const handleClipboardAreaBlur = () => {
+    setClipboardFocused(false);
+  };
+
+  const handleKeyDown = (event: React.KeyboardEvent) => {
+    if (event.key === "Enter" || event.key === " ") {
+      event.preventDefault();
+      fileInputRef.current?.click();
+    }
+  };
+
+  /**
+   * Add global paste event listener
+   */
+  useEffect(() => {
+    const handleGlobalPaste = (event: ClipboardEvent) => {
+      handlePaste(event);
+    };
+
+    document.addEventListener("paste", handleGlobalPaste);
+    return () => {
+      document.removeEventListener("paste", handleGlobalPaste);
+    };
+  }, [handlePaste]);
+
+  /**
+   * Generate canvas from crop with rotation
+   */
+  const generateCroppedImage = useCallback(
+    (image: HTMLImageElement, crop: PixelCrop): Promise<File> => {
+      return new Promise((resolve, reject) => {
+        try {
+          const canvas = canvasRef.current;
+          if (!canvas) {
+            reject(new Error("Canvas not available"));
+            return;
+          }
+
+          const scaleX = image.naturalWidth / image.width;
+          const scaleY = image.naturalHeight / image.height;
+          const ctx = canvas.getContext("2d");
+
+          if (!ctx) {
+            reject(new Error("Canvas context not available"));
+            return;
+          }
+
+          // Set canvas dimensions based on crop
+          const cropWidth = crop.width * scaleX;
+          const cropHeight = crop.height * scaleY;
+
+          // When rotating by 90 or 270 degrees, swap width and height
+          const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
+          canvas.width = isRotated90or270 ? cropHeight : cropWidth;
+          canvas.height = isRotated90or270 ? cropWidth : cropHeight;
+
+          // Clear canvas and translate to center for rotation
+          ctx.clearRect(0, 0, canvas.width, canvas.height);
+          ctx.save();
+          ctx.translate(canvas.width / 2, canvas.height / 2);
+          ctx.rotate((rotationAngle * Math.PI) / 180);
+
+          // Draw the image with correct position adjustment for rotation
+          ctx.drawImage(
+            image,
+            crop.x * scaleX,
+            crop.y * scaleY,
+            cropWidth,
+            cropHeight,
+            -cropWidth / 2,
+            -cropHeight / 2,
+            cropWidth,
+            cropHeight
+          );
+
+          ctx.restore();
+
+          canvas.toBlob(
+            (blob) => {
+              if (blob) {
+                const file = new File([blob], "cropped-image.jpg", {
+                  type: "image/jpeg",
+                  lastModified: Date.now(),
+                });
+                resolve(file);
+              } else {
+                reject(new Error("Failed to generate blob from canvas"));
+              }
+            },
+            "image/jpeg",
+            0.9
+          );
+        } catch (error) {
+          reject(error);
+        }
+      });
+    },
+    [rotationAngle]
+  );
+
+  /**
+   * Handle crop completion and image processing
+   */
+  const handleCropComplete = async () => {
+    if (!completedCrop || !imgRef.current) return;
+
+    try {
+      const croppedFile = await generateCroppedImage(imgRef.current, completedCrop);
+      await handleImageUpload(croppedFile);
+      setShowCropModal(false);
+      setCropImageSrc(null);
+    } catch (error) {
+      console.error("Crop operation failed:", error);
+      setWarningMessage("Failed to crop image. Please try again.");
+    }
+  };
+
+  /**
+   * Cancel crop operation
+   */
+  const handleCropCancel = () => {
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    // Reset camera input
+    if (cameraInputRef.current) {
+      cameraInputRef.current.value = "";
+    }
+  };
+
+  /**
+   * Handle rotation of the image
+   */
+  const rotateImage = () => {
+    setRotationAngle((prevAngle) => (prevAngle + 90) % 360);
+  };
+
+  /**
+   * Reset rotation angle
+   */
+  const resetRotation = () => {
+    setRotationAngle(0);
   };
 
   /**
@@ -1386,6 +1668,11 @@ export default function AskPage() {
     setImageFile(null);
     setImageId(null);
     setImageUploadProgress(0);
+    setShowCropModal(false);
+    setCropImageSrc(null);
+    setCompletedCrop(null);
+    setRotationAngle(0);
+    setWarningMessage(null);
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
@@ -1774,47 +2061,127 @@ export default function AskPage() {
                         </button>
                       </div>
                     ) : (
-                      // Upload buttons for image selection
-                      <div className="grid grid-cols-2 gap-3">
-                        <button
-                          onClick={triggerFileInput}
-                          className={`flex items-center space-x-3 p-4 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border rounded-lg transition-colors`}
-                        >
-                          <FaCloudUploadAlt className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} text-xl`} />
-                          <div className="text-left">
-                            <span className="font-medium block text-sm">Upload Image</span>
-                            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>From your device</span>
+                      <>
+                        {isMobile ? (
+                          /* Mobile: Two buttons layout with crop support */
+                          <div className="flex flex-col gap-4">
+                            {/* Take Photo Button - Larger */}
+                            <button
+                              onClick={triggerCameraInput}
+                              className={`flex flex-col items-center gap-3 p-8 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border-2 rounded-xl transition-all`}
+                            >
+                              <div className={`p-4 ${darkMode ? 'bg-gray-700' : 'bg-white'} rounded-full`}>
+                                <FaCamera className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                              </div>
+                              <div className="text-center">
+                                <h4 className="text-lg font-semibold">Take Photo</h4>
+                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Capture, crop & rotate question</p>
+                              </div>
+                            </button>
+
+                            {/* Upload Button - Smaller */}
+                            <button
+                              onClick={triggerFileInput}
+                              className={`flex items-center justify-center gap-3 p-4 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border-2 border-dashed rounded-lg transition-all`}
+                            >
+                              <FaCloudUploadAlt className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                              <div className="text-left">
+                                <p className="text-sm font-medium">Upload Image</p>
+                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Select, crop & rotate</p>
+                              </div>
+                            </button>
+
+                            {/* Hidden inputs */}
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              onChange={handleFileChange}
+                              className="hidden"
+                            />
+                            <input
+                              ref={cameraInputRef}
+                              type="file"
+                              accept="image/*"
+                              capture="environment"
+                              onChange={handleCameraCapture}
+                              className="hidden"
+                            />
                           </div>
-                        </button>
-                        
-                        <button
-                          onClick={triggerCameraInput}
-                          className={`flex items-center space-x-3 p-4 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border rounded-lg transition-colors`}
-                        >
-                          <FaCamera className={`${darkMode ? 'text-indigo-400' : 'text-indigo-500'} text-xl`} />
-                          <div className="text-left">
-                            <span className="font-medium block text-sm">Take Photo</span>
-                            <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Use camera to capture</span>
+                        ) : (
+                          /* Desktop: Split upload and paste areas */
+                          <div className="grid grid-cols-2 gap-4">
+                            {/* Upload Area with Drag & Drop */}
+                            <div
+                              onClick={triggerFileInput}
+                              onDrop={handleDrop}
+                              onDragOver={handleDragOver}
+                              onDragLeave={handleDragLeave}
+                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
+                                isDragOver
+                                  ? darkMode ? 'border-indigo-400 bg-indigo-900/20' : 'border-indigo-500 bg-indigo-50'
+                                  : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
+                              } flex flex-col justify-center`}
+                              role="button"
+                              aria-label="Upload image area - click to select file or drag and drop"
+                            >
+                              <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/*"
+                                onChange={handleFileChange}
+                                className="hidden"
+                              />
+
+                              <div className="space-y-4">
+                                <FaCloudUploadAlt className={`w-12 h-12 mx-auto ${isDragOver ? 'text-indigo-500' : darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                                <div>
+                                  <p className="text-lg font-medium">Upload Image</p>
+                                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Click to browse or drag & drop
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Paste Area */}
+                            <div
+                              ref={uploadAreaRef}
+                              onClick={handleClipboardAreaClick}
+                              onBlur={handleClipboardAreaBlur}
+                              onKeyDown={handleKeyDown}
+                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer outline-none flex flex-col justify-center ${
+                                clipboardFocused
+                                  ? darkMode ? 'border-indigo-400 bg-indigo-900/20 ring-2 ring-indigo-500/20' : 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
+                                  : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
+                              }`}
+                              tabIndex={0}
+                              role="button"
+                              aria-label="Paste image area - click and paste from clipboard"
+                            >
+                              <div className="space-y-4">
+                                <FaClipboard className={`w-12 h-12 mx-auto ${clipboardFocused ? 'text-indigo-500' : darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                                <div>
+                                  <p className="text-lg font-medium">Paste from Clipboard</p>
+                                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                    Click here and press{" "}
+                                    <kbd className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
+                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}
+                                    </kbd>
+                                  </p>
+                                  {clipboardFocused && (
+                                    <p className="text-xs text-indigo-500 font-medium mt-2">
+                                      Ready for paste! Press{" "}
+                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}{" "}
+                                      now
+                                    </p>
+                                  )}
+                                </div>
+                              </div>
+                            </div>
                           </div>
-                        </button>
-                        
-                        {/* Hidden file inputs */}
-                        <input
-                          type="file"
-                          ref={fileInputRef}
-                          onChange={handleFileChange}
-                          accept="image/*"
-                          className="hidden"
-                        />
-                        <input
-                          type="file"
-                          ref={cameraInputRef}
-                          onChange={handleFileChange}
-                          accept="image/*"
-                          capture="environment"
-                          className="hidden"
-                        />
-                      </div>
+                        )}
+                      </>
                     )}
                   </div>
                   
@@ -1965,6 +2332,134 @@ export default function AskPage() {
         imageUrl={fullImageUrl} 
         darkMode={darkMode} 
       />
+      
+      {/* Crop Modal with Rotation */}
+      {showCropModal && cropImageSrc && (
+        <div
+          className="fixed inset-0 bg-black/80 flex items-center justify-center z-50 p-4"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div
+            className={`${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto`}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="space-y-4">
+              {/* Header */}
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FaCrop className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
+                </div>
+                <button
+                  onClick={handleCropCancel}
+                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                >
+                  <FaTimes className="h-4 w-4" />
+                </button>
+              </div>
+
+              {/* Instructions */}
+              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+              </p>
+
+              {/* Rotation Controls */}
+              <div className={`flex items-center justify-center gap-4 p-3 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+                <button
+                  onClick={resetRotation}
+                  disabled={rotationAngle === 0}
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    rotationAngle === 0 
+                      ? darkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800'
+                  }`}
+                >
+                  <FaUndo className="h-4 w-4" />
+                  Reset
+                </button>
+
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-medium">{rotationAngle}°</span>
+                </div>
+
+                <button 
+                  onClick={rotateImage} 
+                  className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
+                    darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800'
+                  }`}
+                >
+                  <FaRedo className="h-4 w-4" />
+                  Rotate 90°
+                </button>
+              </div>
+
+              {/* Crop Area */}
+              <div className="flex justify-center">
+                <div className="max-w-full max-h-[60vh] overflow-auto">
+                  <ReactCrop
+                    crop={crop}
+                    onChange={(c) => setCrop(c)}
+                    onComplete={(c) => setCompletedCrop(c)}
+                    aspect={undefined}
+                    minWidth={50}
+                    minHeight={50}
+                  >
+                    <img
+                      ref={imgRef}
+                      src={cropImageSrc || ""}
+                      alt="Crop preview"
+                      className="max-w-full h-auto"
+                      style={{ transform: `rotate(${rotationAngle}deg)` }}
+                      onLoad={() => {
+                        // Auto-select most of the image initially
+                        if (imgRef.current) {
+                          const { width, height } = imgRef.current;
+                          setCrop({
+                            unit: "px",
+                            width: width * 0.9,
+                            height: height * 0.9,
+                            x: width * 0.05,
+                            y: height * 0.05,
+                          });
+                        }
+                      }}
+                    />
+                  </ReactCrop>
+                </div>
+              </div>
+
+              {/* Action Buttons */}
+              <div className="flex gap-3 justify-end">
+                <button
+                  onClick={handleCropCancel}
+                  className={`px-6 py-2 rounded-lg transition-colors ${
+                    darkMode 
+                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
+                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                  }`}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleCropComplete}
+                  disabled={!completedCrop}
+                  className={`px-6 py-2 rounded-lg transition-colors flex items-center gap-2 ${
+                    !completedCrop
+                      ? darkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : darkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                  }`}
+                >
+                  <FaCrop className="h-4 w-4" />
+                  Crop & Upload
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Hidden canvas for image processing */}
+      <canvas ref={canvasRef} className="hidden" />
     </div>
   );
 }
