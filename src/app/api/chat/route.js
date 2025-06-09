@@ -490,10 +490,11 @@ export async function POST(req) {
     // 2. Provide clear, step-by-step explanations
     // 3. Use \\boxed{answer} for final answers
     // 4. No bold ** or italic * formatting
-    // 5. Match the language of the user's question
-    // 6. Be conversational but educational
-    // 7. Ask follow-up questions to ensure understanding
-    // 8. Reference previous parts of the conversation when helpful
+    // 5. No heading or subheading, #, ##, ###, etc.
+    // 6. Match the language of the user's question
+    // 7. Be conversational but educational
+    // 8. Ask follow-up questions to ensure understanding
+    // 9. Reference previous parts of the conversation when helpful
     
     // INTERACTION STYLE:
     // - Be encouraging and supportive
@@ -502,14 +503,22 @@ export async function POST(req) {
     // - Suggest related topics or practice problems when appropriate` }
   const allMessages = [systemMessage, ...chatContext, ...messages]
 
-  // 8) Stream from a faster model
+  // gpt-4o-mini stream
+  // const result = await streamText({
+  //   model: openai('gpt-4o-mini'),
+  //   messages: allMessages,
+  //   temperature: 0.7,
+  //   maxTokens: 1000,
+  //   stream: true,
+  // })
+
+  // o4-mini stream
   const result = await streamText({
-    model: openai('gpt-4o-mini'),
+    model: openai('o4-mini'),
     messages: allMessages,
-    temperature: 0.7,
-    maxTokens: 1000,
-    stream: true,
+    stream: true
   })
+
 
   // 9) Immediately append just the user’s turn(s)
   const userMsgs = messages.map(m => ({ ...m, timestamp: Date.now() }))
