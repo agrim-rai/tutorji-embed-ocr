@@ -13,6 +13,10 @@ export default function AuthErrorContent() {
       title: "Authentication Error",
       message: "An error occurred during the sign-in process. Please try again.",
     },
+    NotAllowed: {
+      title: "Access Denied",
+      message: "You do not have permission to sign in. Please contact support if you believe this is an error.",
+    },
     AccessDenied: {
       title: "Access Denied",
       message: "You do not have permission to sign in. Please contact support if you believe this is an error.",
