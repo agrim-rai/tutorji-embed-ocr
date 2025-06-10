@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, Suspense } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -200,10 +200,10 @@ const ImageModal: React.FC<{
 };
 
 /**
- * ShareAskPage Component
- * Main component for displaying shared questions and solutions
+ * ShareAskContent Component
+ * Main component that uses useSearchParams
  */
-export default function ShareAskPage() {
+const ShareAskContent: React.FC = () => {
   const searchParams = useSearchParams();
   const imageUrl = searchParams.get("imageUrl") || "";
 
@@ -520,6 +520,66 @@ export default function ShareAskPage() {
         darkMode={darkMode} 
       />
     </div>
+  );
+};
+
+/**
+ * Loading fallback component
+ */
+const LoadingFallback: React.FC = () => {
+  return (
+    <div className="min-h-screen flex flex-col bg-gray-800 text-white">
+      <nav className="bg-gray-900 text-white shadow-lg fixed top-0 left-0 right-0 z-50">
+        <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
+          <div className="flex items-center space-x-4">
+            <Link
+              href="/ask"
+              className="flex items-center space-x-2 hover:opacity-90 transition-opacity"
+            >
+              <FaArrowLeft className="text-lg" />
+              <span className="text-sm">Back to Ask</span>
+            </Link>
+
+            <div className="flex items-center space-x-2">
+              <div className="w-8 h-8">
+                <img
+                  src={PRODIJEE_LOGO_DARK}
+                  alt="TutorJi Logo"
+                  className="w-full h-full object-contain"
+                />
+              </div>
+              <div>
+                <h1 className="text-lg font-bold">TutorJi</h1>
+                <p className="text-xs opacity-80">Shared Solution</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </nav>
+
+      <main className="flex-grow py-6 pt-16">
+        <div className="max-w-4xl mx-auto px-4">
+          <div className="text-center py-12">
+            <FaSpinner className="w-8 h-8 mx-auto mb-4 animate-spin text-gray-400" />
+            <p className="text-gray-400">Loading...</p>
+          </div>
+        </div>
+      </main>
+      
+      <Footer darkMode={true} />
+    </div>
+  );
+};
+
+/**
+ * ShareAskPage Component
+ * Main export with Suspense boundary
+ */
+export default function ShareAskPage() {
+  return (
+    <Suspense fallback={<LoadingFallback />}>
+      <ShareAskContent />
+    </Suspense>
   );
 }
 
