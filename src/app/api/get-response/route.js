@@ -5,8 +5,9 @@ import dbConnect from '@/lib/mongoose';
 import AIResponse from '@/models/AIResponse';
 
 /**
- * API Route to fetch AI response data by imageId or imageUrl
+ * API Route to fetch AI response data by imageUrl
  * This is used by the bot page to retrieve question context without passing large data in URL
+ * Also used by the shareask page which doesn't require authentication
  */
 export async function GET(req) {
   try {
@@ -16,98 +17,72 @@ export async function GET(req) {
     await dbConnect();
     console.log('Get Response API: Connected to MongoDB');
     
-    // Get session for authentication
-    const session = await getServerSession(authOptions);
+    // Get imageUrl from query parameters
+    const { searchParams } = new URL(req.url);
+    const imageUrl = searchParams.get('imageUrl');
     
-    // Check if user is authenticated
-    if (!session || !session.user || !session.user.email) {
-      console.log('Get Response API: No authenticated user');
-      return NextResponse.json(
-        { error: 'Authentication required' },
-        { status: 401 }
-      );
+    // Check if the request is from the shareask page
+    // Use multiple methods to determine the source
+    const referer = req.headers.get('referer') || '';
+    const origin = req.headers.get('origin') || '';
+    const fromParam = searchParams.get('from') || '';
+    
+    // Consider it a shareask page if any of these conditions are true
+    const isShareAskPage = referer.includes('/shareask') || 
+                          origin.includes('/shareask') || 
+                          fromParam === 'shareask';
+    
+    // Only require authentication for non-shareask pages (like bot page)
+    if (!isShareAskPage) {
+      // Get session for authentication
+      const session = await getServerSession(authOptions);
+      
+      // Check if user is authenticated
+      if (!session || !session.user || !session.user.email) {
+        console.log('Get Response API: No authenticated user');
+        return NextResponse.json(
+          { error: 'Authentication required' },
+          { status: 401 }
+        );
+      }
     }
     
-    // Get imageId from query parameters
-    const { searchParams } = new URL(req.url);
-    const imageId = searchParams.get('imageId');
-    
-    if (!imageId) {
+    if (!imageUrl) {
       return NextResponse.json(
-        { error: 'ImageId parameter is required' },
+        { error: 'ImageUrl parameter is required' },
         { status: 400 }
       );
     }
     
-    console.log('Get Response API: Looking for imageId:', imageId);
+    console.log('Get Response API: Looking for image with URL:', imageUrl);
     
-    // Helper function to extract imageId from various formats
-    const extractImageId = (id) => {
-      // If it's already a clean imageId, return as is
-      if (!id.includes('/') && !id.includes('.')) {
-        return id;
-      }
-      
-      // Extract from S3 URL: https://tutorji.s3.us-east-1.amazonaws.com/uploads/MRw5FZHLtsOUK0hNNmaEl.jpg
-      const s3UrlMatch = id.match(/\/([^\/]+)\.(jpg|jpeg|png|gif|webp)$/i);
-      if (s3UrlMatch) {
-        return s3UrlMatch[1];
-      }
-      
-      // Extract from filename with extension: MRw5FZHLtsOUK0hNNmaEl.jpg
-      const filenameMatch = id.match(/^([^.]+)\.(jpg|jpeg|png|gif|webp)$/i);
-      if (filenameMatch) {
-        return filenameMatch[1];
-      }
-      
-      return id;
-    };
-    
-    const cleanImageId = extractImageId(imageId);
-    console.log('Get Response API: Cleaned imageId:', cleanImageId);
-    
-    // First try to find by imageId directly
+    // First try to find by exact imageUrl
     let aiResponse = await AIResponse.findOne({ 
-      imageId: cleanImageId 
-    }).sort({ createdAt: -1 }); // Get most recent if multiple exist
+      imageUrl: imageUrl 
+    }).sort({ createdAt: -1 });
     
-    // If not found by exact imageId, try to find by imageUrl containing the imageId
+    // If not found, try with common image extensions
     if (!aiResponse) {
-      aiResponse = await AIResponse.findOne({
-        imageUrl: { $regex: cleanImageId, $options: 'i' }
-      }).sort({ createdAt: -1 });
-    }
-    
-    // If still not found, try the original imageId
-    if (!aiResponse && cleanImageId !== imageId) {
-      aiResponse = await AIResponse.findOne({
-        $or: [
-          { imageId: imageId },
-          { imageUrl: { $regex: imageId, $options: 'i' } }
-        ]
-      }).sort({ createdAt: -1 });
+      const extensions = ['.jpg', '.jpeg', '.png', '.gif', '.webp'];
+      
+      for (const ext of extensions) {
+        aiResponse = await AIResponse.findOne({
+          imageUrl: imageUrl + ext
+        }).sort({ createdAt: -1 });
+        
+        if (aiResponse) break;
+      }
     }
     
     if (!aiResponse) {
-      console.log('Get Response API: No AI response found for imageId:', imageId);
+      console.log('Get Response API: No AI response found for imageUrl:', imageUrl);
       return NextResponse.json(
-        { error: 'No response found for the provided imageId' },
+        { error: 'No response found for the provided image' },
         { status: 404 }
       );
     }
     
     console.log('Get Response API: Found AI response:', aiResponse._id);
-    
-    // Construct the S3 URL if we have imageId but no imageUrl
-    let imageUrl = aiResponse.imageUrl;
-    if (!imageUrl && aiResponse.imageId) {
-      const bucketName = process.env.S3_BUCKET_NAME;
-      const region = process.env.AWS_REGION;
-      
-      if (bucketName && region) {
-        imageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${aiResponse.imageId}`;
-      }
-    }
     
     // Return the response data
     return NextResponse.json({
@@ -117,7 +92,7 @@ export async function GET(req) {
         answer: aiResponse.answer,
         heading: aiResponse.heading,
         imageId: aiResponse.imageId,
-        imageUrl: imageUrl,
+        imageUrl: aiResponse.imageUrl,
         createdAt: aiResponse.createdAt
       }
     });

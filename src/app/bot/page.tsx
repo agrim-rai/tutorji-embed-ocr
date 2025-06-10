@@ -432,27 +432,44 @@ const InitialQuestionDisplay: React.FC<{
 
         {image && (
           <div className="mb-4 flex justify-center">
-            <div className="relative group">
-              <img
-                src={image}
-                alt="Question image"
-                className="max-w-md max-h-48 w-auto h-auto bg-gray-100 rounded-lg cursor-pointer transition-transform duration-200 group-hover:scale-105"
-                onClick={onImageClick}
-                onError={(e) => {
-                  console.error("Image failed to load:", image);
-                  e.currentTarget.style.display = 'none';
-                }}
-              />
+            <div className="relative group w-full max-w-md">
+              {/* Mobile: Fixed height container */}
+              <div className="md:hidden relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden">
+                <img
+                  src={image}
+                  alt="Question image"
+                  className="w-full h-full object-contain rounded-lg"
+                  onError={(e) => {
+                    console.error("Image failed to load:", image);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+              
+              {/* Desktop: Auto height with max height */}
+              <div className="hidden md:block relative w-full max-h-64">
+                <img
+                  src={image}
+                  alt="Question image"
+                  className="w-full h-auto max-h-64 object-contain bg-gray-100 rounded-lg"
+                  onError={(e) => {
+                    console.error("Image failed to load:", image);
+                    e.currentTarget.style.display = 'none';
+                  }}
+                />
+              </div>
+              
               <button
                 onClick={onImageClick}
-                className={`absolute top-2 right-2 p-2 rounded-lg transition-opacity opacity-0 group-hover:opacity-100 ${
+                className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
                   darkMode
-                    ? "bg-gray-900 bg-opacity-80 text-white"
-                    : "bg-white bg-opacity-80 text-gray-800"
-                }`}
+                    ? "bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90"
+                    : "bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100"
+                } shadow-lg transition-all backdrop-blur-sm`}
                 title="View full screen"
               >
-                <FaImage size={16} />
+                <FaImage size={12} />
+                <span className="hidden sm:inline">Full Screen</span>
               </button>
             </div>
           </div>
@@ -466,7 +483,7 @@ const InitialQuestionDisplay: React.FC<{
                 darkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              Question:
+              Question Context:
             </h4>
             <p
               className={`text-sm ${
@@ -481,13 +498,13 @@ const InitialQuestionDisplay: React.FC<{
         {/* Display initial answer */}
         {answer && answer.trim() && (
           <div>
-            <h4
+            <h3
               className={`text-sm font-medium mb-2 ${
                 darkMode ? "text-gray-300" : "text-gray-700"
               }`}
             >
-              Previous Solution:
-            </h4>
+              Solution:
+            </h3>
             <div
               className={`text-sm ${
                 darkMode ? "text-gray-200" : "text-gray-800"
@@ -522,8 +539,8 @@ function BotPageContent() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
-  // Extract imageId from URL params
-  const imageId = searchParams.get("imageId") || "";
+  // Extract imageUrl from URL params instead of imageId
+  const imageUrl = searchParams.get("imageUrl") || "";
 
   // UI state
   const [darkMode, setDarkMode] = useState(true);
@@ -534,7 +551,7 @@ function BotPageContent() {
     imageUrl: string;
     heading?: string;
   } | null>(null);
-  const [loadingData, setLoadingData] = useState(!!imageId);
+  const [loadingData, setLoadingData] = useState(!!imageUrl);
   const [dataError, setDataError] = useState<string | null>(null);
   const [showFullScreenImage, setShowFullScreenImage] = useState(false);
 
@@ -581,20 +598,31 @@ function BotPageContent() {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, isLoading]);
 
-  // Fetch response data if imageId is provided
+  // Fetch response data if imageUrl is provided
   useEffect(() => {
     const fetchResponseData = async () => {
-      if (!imageId || !session) return;
+      if (!imageUrl || !session) return;
+
+      // Validate imageUrl format before making API call
+      // It should be a non-empty string with at least 8 characters (minimum reasonable ID length)
+      if (!imageUrl.trim() || imageUrl.trim().length < 8) {
+        setDataError("Invalid image URL format");
+        setLoadingData(false);
+        return;
+      }
 
       try {
         setLoadingData(true);
-        console.log("Fetching response data for imageId:", imageId);
+        console.log("Fetching response data for imageUrl:", imageUrl);
 
         const response = await fetch(
-          `/api/get-response?imageId=${encodeURIComponent(imageId)}`
+          `/api/get-response?imageUrl=${encodeURIComponent(imageUrl)}`
         );
 
         if (!response.ok) {
+          if (response.status === 404) {
+            throw new Error("Question not found with the provided imageUrl");
+          }
           throw new Error("Failed to fetch response data");
         }
 
@@ -624,7 +652,7 @@ function BotPageContent() {
     };
 
     fetchResponseData();
-  }, [imageId, session]);
+  }, [imageUrl, session]);
 
   // Focus on input when page loads
   useEffect(() => {
@@ -698,7 +726,7 @@ function BotPageContent() {
       <div className="flex-grow flex flex-col pt-16">
         {/* Messages Container */}
         <div className="flex-grow overflow-y-auto">
-          <div className="max-w-4xl mx-auto px-4 py-6">
+          <div className="max-w-4xl mx-auto px-4 py-3">
             {/* Loading state for fetching response data */}
             {loadingData && (
               <div className="text-center py-12">
@@ -715,7 +743,7 @@ function BotPageContent() {
               </div>
             )}
 
-            {/* Error state for invalid imageId */}
+            {/* Error state for invalid imageUrl */}
             {!loadingData && dataError && (
               <div className="text-center py-12">
                 <FaTimes
@@ -735,7 +763,7 @@ function BotPageContent() {
                     darkMode ? "text-gray-400" : "text-gray-600"
                   } mb-6 max-w-md mx-auto`}
                 >
-                  {dataError.includes("imageId")
+                  {dataError.includes("imageUrl") || dataError.includes("Question not found") || dataError.includes("Invalid image URL")
                     ? "The question you are looking for could not be found. It may have been removed or the link may be invalid."
                     : dataError}
                 </p>
@@ -749,8 +777,8 @@ function BotPageContent() {
               </div>
             )}
 
-            {/* Error state for missing imageId */}
-            {!loadingData && !dataError && !imageId && (
+            {/* Error state for missing imageUrl */}
+            {!loadingData && !dataError && !imageUrl && (
               <div className="text-center py-12">
                 <FaRobot
                   className={`w-16 h-16 mx-auto mb-4 ${
@@ -769,8 +797,7 @@ function BotPageContent() {
                     darkMode ? "text-gray-400" : "text-gray-600"
                   } mb-6 max-w-md mx-auto`}
                 >
-                  No question was provided to continue the conversation. Please
-                  start by asking a question on the Ask page.
+                  Please start by asking a question on the Ask page.
                 </p>
                 <Link
                   href="/ask"
@@ -782,23 +809,12 @@ function BotPageContent() {
               </div>
             )}
 
-            {/* Initial Question Display */}
-            {!loadingData && responseData && (
-              <InitialQuestionDisplay
-                question={responseData.question}
-                answer={responseData.answer}
-                image={responseData.imageUrl}
-                darkMode={darkMode}
-                onImageClick={() => setShowFullScreenImage(true)}
-              />
-            )}
-
-            {/* Chat Messages */}
+            {/* Welcome message - only show when no imageUrl and no error */}
             {messages.length === 0 &&
               !responseData &&
               !loadingData &&
               !dataError &&
-              !imageId && (
+              imageUrl && (
                 <div className="text-center py-12">
                   <FaRobot
                     className={`w-16 h-16 mx-auto mb-4 ${
@@ -824,7 +840,18 @@ function BotPageContent() {
                 </div>
               )}
 
-            {/* Render messages */}
+            {/* Initial Question Display */}
+            {!loadingData && responseData && (
+              <InitialQuestionDisplay
+                question={responseData.question}
+                answer={responseData.answer}
+                image={responseData.imageUrl}
+                darkMode={darkMode}
+                onImageClick={() => setShowFullScreenImage(true)}
+              />
+            )}
+
+            {/* Chat Messages */}
             {messages.map((message, index) => (
               <MessageComponent
                 key={message.id || index}
@@ -905,8 +932,8 @@ function BotPageContent() {
           </div>
         </div>
 
-        {/* Input Form - only show if not in error state */}
-        {!dataError && (imageId ? responseData || loadingData : true) && (
+        {/* Input Form - only show if not in error state and we have response data */}
+        {!dataError && responseData && (
           <div
             className={`border-t ${
               darkMode

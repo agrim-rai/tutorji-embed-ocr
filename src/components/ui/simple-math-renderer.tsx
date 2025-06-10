@@ -93,13 +93,15 @@ const parseContent = (text: string): React.ReactNode[] => {
     try {
       if (expr.type === 'display') {
         parts.push(
-          <div key={`display-${keyCounter++}`} className="my-4 text-center">
-            <BlockMath math={expr.content} />
+          <div key={`display-${keyCounter++}`} className="my-4 w-full overflow-x-auto">
+            <div className="text-center min-w-fit">
+              <BlockMath math={expr.content} />
+            </div>
           </div>
         );
       } else {
         parts.push(
-          <span key={`inline-${keyCounter++}`} className="inline-math">
+          <span key={`inline-${keyCounter++}`} className="inline-math overflow-x-auto inline-block max-w-full">
             <InlineMath math={expr.content} />
           </span>
         );
@@ -166,8 +168,9 @@ const SimpleMathRendererImpl: React.FC<SimpleMathRendererProps> = ({
         }
 
         .simple-math-renderer .inline-math {
-          display: inline;
+          display: inline-block;
           vertical-align: baseline;
+          max-width: 100%;
         }
 
         .simple-math-renderer .inline-math .katex {
@@ -176,6 +179,38 @@ const SimpleMathRendererImpl: React.FC<SimpleMathRendererProps> = ({
 
         .simple-math-renderer .inline-math .katex .katex-html {
           display: inline;
+        }
+
+        /* Scrollbar styling for WebKit browsers */
+        .simple-math-renderer .overflow-x-auto::-webkit-scrollbar {
+          height: 6px;
+        }
+
+        .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-track {
+          background: rgba(0, 0, 0, 0.1);
+          border-radius: 3px;
+        }
+
+        .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-thumb {
+          background: rgba(0, 0, 0, 0.3);
+          border-radius: 3px;
+        }
+
+        .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+          background: rgba(0, 0, 0, 0.5);
+        }
+
+        /* Dark mode scrollbar */
+        .dark .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-track {
+          background: rgba(255, 255, 255, 0.1);
+        }
+
+        .dark .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-thumb {
+          background: rgba(255, 255, 255, 0.3);
+        }
+
+        .dark .simple-math-renderer .overflow-x-auto::-webkit-scrollbar-thumb:hover {
+          background: rgba(255, 255, 255, 0.5);
         }
       `}</style>
     </div>

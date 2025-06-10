@@ -23,6 +23,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { FaUser, FaCrown, FaHistory, FaTrash, FaStar, FaQuestionCircle, FaBell, FaEllipsisV } from "react-icons/fa";
 import Link from "next/link";
 import { SimpleMathRenderer } from "@/components/ui/simple-math-renderer";
+import { StreamingLoadingText } from "@/components/ai-stylish-text";
 
 // Utility function to share solutions (mock implementation for demo)
 // In production, this would be handled by a server-side API
@@ -46,10 +47,13 @@ const mockShareSolution = (data: {
       localStorage.setItem('sharedSolutions', JSON.stringify(existingShared));
     }
     
+    // Create a URL to the shareask page with the image URL (without extension)
+    const imageUrl = data.image ? data.image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : '';
+    
     return {
       success: true,
       id,
-      url: `${window.location.origin}/shared/${id}`
+      url: `${window.location.origin}/shareask?imageUrl=${encodeURIComponent(imageUrl)}`
     };
   } catch (error) {
     console.error('Error sharing solution:', error);
@@ -239,13 +243,17 @@ const Navbar: React.FC<{
   onShare: () => void;
   showShareButton: boolean;
   shareStatus: { shared: boolean; url?: string };
+  hasResponse: boolean;
+  imageUrl?: string | null;
 }> = ({ 
   onHowToUse, 
   darkMode,
   toggleDarkMode,
   onShare,
   showShareButton,
-  shareStatus
+  shareStatus,
+  hasResponse,
+  imageUrl
 }) => {
   return (
     <nav className={`${darkMode ? 'bg-gray-900' : 'bg-indigo-700'} text-white shadow-lg fixed top-0 left-0 right-0 z-50`}>
@@ -284,17 +292,37 @@ const Navbar: React.FC<{
           >
             {darkMode ? <FaSun className="text-yellow-300" /> : <FaMoon className="text-white" />}
           </button>
-          <button
-            onClick={onHowToUse}
-            className={`px-4 py-2 rounded-lg ${
-              darkMode 
-                ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                : 'bg-white text-indigo-700 hover:bg-indigo-50'
-            } font-medium flex items-center space-x-2 transition-colors`}
-          >
-            <FaInfoCircle />
-            <span className="hidden sm:inline">How to Use?</span>
-          </button>
+          
+          {hasResponse ? (
+            <Link 
+              href={{
+                pathname: '/bot',
+                query: {
+                  imageUrl: imageUrl ? imageUrl.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : undefined
+                }
+              }}
+              className={`px-4 py-2 rounded-lg ${
+                darkMode 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-white text-indigo-700 hover:bg-indigo-50'
+              } font-medium flex items-center space-x-2 transition-colors`}
+            >
+              <FaRobot />
+              <span className="hidden sm:inline">Ask TutorJi Bot</span>
+            </Link>
+          ) : (
+            <button
+              onClick={onHowToUse}
+              className={`px-4 py-2 rounded-lg ${
+                darkMode 
+                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                  : 'bg-white text-indigo-700 hover:bg-indigo-50'
+              } font-medium flex items-center space-x-2 transition-colors`}
+            >
+              <FaInfoCircle />
+              <span className="hidden sm:inline">How to Use?</span>
+            </button>
+          )}
         </div>
       </div>
     </nav>
@@ -868,7 +896,7 @@ const TypeWriter: React.FC<{ text: string; speed?: number; darkMode: boolean }> 
   };
 
   return (
-    <div className="whitespace-pre-wrap" ref={contentRef}>
+    <div className="whitespace-pre-wrap overflow-x-auto" ref={contentRef}>
       {formatText(displayText)}
     </div>
   );
@@ -1048,13 +1076,12 @@ const SidebarHistory: React.FC<{
             TutorJi AI Assistant
           </h3>
           <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Powered by GPT-3.5 Turbo, our AI can solve complex JEE problems with high accuracy.
+            Powered by GPT-o4-mini, our AI can solve complex JEE problems with high accuracy.
           </p>
           <ul className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} space-y-2`}>
             <li>• 95% accuracy on JEE questions</li>
             <li>• Step-by-step explanations</li>
             <li>• Handles Physics, Chemistry & Math</li>
-            <li>• Based on 175B parameter model</li>
           </ul>
         </div>
         
@@ -1353,6 +1380,7 @@ export default function AskPage() {
   // State for question, loading, and responses
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
+  const [isStreamingText, setIsStreamingText] = useState(false);
   const [response, setResponse] = useState<{ finalAnswer: string } | null>(null);
   
   // UI state
@@ -1836,6 +1864,7 @@ export default function AskPage() {
     }
 
     setLoading(true);
+    setIsStreamingText(true); // Start streaming text immediately
     setWarningMessage(null);
 
     try {
@@ -1849,8 +1878,11 @@ export default function AskPage() {
         console.log('Image uploaded with ID:', imageId);
       }
 
-      // Submit to AI for processing
+      // Submit to AI for processing (this runs concurrently with streaming text)
       const result = await submitToLLM(imageId, context);
+
+      // Stop streaming text immediately when API returns
+      setIsStreamingText(false);
 
       if (result.error) {
         console.error('AI Error:', result.error);
@@ -1878,6 +1910,7 @@ export default function AskPage() {
     } catch (error) {
       console.error('Submission error:', error);
       setWarningMessage("An unexpected error occurred. Please try again.");
+      setIsStreamingText(false); // Stop streaming on error too
     } finally {
       setLoading(false);
       setImageUploading(false);
@@ -1941,6 +1974,8 @@ export default function AskPage() {
     setImageId(null);
     setContext("");
     setResponse(null);
+    setLoading(false);
+    setIsStreamingText(false);
     setShareStatus({ shared: false });
     setShowImageModal(false);
     setShowShareModal(false);
@@ -1957,18 +1992,34 @@ export default function AskPage() {
       <div className={`mb-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} pb-5`}>
         <h3 className={`text-lg font-bold mb-4`}>Your Question</h3>
         
-        {/* Display uploaded image with overlay for upload progress */}
+        {/* Display uploaded image with fixed size */}
         {image && (
           <div className="mb-4">
-            <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-              <Image
-                src={image}
-                alt="Question image"
-                fill
-                style={{ objectFit: "contain" }}
-              />
+            <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden">
+              {/* Mobile: Fixed height container */}
+              <div className="md:hidden relative h-48 w-full">
+                <Image
+                  src={image}
+                  alt="Question image"
+                  fill
+                  style={{ objectFit: "contain" }}
+                  className="rounded-lg"
+                />
+              </div>
+              
+              {/* Desktop: Fixed height container matching upload boxes */}
+              <div className="hidden md:block relative w-full h-64">
+                <Image
+                  src={image}
+                  alt="Question image"
+                  fill
+                  style={{ objectFit: "contain" }}
+                  className="rounded-lg"
+                />
+              </div>
+              
               {imageUploading && (
-                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center">
+                <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
                   <div className="w-3/4 bg-gray-200 rounded-full h-2.5">
                     <div 
                       className="bg-indigo-600 h-2.5 rounded-full" 
@@ -1977,17 +2028,21 @@ export default function AskPage() {
                   </div>
                 </div>
               )}
+              
+              {/* Full screen button */}
               <button 
                 onClick={() => {
                   setFullImageUrl(image);
                   setShowImageModal(true);
                 }}
-                className={`absolute bottom-2 right-2 px-2 py-1 rounded text-xs font-medium flex items-center ${
-                  darkMode ? 'bg-gray-800 text-white hover:bg-gray-700' : 'bg-white text-gray-800 hover:bg-gray-100'
-                } shadow transition-colors`}
+                className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                  darkMode 
+                    ? 'bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90' 
+                    : 'bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100'
+                } shadow-lg transition-all backdrop-blur-sm z-10`}
               >
-                <FaExternalLinkAlt className="mr-1" size={10} />
-                Open Full Image
+                <FaExternalLinkAlt size={12} />
+                <span className="hidden sm:inline">Full Screen</span>
               </button>
             </div>
           </div>
@@ -2000,6 +2055,26 @@ export default function AskPage() {
             <p>{context}</p>
           </div>
         )}
+
+        {/* TutorJi Bot Button */}
+        {/* <div className="mt-4 flex justify-center">
+          <Link 
+            href={{
+              pathname: '/bot',
+              query: {
+                imageUrl: image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : undefined
+              }
+            }}
+            className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg ${
+              darkMode 
+                ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                : 'bg-indigo-500 text-white hover:bg-indigo-600'
+            } transition-colors`}
+          >
+            <FaRobot className="mr-2" />
+            <span>Launch TutorJi Bot</span>
+          </Link>
+        </div> */}
       </div>
     );
   };
@@ -2015,26 +2090,7 @@ export default function AskPage() {
     // Set the image if available
     if (imageUrl) {
       setImage(imageUrl);
-      
-      // Extract imageId from imageUrl for bot navigation
-      const extractImageId = (url: string) => {
-        // Extract from S3 URL: https://tutorji.s3.us-east-1.amazonaws.com/uploads/MRw5FZHLtsOUK0hNNmaEl.jpg
-        const s3UrlMatch = url.match(/\/([^\/]+)\.(jpg|jpeg|png|gif|webp)$/i);
-        if (s3UrlMatch) {
-          return s3UrlMatch[1];
-        }
-        
-        // Extract from filename with extension: MRw5FZHLtsOUK0hNNmaEl.jpg
-        const filenameMatch = url.match(/^([^.]+)\.(jpg|jpeg|png|gif|webp)$/i);
-        if (filenameMatch) {
-          return filenameMatch[1];
-        }
-        
-        return null;
-      };
-      
-      const extractedImageId = extractImageId(imageUrl);
-      setImageId(extractedImageId);
+      // We no longer need to extract imageId since we're passing the full URL
     } else {
       setImage(null);
       setImageId(null);
@@ -2101,7 +2157,7 @@ export default function AskPage() {
   return (
     <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-800'} transition-colors duration-200`}>
               {/* Navigation bar */}
-        <Navbar onHowToUse={() => setShowHowTo(true)} darkMode={darkMode} toggleDarkMode={toggleDarkMode} onShare={handleShareSolution} showShareButton={!!response} shareStatus={shareStatus} />
+        <Navbar onHowToUse={() => setShowHowTo(true)} darkMode={darkMode} toggleDarkMode={toggleDarkMode} onShare={handleShareSolution} showShareButton={!!response} shareStatus={shareStatus} hasResponse={!!response} imageUrl={image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : null} />
       
       <div className="flex flex-grow relative pt-16">
         {/* Mobile backdrop overlay when sidebar is open */}
@@ -2225,19 +2281,51 @@ export default function AskPage() {
                     <h3 className="text-md font-semibold mb-3">Upload Question Image</h3>
                     
                     {image ? (
-                      // Display selected image with remove button
-                      <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden">
-                        <Image
-                          src={image}
-                          alt="Uploaded question"
-                          fill
-                          style={{ objectFit: "contain" }}
-                        />
+                      // Display selected image with remove button - Fixed size to match upload boxes
+                      <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden">
+                        {/* Mobile: Fixed height container matching mobile upload layout */}
+                        <div className="md:hidden relative h-48 w-full">
+                          <Image
+                            src={image}
+                            alt="Uploaded question"
+                            fill
+                            style={{ objectFit: "contain" }}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        
+                        {/* Desktop: Fixed height container matching upload boxes height */}
+                        <div className="hidden md:block relative w-full h-64">
+                          <Image
+                            src={image}
+                            alt="Uploaded question"
+                            fill
+                            style={{ objectFit: "contain" }}
+                            className="rounded-lg"
+                          />
+                        </div>
+                        
                         <button
                           onClick={removeImage}
-                          className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                          className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10"
                         >
                           <FaTimes size={14} />
+                        </button>
+                        
+                        {/* Add full screen button for preview */}
+                        <button 
+                          onClick={() => {
+                            setFullImageUrl(image);
+                            setShowImageModal(true);
+                          }}
+                          className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
+                            darkMode 
+                              ? 'bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90' 
+                              : 'bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100'
+                          } shadow-lg transition-all backdrop-blur-sm z-10`}
+                        >
+                          <FaExternalLinkAlt size={12} />
+                          <span className="hidden sm:inline">Full Screen</span>
                         </button>
                       </div>
                     ) : (
@@ -2297,7 +2385,7 @@ export default function AskPage() {
                               onDrop={handleDrop}
                               onDragOver={handleDragOver}
                               onDragLeave={handleDragLeave}
-                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer ${
+                              className={`border-2 border-dashed rounded-lg p-6 h-48 text-center transition-all cursor-pointer ${
                                 isDragOver
                                   ? darkMode ? 'border-indigo-400 bg-indigo-900/20' : 'border-indigo-500 bg-indigo-50'
                                   : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
@@ -2330,7 +2418,7 @@ export default function AskPage() {
                               onClick={handleClipboardAreaClick}
                               onBlur={handleClipboardAreaBlur}
                               onKeyDown={handleKeyDown}
-                              className={`border-2 border-dashed rounded-lg p-6 text-center transition-all cursor-pointer outline-none flex flex-col justify-center ${
+                              className={`border-2 border-dashed rounded-lg p-6 h-48 text-center transition-all cursor-pointer outline-none flex flex-col justify-center ${
                                 clipboardFocused
                                   ? darkMode ? 'border-indigo-400 bg-indigo-900/20 ring-2 ring-indigo-500/20' : 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
                                   : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
@@ -2418,6 +2506,17 @@ export default function AskPage() {
                     </button>
                   </div>
                 </div>
+                
+                {/* Streaming Loading Text - shown when API is processing */}
+                {isStreamingText && (
+                  <div className="mt-6">
+                    <StreamingLoadingText 
+                      isStreaming={isStreamingText}
+                      darkMode={darkMode}
+                      className="mx-auto"
+                    />
+                  </div>
+                )}
               </div>
             ) : (
               // Response display section
@@ -2446,29 +2545,34 @@ export default function AskPage() {
                     <h3 className={`text-lg font-bold mb-4 pb-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
                       Solution
                     </h3>
-                    <div className="prose prose-sm max-w-none">
-                      <SimpleMathRenderer content={response.finalAnswer} className={darkMode ? 'text-white' : 'text-gray-800'} />
+                    <div className="prose prose-sm max-w-none overflow-x-auto">
+                      <SimpleMathRenderer content={response?.finalAnswer || ''} className={darkMode ? 'text-white' : 'text-gray-800'} />
                     </div>
                   </div>
                   
                   {/* Share and download buttons */}
-                  <div className={`mt-6 pt-5 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex flex-wrap justify-center gap-4`}>
-                    <Link
-                      href={{
-                        pathname: '/bot',
-                        query: {
-                          imageId: imageId || undefined
-                        }
-                      }}
-                      className={`flex items-center space-x-2 px-5 py-2.5 rounded-lg ${
-                        darkMode 
-                          ? 'bg-gray-700 text-white hover:bg-gray-600' 
-                          : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-                      } transition-colors`}
-                    >
-                      <FaRobot />
-                      <span>Ask TutorJi Bot</span>
-                    </Link>
+                  <div className={`mt-6 pt-5 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex flex-col items-center gap-4`}>
+                    <div className="text-center mb-2">
+                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
+                        Still need help with this question?
+                      </p>
+                      <Link
+                        href={{
+                          pathname: '/bot',
+                          query: {
+                            imageUrl: image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : undefined
+                          }
+                        }}
+                        className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg ${
+                          darkMode 
+                            ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
+                            : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                        } transition-colors`}
+                      >
+                        <FaRobot className="mr-2" />
+                        <span>Ask TutorJi Bot</span>
+                      </Link>
+                    </div>
                   </div>
                 </div>
               </div>
