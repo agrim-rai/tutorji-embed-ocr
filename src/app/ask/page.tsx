@@ -25,11 +25,6 @@ import Link from "next/link";
 import { SimpleMathRenderer } from "@/components/ui/simple-math-renderer";
 import { StreamingLoadingText } from "@/components/ai-stylish-text";
 
-const [isMac, setIsMac] = useState(false);
-useEffect(() => {
-  if (navigator.platform.includes("Mac")) setIsMac(true);
-}, []);
-
 // Utility function to share solutions (mock implementation for demo)
 // In production, this would be handled by a server-side API
 const mockShareSolution = (data: {
@@ -2439,12 +2434,14 @@ export default function AskPage() {
                                   <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     Click here and press{" "}
                                     <kbd className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                                    {isMac ? "Cmd+V" : "Ctrl+V"}                                    </kbd>
+                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}
+                                    </kbd>
                                   </p>
                                   {clipboardFocused && (
                                     <p className="text-xs text-indigo-500 font-medium mt-2">
                                       Ready for paste! Press{" "}
-                                      {isMac ? "Cmd+V" : "Ctrl+V"}                                      now
+                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}{" "}
+                                      now
                                     </p>
                                   )}
                                 </div>
