@@ -1742,9 +1742,11 @@ export default function StepsBot() {
     if (!shareUrl) return;
 
     try {
-      await navigator.clipboard.writeText(shareUrl);
-      setShareCopied(true);
-      setTimeout(() => setShareCopied(false), 2000);
+      if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        await navigator.clipboard.writeText(shareUrl);
+        setShareCopied(true);
+        setTimeout(() => setShareCopied(false), 2000);
+      }
     } catch (err) {
       console.error("Failed to copy share link:", err);
     }
@@ -2219,7 +2221,7 @@ export default function StepsBot() {
                                 <p className="text-sm text-muted-foreground">
                                   Click here and press{" "}
                                   <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">
-                                    {navigator.platform.indexOf("Mac") > -1
+                                    {typeof navigator !== 'undefined' && navigator.platform.indexOf("Mac") > -1
                                       ? "Cmd+V"
                                       : "Ctrl+V"}
                                   </kbd>
@@ -2227,7 +2229,7 @@ export default function StepsBot() {
                                 {clipboardFocused && (
                                   <p className="text-xs text-primary font-medium mt-2">
                                     Ready for paste! Press{" "}
-                                    {navigator.platform.indexOf("Mac") > -1
+                                    {typeof navigator !== 'undefined' && navigator.platform.indexOf("Mac") > -1
                                       ? "Cmd+V"
                                       : "Ctrl+V"}{" "}
                                     now

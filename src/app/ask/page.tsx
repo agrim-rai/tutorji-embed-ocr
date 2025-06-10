@@ -507,9 +507,11 @@ const ShareModal: React.FC<{
   const handleCopyLink = async () => {
     if (shareStatus.url) {
       try {
-        await navigator.clipboard.writeText(shareStatus.url);
-        setCopied(true);
-        setTimeout(() => setCopied(false), 2000);
+        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+          await navigator.clipboard.writeText(shareStatus.url);
+          setCopied(true);
+          setTimeout(() => setCopied(false), 2000);
+        }
       } catch (err) {
         console.error('Failed to copy: ', err);
       }
@@ -2434,13 +2436,13 @@ export default function AskPage() {
                                   <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
                                     Click here and press{" "}
                                     <kbd className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}
+                                      {typeof navigator !== 'undefined' && navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}
                                     </kbd>
                                   </p>
                                   {clipboardFocused && (
                                     <p className="text-xs text-indigo-500 font-medium mt-2">
                                       Ready for paste! Press{" "}
-                                      {navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}{" "}
+                                      {typeof navigator !== 'undefined' && navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}{" "}
                                       now
                                     </p>
                                   )}
