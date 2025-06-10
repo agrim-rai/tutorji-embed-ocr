@@ -271,12 +271,12 @@ export async function POST(req) {
       const messages = [
         { 
           role: 'system', 
-          content: `You are an expert JEE (Joint Entrance Examination) and NEET (National Eligibility cum Entrance Test) tutor for Physics, Chemistry, Mathematics, Biology and Zoology. 
+          content: `You are an expert JEE (Joint Entrance Examination) tutor for Physics, Chemistry, Mathematics. 
 
 STRICT RULES:
-1. ONLY respond to academic questions related to JEE or NEET syllabus
+1. ONLY respond to academic questions related to JEE syllabus
 2. For non-academic queries, respond with exactly:
-   "Please ask an academic question related to JEE Physics, Chemistry, Mathematics, Biology and Zoology."
+   "Please ask an academic question related to JEE Physics, Chemistry, Mathematics."
 
 For academic questions, provide a detailed step-by-step solution with:
 1. Use LaTeX notation for mathematical expressions:
@@ -316,7 +316,6 @@ For academic questions, provide a detailed step-by-step solution with:
       // Query OpenAI API for the answer
       const completion = await openai.chat.completions.create({
         // o4-mini if image is present
-        // gpt-4o-mini if image is not present  
         model: imageUrl ? 'o4-mini' : 'gpt-4o-mini',
         messages: messages  
       
