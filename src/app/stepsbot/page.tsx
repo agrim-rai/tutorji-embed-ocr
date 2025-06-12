@@ -2425,7 +2425,7 @@ export default function StepsBot() {
                     </p>
                     <div className="flex gap-2">
                       <Link
-                        href="/features/premium"
+                        href="/pro"
                         className="px-3 py-1.5 bg-yellow-600 text-white text-xs font-medium rounded hover:bg-yellow-700 transition-colors"
                       >
                         Upgrade to Pro

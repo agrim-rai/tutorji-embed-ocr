@@ -1330,7 +1330,7 @@ const UserProfile: React.FC<{
         {/* Upgrade button for free users */}
         {/* {isAuthenticated && (!user.accountType || user.accountType === "free") && (
           <Link 
-            href="/features/premium" 
+            href="/pro" 
             className={`mt-3 w-full py-1.5 rounded-lg text-sm font-medium ${
               darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'
             } text-white transition-colors flex items-center justify-center`}

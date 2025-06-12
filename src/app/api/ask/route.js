@@ -285,8 +285,7 @@ For academic questions, provide a detailed step-by-step solution with:
 2. Provide clear explanations for each step
 3. Include the final answer using \\boxed{} notation: \\boxed{answer}
 4. Do not use any bold ** or italic * formatting
-5. The response should be in the same language as the question
-6. Focus on clarity and educational value with proper mathematical notation` 
+5. Focus on clarity and educational value with proper mathematical notation` 
         }
       ];
       

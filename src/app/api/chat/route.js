@@ -67,10 +67,9 @@ export async function POST(req) {
     // 3. Use \\boxed{answer} for final answers
     // 4. No bold ** or italic * formatting
     // 5. No heading or subheading, #, ##, ###, etc.
-    // 6. Match the language of the user's question
-    // 7. Be conversational but educational
-    // 8. Ask follow-up questions to ensure understanding
-    // 9. Reference previous parts of the conversation when helpful
+    // 6. Be conversational but educational
+    // 7. Ask follow-up questions to ensure understanding
+    // 8. Reference previous parts of the conversation when helpful
     
     // INTERACTION STYLE:
     // - Be encouraging and supportive

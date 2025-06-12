@@ -6,21 +6,18 @@ import dbConnect from '@/lib/mongoose';
 
 export async function GET() {
   try {
-    // Get the current session
+    // 1. Authenticate user
     const session = await getServerSession(authOptions);
-    
-    if (!session || !session.user?.email) {
+    if (!session?.user?.email) {
       return NextResponse.json(
-        { error: 'Unauthorized - Please sign in' },
+        { error: 'Authentication required' },
         { status: 401 }
       );
     }
 
-    // Connect to database
+    // 2. Connect to database and get user
     await dbConnect();
-
-    // Find user by email and get current credits
-    const user = await User.findOne({ email: session.user.email }).select('credits');
+    const user = await User.findOne({ email: session.user.email });
     
     if (!user) {
       return NextResponse.json(
@@ -30,15 +27,13 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      success: true,
       credits: user.credits || 0,
-      message: 'Credits fetched successfully'
     });
 
   } catch (error) {
     console.error('Error fetching user credits:', error);
     return NextResponse.json(
-      { error: 'Internal server error' },
+      { error: 'Failed to fetch credits' },
       { status: 500 }
     );
   }
