@@ -13,9 +13,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
 import { Alert, AlertDescription } from "@/components/ui/alert";
-import { initiateCheckout } from "@/lib/stripeClient";
 
 interface PricingFeature {
   text: string;
@@ -25,8 +23,7 @@ interface PricingPlan {
   id: string;
   name: string;
   description: string;
-  monthlyPrice: string;
-  yearlyPrice: string;
+  price: string;
   features: PricingFeature[];
   button: {
     text: string;
@@ -47,16 +44,6 @@ interface Pricing2Props {
   user?: User | null;
 }
 
-// Helper function to format numbers with commas
-const formatNumber = (num: number): string => {
-  return num.toLocaleString();
-};
-
-// Helper function to parse price string and extract number
-const parsePrice = (priceString: string): number => {
-  return Number(priceString.slice(1).replace(/,/g, ''));
-};
-
 const Pricing2 = ({
   heading = "Pricing",
   description = "Check out our affordable pricing plans",
@@ -66,8 +53,7 @@ const Pricing2 = ({
       id: "plus",
       name: "Plus",
       description: "For personal use",
-      monthlyPrice: "$19",
-      yearlyPrice: "$15",
+      price: "$19",
       features: [
         { text: "Up to 5 team members" },
         { text: "Basic components library" },
@@ -83,8 +69,7 @@ const Pricing2 = ({
       id: "pro",
       name: "Pro",
       description: "For professionals",
-      monthlyPrice: "$49",
-      yearlyPrice: "$35",
+      price: "$49",
       features: [
         { text: "Unlimited team members" },
         { text: "Advanced components" },
@@ -98,7 +83,6 @@ const Pricing2 = ({
     },
   ],
 }: Pricing2Props) => {
-  const [isYearly, setIsYearly] = useState(false);
   const [loadingPlan, setLoadingPlan] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   
@@ -112,8 +96,8 @@ const Pricing2 = ({
       setError(null);
       setLoadingPlan(planId);
       
-      const billingPeriod = isYearly ? 'yearly' : 'monthly';
-      await initiateCheckout(planId, billingPeriod);
+      // TODO: Implement checkout logic here
+      console.log(`Purchasing plan: ${planId}`);
       
     } catch (error) {
       console.error('Purchase error:', error);
@@ -171,19 +155,6 @@ const Pricing2 = ({
             </Alert>
           )}
           
-          <div className="flex items-center gap-3 text-lg">
-            Monthly
-            <Switch
-              checked={isYearly}
-              onCheckedChange={() => setIsYearly(!isYearly)}
-            />
-            Yearly
-            {isYearly && (
-              <span className="text-sm text-green-600 font-medium">
-                Save up to 20%!
-              </span>
-            )}
-          </div>
           <div className="flex flex-col items-stretch gap-6 md:flex-row">
             {plans.map((plan) => (
               <Card
@@ -205,20 +176,11 @@ const Pricing2 = ({
                     {plan.description}
                   </p>
                   <span className="text-4xl font-bold">
-                    {isYearly ? plan.yearlyPrice : plan.monthlyPrice}
-                    <span className="text-lg font-normal text-muted-foreground ml-2">
-                      / month
-                    </span>
+                    {plan.price}
                   </span>
                   
                   <p className="text-sm text-muted-foreground">
-                    {isYearly ? (
-                      <>
-                        Billed ₹{formatNumber(parsePrice(plan.yearlyPrice) * 12)} annually
-                      </>
-                    ) : (
-                      <>Billed monthly</>
-                    )}
+                    One-time payment
                   </p>
                 </CardHeader>
                 <CardContent>
@@ -258,7 +220,7 @@ const Pricing2 = ({
           
           {/* Security and payment info */}
           <div className="mt-8 text-center text-sm text-muted-foreground">
-            <p>🔒 Secure payment powered by Stripe</p>
+            <p>🔒 Secure payment powered by Razorpay</p>
             <p>All transactions are encrypted and secure</p>
           </div>
         </div>
