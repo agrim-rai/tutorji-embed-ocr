@@ -53,9 +53,9 @@ const generateMockResponse = (question) => {
 };
 
 /**
- * Generate a short heading for the question using OpenAI
+ * Generate a short heading for the question using OpenAI in the specified language
  */
-const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
+const generateQuestionHeading = async (question, hasImage, imageUrl = null, language = 'english') => {
   if (!openai) {
     // Fallback heading generation for development
     if (hasImage) return "Image Question";
@@ -64,6 +64,22 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
   }
 
   try {
+    // Language-specific system prompts for heading generation
+    const getHeadingSystemPrompt = (lang) => {
+      const basePrompt = 'You are an expert at categorizing academic questions. Generate ONLY a 3-6 word heading that describes the subject, chapter, or topic.';
+      
+      switch (lang.toLowerCase()) {
+        case 'hindi':
+          return basePrompt + ' Respond in Hindi (हिंदी). Examples: "भौतिकी यांत्रिकी", "कार्बनिक रसायन", "कलन समाकलन", "बीजगणित समीकरण"';
+        
+        case 'kannada':
+          return basePrompt + ' Respond in Kannada (ಕನ್ನಡ). Examples: "ಭೌತಶಾಸ್ತ್ರ ಯಂತ್ರಶಾಸ್ತ್ರ", "ಸಾವಯವ ರಸಾಯನ", "ಕಲನಶಾಸ್ತ್ರ ಸಮಾಕಲನ", "ಬೀಜಗಣಿತ ಸಮೀಕರಣಗಳು"';
+        
+        default: // English
+          return basePrompt + ' Examples: "Physics Mechanics", "Organic Chemistry", "Calculus Integration", "Algebra Equations", "Geometry Triangles", "Biology Genetics"';
+      }
+    };
+
     let messages;
     
     if (hasImage && imageUrl) {
@@ -71,7 +87,7 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
       messages = [
         {
           role: 'system',
-          content: 'You are an expert at categorizing academic questions. Analyze the image and generate ONLY a 3-6 word heading that describes the subject, chapter, or topic shown in the image. Examples: "Physics Mechanics", "Organic Chemistry", "Calculus Integration", "Algebra Equations", "Geometry Triangles", "Biology Genetics"'
+          content: getHeadingSystemPrompt(language)
         },
         {
           role: 'user',
@@ -89,12 +105,12 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
       ];
     } else {
       // For text-only questions
-      const prompt = `Generate a 3-6 word heading for this academic question. Focus on the subject/chapter/topic (like 'Physics Mechanics' or 'Organic Chemistry' or 'Calculus Integration'): ${question}`;
+      const prompt = `Generate a 3-6 word heading for this academic question. Focus on the subject/chapter/topic: ${question}`;
       
       messages = [
         {
           role: 'system',
-          content: 'You are an expert at categorizing academic questions. Generate ONLY a 3-6 word heading that describes the subject, chapter, or topic. Examples: "Physics Thermodynamics", "Organic Chemistry", "Calculus Integration", "Algebra Equations"'
+          content: getHeadingSystemPrompt(language)
         },
         {
           role: 'user',
@@ -122,13 +138,19 @@ const generateQuestionHeading = async (question, hasImage, imageUrl = null) => {
 };
 
 /**
- * Get the AWS S3 image URL from a key
+ * Get the AWS S3 image URL from a key or return the URL if it's already a full URL
  */
-const getS3ImageUrl = (key) => {
-  if (!key) return null;
+const getS3ImageUrl = (keyOrUrl) => {
+  if (!keyOrUrl) return null;
   
   try {
-    // Validate environment variables
+    // If it's already a full URL, return it as is
+    if (keyOrUrl.startsWith('http://') || keyOrUrl.startsWith('https://')) {
+      console.log('Ask API: Using provided URL:', keyOrUrl);
+      return keyOrUrl;
+    }
+    
+    // Validate environment variables for S3 URL construction
     const bucketName = process.env.S3_BUCKET_NAME;
     const region = process.env.AWS_REGION;
     
@@ -137,12 +159,12 @@ const getS3ImageUrl = (key) => {
       return null;
     }
     
-    // Construct S3 URL directly from the key
-    const imageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${key}`;
-    console.log('Ask API: Constructed S3 URL:', imageUrl);
+    // Construct S3 URL from the key
+    const imageUrl = `https://${bucketName}.s3.${region}.amazonaws.com/${keyOrUrl}`;
+    console.log('Ask API: Constructed S3 URL from key:', imageUrl);
     return imageUrl;
   } catch (error) {
-    console.error('Error constructing S3 URL:', error);
+    console.error('Error processing image URL/key:', error);
     return null;
   }
 };
@@ -217,15 +239,15 @@ export async function POST(req) {
       );
     }
     
-    // Extract question and optional image ID
-    let { question = '', imageId } = requestData;
+    // Extract question, optional image ID, and language preference
+    let { question = '', imageId, language = 'english' } = requestData;
     
     // If no text question is provided but an image is provided, set a default question
     if ((!question || question.trim() === '') && imageId) {
       question = 'Solve the problem shown in the image';
     }
     
-    console.log('Ask API: Processing question with', imageId ? 'image' : 'no image');
+    console.log('Ask API: Processing question with', imageId ? 'image' : 'no image', 'in language:', language);
     
     try {
       // Get the AWS S3 image URL if imageId exists
@@ -241,7 +263,7 @@ export async function POST(req) {
         const mockResponse = generateMockResponse(question);
         
         // Generate heading for the question
-        const heading = await generateQuestionHeading(question, !!imageUrl, imageUrl);
+        const heading = await generateQuestionHeading(question, !!imageUrl, imageUrl, language);
 
         // Still store the interaction and deduct credits
         const aiResponse = await AIResponse.create({
@@ -262,21 +284,19 @@ export async function POST(req) {
         return NextResponse.json({
           success: true,
           finalAnswer: `${mockResponse.questionAnalysis}\n\n${mockResponse.finalAnswer}`,
+          aiResponseId: aiResponse._id,
           creditsRemaining: user.credits,
           devFallback: true // Flag indicating this is a development fallback
         });
       }
       
-      // Setup messages for OpenAI
-      const messages = [
-        { 
-          role: 'system', 
-          content: `You are an expert JEE (Joint Entrance Examination) tutor for Physics, Chemistry, Mathematics. 
+      // Define language-specific prompts
+      const getSystemPrompt = (lang) => {
+        const basePrompt = `You are an expert JEE (Joint Entrance Examination) tutor for Physics, Chemistry, Mathematics. 
 
 STRICT RULES:
 1. ONLY respond to academic questions related to JEE syllabus
-2. For non-academic queries, respond with exactly:
-   "Please ask an academic question related to JEE Physics, Chemistry, Mathematics."
+2. For non-academic queries, respond with exactly: "Please ask an academic question related to JEE Physics, Chemistry, Mathematics."
 
 For academic questions, provide a detailed step-by-step solution with:
 1. Use LaTeX notation for mathematical expressions:
@@ -285,7 +305,29 @@ For academic questions, provide a detailed step-by-step solution with:
 2. Provide clear explanations for each step
 3. Include the final answer using \\boxed{} notation: \\boxed{answer}
 4. Do not use any bold ** or italic * formatting
-5. Focus on clarity and educational value with proper mathematical notation` 
+5. Focus on clarity and educational value with proper mathematical notation`;
+
+        switch (lang.toLowerCase()) {
+          case 'hindi':
+            return basePrompt + `
+
+IMPORTANT: Respond entirely in Hindi (हिंदी). Use Devanagari script for all explanations, but keep mathematical expressions and formulas in LaTeX notation as specified above.`;
+          
+          case 'kannada':
+            return basePrompt + `
+
+IMPORTANT: Respond entirely in Kannada (ಕನ್ನಡ). Use Kannada script for all explanations, but keep mathematical expressions and formulas in LaTeX notation as specified above.`;
+          
+          default: // English
+            return basePrompt;
+        }
+      };
+      
+      // Setup messages for OpenAI with language-specific system prompt
+      const messages = [
+        { 
+          role: 'system', 
+          content: getSystemPrompt(language)
         }
       ];
       
@@ -324,7 +366,7 @@ For academic questions, provide a detailed step-by-step solution with:
       const responseText = completion.choices[0].message.content;
 
       // Generate heading for the question
-      const heading = await generateQuestionHeading(question, !!imageUrl, imageUrl);
+      const heading = await generateQuestionHeading(question, !!imageUrl, imageUrl, language);
 
       // Store the interaction in the database for history
       const aiResponse = await AIResponse.create({
@@ -345,6 +387,7 @@ For academic questions, provide a detailed step-by-step solution with:
       return NextResponse.json({
         success: true,
         finalAnswer: responseText,
+        aiResponseId: aiResponse._id,
         creditsRemaining: user.credits // Include remaining credits for UI updates
       });
 

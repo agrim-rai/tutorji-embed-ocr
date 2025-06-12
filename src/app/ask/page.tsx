@@ -1,6 +1,6 @@
 /**
  * ProdiJEE Ask Page
- * 
+ *
  * This page provides an AI-powered interface for JEE students to get answers to their questions.
  * Features include:
  * - Image upload for questions with diagrams or complex mathematical notation
@@ -18,9 +18,44 @@ import { useSession, signOut } from "next-auth/react";
 import Image from "next/image";
 import ReactCrop, { Crop, PixelCrop } from "react-image-crop";
 import "react-image-crop/dist/ReactCrop.css";
-import { FaCamera, FaCloudUploadAlt, FaTimes, FaInfoCircle, FaSpinner, FaMoon, FaSun, FaShare, FaDownload, FaCheck, FaLink, FaChevronLeft, FaChevronRight, FaBars, FaDiscord, FaReddit, FaExternalLinkAlt, FaSyncAlt, FaClipboard, FaRedo, FaUndo, FaCrop,FaRobot } from "react-icons/fa";
-import { v4 as uuidv4 } from 'uuid';
-import { FaUser, FaCrown, FaHistory, FaTrash, FaStar, FaQuestionCircle, FaBell, FaEllipsisV } from "react-icons/fa";
+import {
+  FaCamera,
+  FaCloudUploadAlt,
+  FaTimes,
+  FaInfoCircle,
+  FaSpinner,
+  FaMoon,
+  FaSun,
+  FaShare,
+  FaDownload,
+  FaCheck,
+  FaLink,
+  FaChevronLeft,
+  FaChevronRight,
+  FaBars,
+  FaDiscord,
+  FaReddit,
+  FaExternalLinkAlt,
+  FaSyncAlt,
+  FaClipboard,
+  FaRedo,
+  FaUndo,
+  FaCrop,
+  FaRobot,
+  FaGlobe,
+  FaChevronDown,
+} from "react-icons/fa";
+import { v4 as uuidv4 } from "uuid";
+import {
+  FaUser,
+  FaCrown,
+  FaHistory,
+  FaTrash,
+  FaStar,
+  FaQuestionCircle,
+  FaBell,
+  FaEllipsisV,
+} from "react-icons/fa";
 import Link from "next/link";
 import { SimpleMathRenderer } from "@/components/ui/simple-math-renderer";
 import { StreamingLoadingText } from "@/components/ai-stylish-text";
@@ -35,74 +70,92 @@ const mockShareSolution = (data: {
   const id = uuidv4().substring(0, 8);
   const shareableData = {
     ...data,
-    createdAt: new Date().toISOString()
+    createdAt: new Date().toISOString(),
   };
-  
+
   try {
     // In a real app, this would be sent to a backend API
     // For demo purposes, we'll store it in localStorage
-    if (typeof window !== 'undefined') {
-      const existingShared = JSON.parse(localStorage.getItem('sharedSolutions') || '{}');
+    if (typeof window !== "undefined") {
+      const existingShared = JSON.parse(
+        localStorage.getItem("sharedSolutions") || "{}"
+      );
       existingShared[id] = shareableData;
-      localStorage.setItem('sharedSolutions', JSON.stringify(existingShared));
+      localStorage.setItem("sharedSolutions", JSON.stringify(existingShared));
     }
-    
+
     // Create a URL to the shareask page with the image URL (without extension)
-    const imageUrl = data.image ? data.image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : '';
-    
+    const imageUrl = data.image
+      ? data.image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, "")
+      : "";
+
     return {
       success: true,
       id,
-      url: `${window.location.origin}/shareask?imageUrl=${encodeURIComponent(imageUrl)}`
+      url: `${window.location.origin}/shareask?imageUrl=${encodeURIComponent(
+        imageUrl
+      )}`,
     };
   } catch (error) {
-    console.error('Error sharing solution:', error);
+    console.error("Error sharing solution:", error);
     return {
       success: false,
-      error: 'Failed to share solution'
+      error: "Failed to share solution",
     };
   }
 };
 
 // Logo paths for different theme modes
-const PRODIJEE_LOGO_DARK = "/logo-ct.png";      // For dark mode
+const PRODIJEE_LOGO_DARK = "/logo-ct.png"; // For dark mode
 const PRODIJEE_LOGO_LIGHT = "/logo-ct.png"; // For light mode
 
 /**
  * API function to submit questions to the AI backend
- * 
+ *
  * @param imageId - The ID of the uploaded image (if any)
  * @param context - The text question or additional context
+ * @param language - The selected language for the response
  * @returns Promise with the AI response or error
  */
-const submitToLLM = async (imageId: string | null, context: string): Promise<{
+const submitToLLM = async (
+  imageId: string | null,
+  context: string,
+  language: string = "english",
+  ocrRecordId: string | null = null
+): Promise<{
   finalAnswer: string;
   creditsRemaining?: number;
+  aiResponseId?: string;
   error?: string;
 }> => {
   try {
     // Prepare request data
-    const requestData = {
+    const requestData: Record<string, unknown> = {
       question: context,
-      imageId: imageId // Send the imageId for server to locate the file
+      imageId: imageId, // Server will resolve URL or key
+      language: language, // Selected language
     };
 
+    if (ocrRecordId) {
+      requestData.ocrRecordId = ocrRecordId;
+    }
+
     // Call our API
-    const response = await fetch('/api/ask', {
-      method: 'POST',
+    const response = await fetch("/api/ask", {
+      method: "POST",
       headers: {
-        'Content-Type': 'application/json',
+        "Content-Type": "application/json",
       },
       body: JSON.stringify(requestData),
     });
 
     // Handle non-JSON responses (like HTML error pages)
-    const contentType = response.headers.get('content-type');
-    if (!contentType || !contentType.includes('application/json')) {
-      console.error('Non-JSON response received:', await response.text());
+    const contentType = response.headers.get("content-type");
+    if (!contentType || !contentType.includes("application/json")) {
+      console.error("Non-JSON response received:", await response.text());
       return {
-        finalAnswer: '',
-        error: `Server returned non-JSON response (${response.status} ${response.statusText}). API key may be missing.`
+        finalAnswer: "",
+        error: `Server returned non-JSON response (${response.status} ${response.statusText}). API key may be missing.`,
       };
     }
 
@@ -111,32 +164,94 @@ const submitToLLM = async (imageId: string | null, context: string): Promise<{
 
     // Handle errors
     if (!response.ok) {
-      console.error('API error:', data.error);
+      console.error("API error:", data.error);
       return {
-        finalAnswer: '',
-        error: data.error || 'Failed to get response from AI'
+        finalAnswer: "",
+        error: data.error || "Failed to get response from AI",
       };
     }
 
     // Development fallback when OpenAI API is not configured
     if (data.devFallback) {
-      console.log('Using development fallback response');
+      console.log("Using development fallback response");
       return {
         finalAnswer: data.finalAnswer,
-        creditsRemaining: data.creditsRemaining
+        creditsRemaining: data.creditsRemaining,
       };
     }
 
     // Return the AI response with structured data
     return {
       finalAnswer: data.finalAnswer,
-      creditsRemaining: data.creditsRemaining
+      creditsRemaining: data.creditsRemaining,
+      aiResponseId: data.aiResponseId,
     };
   } catch (error) {
-    console.error('Error calling AI API:', error);
+    console.error("Error calling AI API:", error);
     return {
-      finalAnswer: '',
-      error: 'Network error or API configuration issue. Please check the console for details.'
+      finalAnswer: "",
+      error:
+        "Network error or API configuration issue. Please check the console for details.",
+    };
+  }
+};
+
+/**
+ * API function to upload image and extract text using OCR
+ *
+ * @param base64Image - The base64 encoded image data
+ * @param userId - The user ID
+ * @param userEmail - The user email
+ * @returns Promise with OCR result or error
+ */
+const uploadImageWithOCR = async (
+  base64Image: string,
+  userId: string,
+  userEmail: string
+): Promise<{
+  success: boolean;
+  id?: string;
+  text?: string;
+  error?: string;
+}> => {
+  try {
+    const response = await fetch("/api/getQuestionContent", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({
+        base64Image,
+        userId,
+        userEmail,
+        pageName: "Ask Page",
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || "Failed to upload image");
+    }
+
+    const data = await response.json();
+
+    if (data.success) {
+      return {
+        success: true,
+        id: data.data.id,
+        text: data.data.text,
+      };
+    } else {
+      return {
+        success: false,
+        error: "Upload failed",
+      };
+    }
+  } catch (error) {
+    console.error("Error uploading image with OCR:", error);
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : "Unknown error occurred",
     };
   }
 };
@@ -153,7 +268,7 @@ const generatePDF = async (data: {
 }) => {
   // In a real implementation, we would use a proper PDF library like jsPDF
   // For this mock version, we'll create a simple blob and trigger download
-  
+
   try {
     // Create a blob with HTML content
     const htmlContent = `
@@ -193,13 +308,19 @@ const generatePDF = async (data: {
         
         <div class="question-section">
           <h2>Question</h2>
-          ${data.image ? `<img src="${data.image}" alt="Question Image" />` : ''}
-          ${data.context ? `<p><strong>Context:</strong> ${data.context}</p>` : ''}
+          ${
+            data.image ? `<img src="${data.image}" alt="Question Image" />` : ""
+          }
+          ${
+            data.context
+              ? `<p><strong>Context:</strong> ${data.context}</p>`
+              : ""
+          }
         </div>
         
         <div class="solution-section">
           <h2>Solution</h2>
-          <div>${data.finalAnswer.replace(/\n/g, '<br/>')}</div>
+          <div>${data.finalAnswer.replace(/\n/g, "<br/>")}</div>
         </div>
         
         <div class="footer">
@@ -208,61 +329,74 @@ const generatePDF = async (data: {
       </body>
       </html>
     `;
-    
+
     // Create blob
-    const blob = new Blob([htmlContent], { type: 'text/html' });
-    
+    const blob = new Blob([htmlContent], { type: "text/html" });
+
     // Create download link
-    const link = document.createElement('a');
+    const link = document.createElement("a");
     link.href = URL.createObjectURL(blob);
     link.download = `prodijee-solution-${new Date().getTime()}.html`;
-    
+
     // Trigger download
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
-    
+
     return { success: true };
   } catch (error) {
-    console.error('Error generating PDF:', error);
-    return { success: false, error: 'Failed to generate PDF' };
+    console.error("Error generating PDF:", error);
+    return { success: false, error: "Failed to generate PDF" };
   }
 };
 
 // ThemeContext with Provider Component
-type Theme = 'light' | 'dark';
+type Theme = "light" | "dark";
 
 /**
  * Navbar Component
- * Displays the application header with logo, dark mode toggle, share button, and help button
+ * Displays the application header with logo, language selector (only when no response), dark mode toggle, share button, and help button
  */
-const Navbar: React.FC<{ 
-  onHowToUse: () => void; 
-  darkMode: boolean; 
+const Navbar: React.FC<{
+  onHowToUse: () => void;
+  darkMode: boolean;
   toggleDarkMode: () => void;
   onShare: () => void;
   showShareButton: boolean;
   shareStatus: { shared: boolean; url?: string };
   hasResponse: boolean;
   imageUrl?: string | null;
-}> = ({ 
-  onHowToUse, 
+  selectedLanguage: string;
+  onLanguageChange: (language: string) => void;
+  showLanguageSelector: boolean;
+}> = ({
+  onHowToUse,
   darkMode,
   toggleDarkMode,
   onShare,
   showShareButton,
   shareStatus,
   hasResponse,
-  imageUrl
+  imageUrl,
+  selectedLanguage,
+  onLanguageChange,
+  showLanguageSelector,
 }) => {
   return (
-    <nav className={`${darkMode ? 'bg-gray-900' : 'bg-indigo-700'} text-white shadow-lg fixed top-0 left-0 right-0 z-50`}>
+    <nav
+      className={`${
+        darkMode ? "bg-gray-900" : "bg-indigo-700"
+      } text-white shadow-lg fixed top-0 left-0 right-0 z-50`}
+    >
       <div className="max-w-7xl mx-auto px-4 py-3 flex justify-between items-center">
-        <Link href="/" className="flex items-center space-x-2 hover:opacity-90 transition-opacity">
+        <Link
+          href="/"
+          className="flex items-center space-x-2 hover:opacity-90 transition-opacity"
+        >
           <div className="w-10 h-10">
-            <img 
-              src={darkMode ? PRODIJEE_LOGO_DARK : PRODIJEE_LOGO_LIGHT} 
-              alt="ProdiJEE Logo" 
+            <img
+              src={darkMode ? PRODIJEE_LOGO_DARK : PRODIJEE_LOGO_LIGHT}
+              alt="ProdiJEE Logo"
               className="w-full h-full object-contain"
             />
           </div>
@@ -272,39 +406,66 @@ const Navbar: React.FC<{
           </div>
         </Link>
         <div className="flex space-x-3 items-center">
+          {showLanguageSelector && (
+            <LanguageSelector
+              selectedLanguage={selectedLanguage}
+              onLanguageChange={onLanguageChange}
+              darkMode={darkMode}
+            />
+          )}
           {showShareButton && (
             <button
               onClick={onShare}
               className={`px-4 py-2 rounded-lg font-medium flex items-center space-x-2 transition-colors ${
-                shareStatus.shared 
-                  ? `${darkMode ? 'bg-green-700 text-white hover:bg-green-600' : 'bg-green-600 text-white hover:bg-green-700'}`
-                  : `${darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-white text-indigo-700 hover:bg-indigo-50'}`
+                shareStatus.shared
+                  ? `${
+                      darkMode
+                        ? "bg-green-700 text-white hover:bg-green-600"
+                        : "bg-green-600 text-white hover:bg-green-700"
+                    }`
+                  : `${
+                      darkMode
+                        ? "bg-gray-700 text-white hover:bg-gray-600"
+                        : "bg-white text-indigo-700 hover:bg-indigo-50"
+                    }`
               }`}
             >
               {shareStatus.shared ? <FaCheck /> : <FaShare />}
-              <span className="hidden sm:inline">{shareStatus.shared ? 'Shared' : 'Share'}</span>
+              <span className="hidden sm:inline">
+                {shareStatus.shared ? "Shared" : "Share"}
+              </span>
             </button>
           )}
           <button
             onClick={toggleDarkMode}
-            className={`p-2 rounded-full ${darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-indigo-600 hover:bg-indigo-500'}`}
+            className={`p-2 rounded-full ${
+              darkMode
+                ? "bg-gray-700 hover:bg-gray-600"
+                : "bg-indigo-600 hover:bg-indigo-500"
+            }`}
             aria-label="Toggle dark mode"
           >
-            {darkMode ? <FaSun className="text-yellow-300" /> : <FaMoon className="text-white" />}
+            {darkMode ? (
+              <FaSun className="text-yellow-300" />
+            ) : (
+              <FaMoon className="text-white" />
+            )}
           </button>
-          
+
           {hasResponse ? (
-            <Link 
+            <Link
               href={{
-                pathname: '/bot',
+                pathname: "/bot",
                 query: {
-                  imageUrl: imageUrl ? imageUrl.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : undefined
-                }
+                  imageUrl: imageUrl
+                    ? imageUrl.replace(/\.(jpg|jpeg|png|gif|webp)$/i, "")
+                    : undefined,
+                },
               }}
               className={`px-4 py-2 rounded-lg ${
-                darkMode 
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                  : 'bg-white text-indigo-700 hover:bg-indigo-50'
+                darkMode
+                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                  : "bg-white text-indigo-700 hover:bg-indigo-50"
               } font-medium flex items-center space-x-2 transition-colors`}
             >
               <FaRobot />
@@ -314,9 +475,9 @@ const Navbar: React.FC<{
             <button
               onClick={onHowToUse}
               className={`px-4 py-2 rounded-lg ${
-                darkMode 
-                  ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                  : 'bg-white text-indigo-700 hover:bg-indigo-50'
+                darkMode
+                  ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                  : "bg-white text-indigo-700 hover:bg-indigo-50"
               } font-medium flex items-center space-x-2 transition-colors`}
             >
               <FaInfoCircle />
@@ -335,42 +496,74 @@ const Navbar: React.FC<{
  */
 const Footer: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
   return (
-    <footer className={`${darkMode ? 'bg-gray-900 text-gray-300' : 'bg-gray-100 text-gray-600'} py-6`}>
+    <footer
+      className={`${
+        darkMode ? "bg-gray-900 text-gray-300" : "bg-gray-100 text-gray-600"
+      } py-6`}
+    >
       <div className="max-w-7xl mx-auto px-4 text-center">
         <div className="flex justify-center mb-3">
-          <img 
-            src={darkMode ? PRODIJEE_LOGO_DARK : PRODIJEE_LOGO_LIGHT} 
-            alt="ProdiJEE Logo" 
+          <img
+            src={darkMode ? PRODIJEE_LOGO_DARK : PRODIJEE_LOGO_LIGHT}
+            alt="ProdiJEE Logo"
             className="w-8 h-8 object-contain"
           />
         </div>
-        <p className="text-sm">TutorJi.in • Powered by AI • © {new Date().getFullYear()}</p>
+        <p className="text-sm">
+          TutorJi.in • Powered by AI • © {new Date().getFullYear()}
+        </p>
         {/* Social Media Icons */}
         <div className="mt-3 flex justify-center items-center space-x-6">
-          <a 
-            href="https://discord.gg/uKYFCXHvYg" 
-            target="_blank" 
+          <a
+            href="https://discord.gg/uKYFCXHvYg"
+            target="_blank"
             rel="noopener noreferrer"
-            className={`text-xl ${darkMode ? 'text-gray-400 hover:text-indigo-400' : 'text-gray-500 hover:text-indigo-600'} transition-colors`}
+            className={`text-xl ${
+              darkMode
+                ? "text-gray-400 hover:text-indigo-400"
+                : "text-gray-500 hover:text-indigo-600"
+            } transition-colors`}
             aria-label="Join our Discord"
           >
             <FaDiscord />
           </a>
-          <a 
-            href="https://reddit.com/u/morrisbishnoi29" 
-            target="_blank" 
+          <a
+            href="https://reddit.com/u/morrisbishnoi29"
+            target="_blank"
             rel="noopener noreferrer"
-            className={`text-xl ${darkMode ? 'text-gray-400 hover:text-indigo-400' : 'text-gray-500 hover:text-indigo-600'} transition-colors`}
+            className={`text-xl ${
+              darkMode
+                ? "text-gray-400 hover:text-indigo-400"
+                : "text-gray-500 hover:text-indigo-600"
+            } transition-colors`}
             aria-label="Join our Reddit community"
           >
             <FaReddit />
           </a>
         </div>
-        
+
         <div className="mt-4 flex justify-center space-x-6">
-          <span className={`text-xs cursor-pointer ${darkMode ? 'hover:text-white' : 'hover:text-gray-800'}`}>Privacy Policy</span>
-          <span className={`text-xs cursor-pointer ${darkMode ? 'hover:text-white' : 'hover:text-gray-800'}`}>Terms of Service</span>
-          <span className={`text-xs cursor-pointer ${darkMode ? 'hover:text-white' : 'hover:text-gray-800'}`}>Contact Us</span>
+          <span
+            className={`text-xs cursor-pointer ${
+              darkMode ? "hover:text-white" : "hover:text-gray-800"
+            }`}
+          >
+            Privacy Policy
+          </span>
+          <span
+            className={`text-xs cursor-pointer ${
+              darkMode ? "hover:text-white" : "hover:text-gray-800"
+            }`}
+          >
+            Terms of Service
+          </span>
+          <span
+            className={`text-xs cursor-pointer ${
+              darkMode ? "hover:text-white" : "hover:text-gray-800"
+            }`}
+          >
+            Contact Us
+          </span>
         </div>
       </div>
     </footer>
@@ -381,10 +574,10 @@ const Footer: React.FC<{ darkMode: boolean }> = ({ darkMode }) => {
  * ImageModal Component
  * Displays a full-size image with zoom functionality and close button
  */
-const ImageModal: React.FC<{ 
-  isOpen: boolean; 
-  onClose: () => void; 
-  imageUrl: string; 
+const ImageModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  imageUrl: string;
   darkMode: boolean;
 }> = ({ isOpen, onClose, imageUrl, darkMode }) => {
   const [zoom, setZoom] = useState(1);
@@ -394,8 +587,8 @@ const ImageModal: React.FC<{
 
   if (!isOpen) return null;
 
-  const handleZoomIn = () => setZoom(prev => Math.min(prev + 0.25, 3));
-  const handleZoomOut = () => setZoom(prev => Math.max(prev - 0.25, 0.5));
+  const handleZoomIn = () => setZoom((prev) => Math.min(prev + 0.25, 3));
+  const handleZoomOut = () => setZoom((prev) => Math.max(prev - 0.25, 0.5));
   const handleResetZoom = () => {
     setZoom(1);
     setPosition({ x: 0, y: 0 });
@@ -412,7 +605,7 @@ const ImageModal: React.FC<{
     if (isDragging && zoom > 1) {
       setPosition({
         x: e.clientX - dragStart.x,
-        y: e.clientY - dragStart.y
+        y: e.clientY - dragStart.y,
       });
     }
   };
@@ -457,7 +650,9 @@ const ImageModal: React.FC<{
         {/* Image */}
         <div
           className="relative overflow-hidden cursor-move"
-          style={{ cursor: zoom > 1 ? (isDragging ? 'grabbing' : 'grab') : 'default' }}
+          style={{
+            cursor: zoom > 1 ? (isDragging ? "grabbing" : "grab") : "default",
+          }}
           onMouseDown={handleMouseDown}
           onMouseMove={handleMouseMove}
           onMouseUp={handleMouseUp}
@@ -468,9 +663,11 @@ const ImageModal: React.FC<{
             alt="Full size question"
             className="max-w-none transition-transform duration-200"
             style={{
-              transform: `scale(${zoom}) translate(${position.x / zoom}px, ${position.y / zoom}px)`,
-              maxHeight: '90vh',
-              maxWidth: '90vw'
+              transform: `scale(${zoom}) translate(${position.x / zoom}px, ${
+                position.y / zoom
+              }px)`,
+              maxHeight: "90vh",
+              maxWidth: "90vw",
             }}
             draggable={false}
           />
@@ -489,31 +686,25 @@ const ImageModal: React.FC<{
  * ShareModal Component
  * Displays a modal for sharing solutions with copy functionality
  */
-const ShareModal: React.FC<{ 
-  isOpen: boolean; 
-  onClose: () => void; 
+const ShareModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
   darkMode: boolean;
   shareStatus: { shared: boolean; url?: string };
   onShare: () => void;
-}> = ({ 
-  isOpen, 
-  onClose,
-  darkMode,
-  shareStatus,
-  onShare
-}) => {
+}> = ({ isOpen, onClose, darkMode, shareStatus, onShare }) => {
   const [copied, setCopied] = useState(false);
 
   const handleCopyLink = async () => {
     if (shareStatus.url) {
       try {
-        if (typeof navigator !== 'undefined' && navigator.clipboard) {
+        if (typeof navigator !== "undefined" && navigator.clipboard) {
           await navigator.clipboard.writeText(shareStatus.url);
           setCopied(true);
           setTimeout(() => setCopied(false), 2000);
         }
       } catch (err) {
-        console.error('Failed to copy: ', err);
+        console.error("Failed to copy: ", err);
       }
     }
   };
@@ -526,27 +717,51 @@ const ShareModal: React.FC<{
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-      <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-xl shadow-2xl max-w-md w-full`}>
-        <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex justify-between items-center`}>
+      <div
+        className={`${
+          darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+        } rounded-xl shadow-2xl max-w-md w-full`}
+      >
+        <div
+          className={`p-6 border-b ${
+            darkMode ? "border-gray-700" : "border-gray-200"
+          } flex justify-between items-center`}
+        >
           <h2 className="text-xl font-bold">Share Solution</h2>
           <button
             onClick={onClose}
-            className={`${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'} transition-colors`}
+            className={`${
+              darkMode
+                ? "text-gray-300 hover:text-white"
+                : "text-gray-500 hover:text-gray-800"
+            } transition-colors`}
           >
             <FaTimes size={20} />
           </button>
         </div>
-        
+
         <div className="p-6">
           {!shareStatus.shared ? (
             <div className="text-center">
-              <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                darkMode ? 'bg-indigo-900' : 'bg-indigo-100'
-              }`}>
-                <FaShare className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+              <div
+                className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                  darkMode ? "bg-indigo-900" : "bg-indigo-100"
+                }`}
+              >
+                <FaShare
+                  className={`w-8 h-8 ${
+                    darkMode ? "text-indigo-400" : "text-indigo-600"
+                  }`}
+                />
               </div>
-              <h3 className="text-lg font-semibold mb-2">Share this solution</h3>
-              <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} mb-6`}>
+              <h3 className="text-lg font-semibold mb-2">
+                Share this solution
+              </h3>
+              <p
+                className={`${
+                  darkMode ? "text-gray-400" : "text-gray-600"
+                } mb-6`}
+              >
                 Generate a shareable link for this question and solution
               </p>
               <button
@@ -559,46 +774,66 @@ const ShareModal: React.FC<{
           ) : (
             <div>
               <div className="text-center mb-4">
-                <div className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
-                  darkMode ? 'bg-green-900' : 'bg-green-100'
-                }`}>
-                  <FaCheck className={`w-8 h-8 ${darkMode ? 'text-green-400' : 'text-green-600'}`} />
+                <div
+                  className={`w-16 h-16 mx-auto mb-4 rounded-full flex items-center justify-center ${
+                    darkMode ? "bg-green-900" : "bg-green-100"
+                  }`}
+                >
+                  <FaCheck
+                    className={`w-8 h-8 ${
+                      darkMode ? "text-green-400" : "text-green-600"
+                    }`}
+                  />
                 </div>
-                <h3 className="text-lg font-semibold mb-2">Share link ready!</h3>
-                <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
+                <h3 className="text-lg font-semibold mb-2">
+                  Share link ready!
+                </h3>
+                <p
+                  className={`${darkMode ? "text-gray-400" : "text-gray-600"}`}
+                >
                   Anyone with this link can view the solution
                 </p>
               </div>
-              
+
               {shareStatus.url && (
-                <div className={`flex items-center p-3 rounded-lg border ${
-                  darkMode ? 'bg-gray-900 border-gray-700' : 'bg-gray-50 border-gray-200'
-                } mb-4`}>
-                  <input 
+                <div
+                  className={`flex items-center p-3 rounded-lg border ${
+                    darkMode
+                      ? "bg-gray-900 border-gray-700"
+                      : "bg-gray-50 border-gray-200"
+                  } mb-4`}
+                >
+                  <input
                     type="text"
                     readOnly
                     value={shareStatus.url}
                     className={`flex-grow bg-transparent text-sm border-none focus:outline-none ${
-                      darkMode ? 'text-gray-300' : 'text-gray-700'
+                      darkMode ? "text-gray-300" : "text-gray-700"
                     }`}
                   />
                   <button
                     onClick={handleCopyLink}
                     className={`ml-2 px-3 py-1 rounded text-sm font-medium transition-colors ${
-                      copied 
-                        ? darkMode ? 'bg-green-700 text-white' : 'bg-green-100 text-green-700'
-                        : darkMode ? 'bg-indigo-600 text-white hover:bg-indigo-700' : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                      copied
+                        ? darkMode
+                          ? "bg-green-700 text-white"
+                          : "bg-green-100 text-green-700"
+                        : darkMode
+                        ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                     }`}
                   >
-                    {copied ? 'Copied!' : 'Copy'}
+                    {copied ? "Copied!" : "Copy"}
                   </button>
                 </div>
               )}
-              
+
               <button
                 onClick={onClose}
                 className={`w-full py-3 rounded-lg font-medium transition-colors ${
-                  darkMode ? 'bg-gray-700 text-white hover:bg-gray-600' : 'bg-gray-200 text-gray-800 hover:bg-gray-300'
+                  darkMode
+                    ? "bg-gray-700 text-white hover:bg-gray-600"
+                    : "bg-gray-200 text-gray-800 hover:bg-gray-300"
                 }`}
               >
                 Close
@@ -616,62 +851,142 @@ const ShareModal: React.FC<{
  * Displays a comprehensive guide on how to use the application
  * Shows information about uploading questions, providing context, and understanding results
  */
-const HowToUseModal: React.FC<{ isOpen: boolean; onClose: () => void; darkMode: boolean }> = ({ 
-  isOpen, 
-  onClose,
-  darkMode
-}) => {
+const HowToUseModal: React.FC<{
+  isOpen: boolean;
+  onClose: () => void;
+  darkMode: boolean;
+}> = ({ isOpen, onClose, darkMode }) => {
   if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-start justify-center overflow-y-auto pt-10 pb-20">
-      <div className={`${darkMode ? 'bg-gray-800 text-white' : 'bg-white text-gray-800'} rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto`}>
-        <div className={`p-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} sticky top-0 ${darkMode ? 'bg-gray-800' : 'bg-white'} z-10 flex justify-between items-center`}>
+      <div
+        className={`${
+          darkMode ? "bg-gray-800 text-white" : "bg-white text-gray-800"
+        } rounded-xl shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto`}
+      >
+        <div
+          className={`p-6 border-b ${
+            darkMode ? "border-gray-700" : "border-gray-200"
+          } sticky top-0 ${
+            darkMode ? "bg-gray-800" : "bg-white"
+          } z-10 flex justify-between items-center`}
+        >
           <h2 className="text-2xl font-bold">How to Use the AI Doubt Solver</h2>
           <button
             onClick={onClose}
-            className={`${darkMode ? 'text-gray-300 hover:text-white' : 'text-gray-500 hover:text-gray-800'} transition-colors`}
+            className={`${
+              darkMode
+                ? "text-gray-300 hover:text-white"
+                : "text-gray-500 hover:text-gray-800"
+            } transition-colors`}
           >
             <FaTimes size={24} />
           </button>
         </div>
-        
+
         <div className="p-6 space-y-6">
           <section>
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-3`}>Uploading a Question</h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
-              You can either upload an image of your question or capture it directly using your device's camera:
+            <h3
+              className={`text-xl font-semibold ${
+                darkMode ? "text-white" : "text-gray-800"
+              } mb-3`}
+            >
+              Uploading a Question
+            </h3>
+            <p
+              className={`${darkMode ? "text-gray-300" : "text-gray-600"} mb-3`}
+            >
+              You can either upload an image of your question or capture it
+              directly using your device's camera:
             </p>
-            <ul className={`list-disc pl-5 ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-2`}>
-              <li>Click on <strong>Upload Image</strong> to select an image file from your device.</li>
-              <li>Click on <strong>Take Photo</strong> to use your camera to capture the question.</li>
-              <li>Make sure the image is clear, well-lit, and the question text is legible.</li>
-              <li>For best results, crop the image to include only the question and relevant diagrams.</li>
+            <ul
+              className={`list-disc pl-5 ${
+                darkMode ? "text-gray-300" : "text-gray-600"
+              } space-y-2`}
+            >
+              <li>
+                Click on <strong>Upload Image</strong> to select an image file
+                from your device.
+              </li>
+              <li>
+                Click on <strong>Take Photo</strong> to use your camera to
+                capture the question.
+              </li>
+              <li>
+                Make sure the image is clear, well-lit, and the question text is
+                legible.
+              </li>
+              <li>
+                For best results, crop the image to include only the question
+                and relevant diagrams.
+              </li>
             </ul>
           </section>
-          
+
           <section>
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-3`}>Providing Context</h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
+            <h3
+              className={`text-xl font-semibold ${
+                darkMode ? "text-white" : "text-gray-800"
+              } mb-3`}
+            >
+              Providing Context
+            </h3>
+            <p
+              className={`${darkMode ? "text-gray-300" : "text-gray-600"} mb-3`}
+            >
               Adding context helps our AI better understand your doubt:
             </p>
-            <ul className={`list-disc pl-5 ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-2`}>
+            <ul
+              className={`list-disc pl-5 ${
+                darkMode ? "text-gray-300" : "text-gray-600"
+              } space-y-2`}
+            >
               <li>Specify the chapter or topic the question belongs to.</li>
               <li>Mention what part of the question is confusing you.</li>
-              <li>Include any specific methods or approaches you'd like explained.</li>
-              <li>Add any previous attempts or partial solutions you've worked out.</li>
+              <li>
+                Include any specific methods or approaches you'd like explained.
+              </li>
+              <li>
+                Add any previous attempts or partial solutions you've worked
+                out.
+              </li>
             </ul>
           </section>
-          
+
           <section>
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-3`}>Types of Doubts We Can Solve</h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
+            <h3
+              className={`text-xl font-semibold ${
+                darkMode ? "text-white" : "text-gray-800"
+              } mb-3`}
+            >
+              Types of Doubts We Can Solve
+            </h3>
+            <p
+              className={`${darkMode ? "text-gray-300" : "text-gray-600"} mb-3`}
+            >
               Our AI can help with a wide range of JEE questions:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className={`border ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-white'} rounded-lg p-4`}>
-                <h4 className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-2`}>Physics</h4>
-                <ul className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-1`}>
+              <div
+                className={`border ${
+                  darkMode
+                    ? "border-gray-700 bg-gray-750"
+                    : "border-gray-200 bg-white"
+                } rounded-lg p-4`}
+              >
+                <h4
+                  className={`font-medium ${
+                    darkMode ? "text-indigo-400" : "text-indigo-700"
+                  } mb-2`}
+                >
+                  Physics
+                </h4>
+                <ul
+                  className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-600"
+                  } space-y-1`}
+                >
                   <li>Mechanics</li>
                   <li>Thermodynamics</li>
                   <li>Electricity & Magnetism</li>
@@ -679,9 +994,25 @@ const HowToUseModal: React.FC<{ isOpen: boolean; onClose: () => void; darkMode: 
                   <li>Modern Physics</li>
                 </ul>
               </div>
-              <div className={`border ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-white'} rounded-lg p-4`}>
-                <h4 className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-2`}>Chemistry</h4>
-                <ul className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-1`}>
+              <div
+                className={`border ${
+                  darkMode
+                    ? "border-gray-700 bg-gray-750"
+                    : "border-gray-200 bg-white"
+                } rounded-lg p-4`}
+              >
+                <h4
+                  className={`font-medium ${
+                    darkMode ? "text-indigo-400" : "text-indigo-700"
+                  } mb-2`}
+                >
+                  Chemistry
+                </h4>
+                <ul
+                  className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-600"
+                  } space-y-1`}
+                >
                   <li>Physical Chemistry</li>
                   <li>Organic Chemistry</li>
                   <li>Inorganic Chemistry</li>
@@ -689,9 +1020,25 @@ const HowToUseModal: React.FC<{ isOpen: boolean; onClose: () => void; darkMode: 
                   <li>Chemical Kinetics</li>
                 </ul>
               </div>
-              <div className={`border ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-white'} rounded-lg p-4`}>
-                <h4 className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-2`}>Mathematics</h4>
-                <ul className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-1`}>
+              <div
+                className={`border ${
+                  darkMode
+                    ? "border-gray-700 bg-gray-750"
+                    : "border-gray-200 bg-white"
+                } rounded-lg p-4`}
+              >
+                <h4
+                  className={`font-medium ${
+                    darkMode ? "text-indigo-400" : "text-indigo-700"
+                  } mb-2`}
+                >
+                  Mathematics
+                </h4>
+                <ul
+                  className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-600"
+                  } space-y-1`}
+                >
                   <li>Calculus</li>
                   <li>Algebra</li>
                   <li>Coordinate Geometry</li>
@@ -701,41 +1048,117 @@ const HowToUseModal: React.FC<{ isOpen: boolean; onClose: () => void; darkMode: 
               </div>
             </div>
           </section>
-          
+
           <section>
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-3`}>Understanding the Output</h3>
-            <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
+            <h3
+              className={`text-xl font-semibold ${
+                darkMode ? "text-white" : "text-gray-800"
+              } mb-3`}
+            >
+              Understanding the Output
+            </h3>
+            <p
+              className={`${darkMode ? "text-gray-300" : "text-gray-600"} mb-3`}
+            >
               Our AI provides a comprehensive solution in two parts:
             </p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div className={`border ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'} rounded-lg p-4`}>
-                <h4 className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-2`}>Question Analysis</h4>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  This section breaks down the key concepts, methodology, and theoretical background needed to understand the question. It helps you connect the question to the relevant topics in your syllabus.
+              <div
+                className={`border ${
+                  darkMode
+                    ? "border-gray-700 bg-gray-750"
+                    : "border-gray-200 bg-gray-50"
+                } rounded-lg p-4`}
+              >
+                <h4
+                  className={`font-medium ${
+                    darkMode ? "text-indigo-400" : "text-indigo-700"
+                  } mb-2`}
+                >
+                  Question Analysis
+                </h4>
+                <p
+                  className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  This section breaks down the key concepts, methodology, and
+                  theoretical background needed to understand the question. It
+                  helps you connect the question to the relevant topics in your
+                  syllabus.
                 </p>
               </div>
-              <div className={`border ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'} rounded-lg p-4`}>
-                <h4 className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-700'} mb-2`}>Final Answer</h4>
-                <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-                  This section provides a step-by-step solution to the problem, clearly showing each calculation, formula application, and reasoning process to reach the final answer.
+              <div
+                className={`border ${
+                  darkMode
+                    ? "border-gray-700 bg-gray-750"
+                    : "border-gray-200 bg-gray-50"
+                } rounded-lg p-4`}
+              >
+                <h4
+                  className={`font-medium ${
+                    darkMode ? "text-indigo-400" : "text-indigo-700"
+                  } mb-2`}
+                >
+                  Final Answer
+                </h4>
+                <p
+                  className={`text-sm ${
+                    darkMode ? "text-gray-300" : "text-gray-600"
+                  }`}
+                >
+                  This section provides a step-by-step solution to the problem,
+                  clearly showing each calculation, formula application, and
+                  reasoning process to reach the final answer.
                 </p>
               </div>
             </div>
           </section>
-          
+
           <section>
-            <h3 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'} mb-3`}>Limitations & Tips</h3>
-            <ul className={`list-disc pl-5 ${darkMode ? 'text-gray-300' : 'text-gray-600'} space-y-2`}>
-              <li>The AI works best with clearly legible text. Handwritten questions may have lower accuracy.</li>
-              <li>For complex diagrams or graphs, providing additional context is highly recommended.</li>
-              <li>Very advanced topics or specialized questions may have less comprehensive solutions.</li>
-              <li>When possible, transcribe the question text in your context for better results.</li>
-              <li>Our AI is constantly learning and improving, so please provide feedback if a solution is incorrect or incomplete.</li>
+            <h3
+              className={`text-xl font-semibold ${
+                darkMode ? "text-white" : "text-gray-800"
+              } mb-3`}
+            >
+              Limitations & Tips
+            </h3>
+            <ul
+              className={`list-disc pl-5 ${
+                darkMode ? "text-gray-300" : "text-gray-600"
+              } space-y-2`}
+            >
+              <li>
+                The AI works best with clearly legible text. Handwritten
+                questions may have lower accuracy.
+              </li>
+              <li>
+                For complex diagrams or graphs, providing additional context is
+                highly recommended.
+              </li>
+              <li>
+                Very advanced topics or specialized questions may have less
+                comprehensive solutions.
+              </li>
+              <li>
+                When possible, transcribe the question text in your context for
+                better results.
+              </li>
+              <li>
+                Our AI is constantly learning and improving, so please provide
+                feedback if a solution is incorrect or incomplete.
+              </li>
             </ul>
           </section>
         </div>
-        
-        <div className={`p-6 border-t ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'}`}>
+
+        <div
+          className={`p-6 border-t ${
+            darkMode
+              ? "border-gray-700 bg-gray-750"
+              : "border-gray-200 bg-gray-50"
+          }`}
+        >
           <button
             onClick={onClose}
             className="w-full py-3 bg-indigo-600 text-white rounded-lg font-medium hover:bg-indigo-700 transition-colors"
@@ -753,64 +1176,72 @@ const HowToUseModal: React.FC<{ isOpen: boolean; onClose: () => void; darkMode: 
  * Creates a typing effect for displaying AI responses
  * Formats markdown-style text with proper styling and renders LaTeX expressions
  */
-const TypeWriter: React.FC<{ text: string; speed?: number; darkMode: boolean }> = ({ 
-  text, 
+const TypeWriter: React.FC<{
+  text: string;
+  speed?: number;
+  darkMode: boolean;
+}> = ({
+  text,
   speed = 2, // Controls typing speed (lower = faster)
-  darkMode 
+  darkMode,
 }) => {
   const [displayText, setDisplayText] = useState("");
   const [currentIndex, setCurrentIndex] = useState(0);
   const [typingComplete, setTypingComplete] = useState(false);
   const contentRef = useRef<HTMLDivElement>(null);
-  
+
   // Advance the displayed text one character at a time
   useEffect(() => {
     if (currentIndex < text.length) {
       const timeout = setTimeout(() => {
-        setDisplayText(prev => prev + text[currentIndex]);
-        setCurrentIndex(prev => prev + 1);
+        setDisplayText((prev) => prev + text[currentIndex]);
+        setCurrentIndex((prev) => prev + 1);
       }, speed);
-      
+
       return () => clearTimeout(timeout);
     } else if (currentIndex === text.length && !typingComplete) {
       // Mark typing as complete when finished
       setTypingComplete(true);
     }
   }, [currentIndex, text, speed, typingComplete]);
-  
+
   // Reset when the input text changes
   useEffect(() => {
     setDisplayText("");
     setCurrentIndex(0);
     setTypingComplete(false);
   }, [text]);
-  
+
   // Only process LaTeX after typing is complete to improve performance
   useEffect(() => {
-    if (typingComplete && contentRef.current && typeof window !== 'undefined' && window.MathJax) {
+    if (
+      typingComplete &&
+      contentRef.current &&
+      typeof window !== "undefined" &&
+      window.MathJax
+    ) {
       try {
-        window.MathJax.typesetPromise([contentRef.current])
-          .catch(() => {
-            console.error('MathJax typesetting failed');
-          });
+        window.MathJax.typesetPromise([contentRef.current]).catch(() => {
+          console.error("MathJax typesetting failed");
+        });
       } catch (error) {
-        console.error('MathJax typesetting error:', error);
+        console.error("MathJax typesetting error:", error);
       }
     }
   }, [typingComplete]);
-  
+
   /**
    * Process text for inline LaTeX expressions
    */
   const processInlineLatex = (text: string) => {
     const inlineLatexPattern = /\$(.*?)\$/g;
     let parts = text.split(inlineLatexPattern);
-    
+
     if (parts.length === 1) {
       // No inline LaTeX
       return text;
     }
-    
+
     let result: (string | React.JSX.Element)[] = [];
     for (let i = 0; i < parts.length; i++) {
       if (i % 2 === 0) {
@@ -819,42 +1250,47 @@ const TypeWriter: React.FC<{ text: string; speed?: number; darkMode: boolean }> 
       } else {
         // Odd indices contain inline LaTeX
         result.push(
-          <span key={`inline-latex-${i}`} className="math math-inline">{`\\(${parts[i]}\\)`}</span>
+          <span
+            key={`inline-latex-${i}`}
+            className="math math-inline"
+          >{`\\(${parts[i]}\\)`}</span>
         );
       }
     }
-    
+
     return <>{result}</>;
   };
-  
+
   /**
    * Parse text to identify LaTeX code and wrap it in appropriate elements
    * This handles both inline and block LaTeX syntax
    */
   const parseLatexInText = (text: string) => {
     if (!text) return null;
-    
+
     // Pattern for inline LaTeX: $...$
     const inlineLatexPattern = /\$(.*?)\$/g;
-    
+
     // Pattern for block LaTeX: $$...$$
     const blockLatexPattern = /\$\$(.*?)\$\$/g;
-    
+
     // First, separate block LaTeX from the rest of the text
     let blockParts = text.split(blockLatexPattern);
-    
+
     if (blockParts.length === 1) {
       // No block LaTeX, just process for inline LaTeX
       return processInlineLatex(text);
     }
-    
+
     // Process parts containing block LaTeX
     let result: React.JSX.Element[] = [];
     for (let i = 0; i < blockParts.length; i++) {
       if (i % 2 === 0) {
         // Even indices are regular text or text with inline LaTeX
         if (blockParts[i].trim()) {
-          result.push(<span key={`block-${i}`}>{processInlineLatex(blockParts[i])}</span>);
+          result.push(
+            <span key={`block-${i}`}>{processInlineLatex(blockParts[i])}</span>
+          );
         }
       } else {
         // Odd indices contain block LaTeX
@@ -865,34 +1301,65 @@ const TypeWriter: React.FC<{ text: string; speed?: number; darkMode: boolean }> 
         );
       }
     }
-    
+
     return <>{result}</>;
   };
-  
+
   // Format text with Markdown-style formatting and identify LaTeX code
   const formatText = (text: string) => {
     // Split by newlines and apply formatting to each line
-    return text.split('\n').map((line, i) => {
+    return text.split("\n").map((line, i) => {
       // Apply different formatting based on line content
-      if (line.startsWith('## ')) {
-        return <h2 key={i} className={`text-xl font-bold mt-4 mb-2 ${darkMode ? 'text-indigo-400' : 'text-indigo-800'}`}>{line.replace('## ', '')}</h2>;
+      if (line.startsWith("## ")) {
+        return (
+          <h2
+            key={i}
+            className={`text-xl font-bold mt-4 mb-2 ${
+              darkMode ? "text-indigo-400" : "text-indigo-800"
+            }`}
+          >
+            {line.replace("## ", "")}
+          </h2>
+        );
       }
-      if (line.startsWith('### ') || line.startsWith('- **')) {
-        return <h3 key={i} className={`text-lg font-semibold mt-3 mb-1 ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>{line.replace('### ', '').replace('- **', '').replace('**', '')}</h3>;
+      if (line.startsWith("### ") || line.startsWith("- **")) {
+        return (
+          <h3
+            key={i}
+            className={`text-lg font-semibold mt-3 mb-1 ${
+              darkMode ? "text-indigo-300" : "text-indigo-700"
+            }`}
+          >
+            {line.replace("### ", "").replace("- **", "").replace("**", "")}
+          </h3>
+        );
       }
       // List items
-      if (line.startsWith('- ')) {
-        return <li key={i} className="ml-4">{parseLatexInText(line.replace('- ', ''))}</li>;
+      if (line.startsWith("- ")) {
+        return (
+          <li key={i} className="ml-4">
+            {parseLatexInText(line.replace("- ", ""))}
+          </li>
+        );
       }
       // Step items with bold
-      if (line.startsWith('Step ')) {
-        return <p key={i} className={`font-medium ${darkMode ? 'text-indigo-400' : 'text-indigo-800'} mt-3`}>{parseLatexInText(line)}</p>;
+      if (line.startsWith("Step ")) {
+        return (
+          <p
+            key={i}
+            className={`font-medium ${
+              darkMode ? "text-indigo-400" : "text-indigo-800"
+            } mt-3`}
+          >
+            {parseLatexInText(line)}
+          </p>
+        );
       }
       // Regular lines with an empty line creating paragraph breaks
-      if (line.trim() === '') {
+      if (line.trim() === "") {
         return <div key={i} className="h-2"></div>;
       }
-      
+
       return <p key={i}>{parseLatexInText(line)}</p>;
     });
   };
@@ -916,33 +1383,38 @@ const SUGGESTED_QUESTIONS = [
   "How do I solve systems of linear equations?",
   "Explain the concept of electromagnetism",
   "How to balance redox reactions?",
-  "Derive the equations of motion"
+  "Derive the equations of motion",
 ];
 
 /**
  * SidebarHistory Component
- * 
+ *
  * Displays the user's question history organized by date
  * Fetches history data from the server and allows users to select previous questions
  */
-const SidebarHistory: React.FC<{ 
+const SidebarHistory: React.FC<{
   darkMode: boolean;
-  onSelectQuestion: (question: string, answer: string, imageUrl?: string) => void;
+  onSelectQuestion: (
+    question: string,
+    answer: string,
+    imageUrl?: string
+  ) => void;
   isAuthenticated: boolean;
 }> = ({ darkMode, onSelectQuestion, isAuthenticated }) => {
-  
   // State for loading, error handling, and history data
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [historyData, setHistoryData] = useState<Array<{
-    question: string;
-    answer: string;
-    heading?: string;
-    createdAt: string;
-    imageUrl?: string;
-    displayDate?: string;
-  }>>([]);
-  
+  const [historyData, setHistoryData] = useState<
+    Array<{
+      question: string;
+      answer: string;
+      heading?: string;
+      createdAt: string;
+      imageUrl?: string;
+      displayDate?: string;
+    }>
+  >([]);
+
   /**
    * Formats a date string into a human-readable format
    * Returns "Today", "Yesterday", "N days ago", or the actual date
@@ -953,7 +1425,7 @@ const SidebarHistory: React.FC<{
     const now = new Date();
     const diffTime = Math.abs(now.getTime() - date.getTime());
     const diffDays = Math.floor(diffTime / (1000 * 60 * 60 * 24));
-    
+
     if (diffDays === 0) {
       return "Today";
     } else if (diffDays === 1) {
@@ -962,24 +1434,26 @@ const SidebarHistory: React.FC<{
       return `${diffDays} days ago`;
     } else {
       // Use a stable date format that doesn't depend on locale
-      return date.toLocaleDateString('en-US', {
-        year: 'numeric',
-        month: 'numeric',
-        day: 'numeric'
+      return date.toLocaleDateString("en-US", {
+        year: "numeric",
+        month: "numeric",
+        day: "numeric",
       });
     }
   };
-  
+
   // State for grouped history items
-  const [groupedHistory, setGroupedHistory] = useState<{[key: string]: Array<{
-    question: string;
-    answer: string;
-    heading?: string;
-    createdAt: string;
-    imageUrl?: string;
-    displayDate?: string;
-  }>}>({});
-  
+  const [groupedHistory, setGroupedHistory] = useState<{
+    [key: string]: Array<{
+      question: string;
+      answer: string;
+      heading?: string;
+      createdAt: string;
+      imageUrl?: string;
+      displayDate?: string;
+    }>;
+  }>({});
+
   // Fetch history data from the API only if user is authenticated
   useEffect(() => {
     // Don't fetch history if the user is not authenticated
@@ -991,18 +1465,18 @@ const SidebarHistory: React.FC<{
     const fetchHistory = async () => {
       try {
         setLoading(true);
-        const response = await fetch('/api/history');
-        
+        const response = await fetch("/api/history");
+
         if (response.status === 404) {
           // User not found in database but is authenticated
           // Try to create the user via our check-user endpoint
-          console.log('User not found in database - attempting to create user');
+          console.log("User not found in database - attempting to create user");
           try {
-            const createResponse = await fetch('/api/check-user');
+            const createResponse = await fetch("/api/check-user");
             if (createResponse.ok) {
-              console.log('User created or verified successfully');
+              console.log("User created or verified successfully");
               // Retry fetching history after user creation
-              const retryResponse = await fetch('/api/history');
+              const retryResponse = await fetch("/api/history");
               if (retryResponse.ok) {
                 const data = await retryResponse.json();
                 setHistoryData(data.history || []);
@@ -1013,48 +1487,50 @@ const SidebarHistory: React.FC<{
                 setError(null);
               }
             } else {
-              console.error('Failed to create user');
+              console.error("Failed to create user");
               setHistoryData([]);
               setError(null);
             }
           } catch (createError) {
-            console.error('Error creating user:', createError);
+            console.error("Error creating user:", createError);
             setHistoryData([]);
             setError(null);
           }
           setLoading(false);
           return;
         }
-        
+
         if (!response.ok) {
-          throw new Error(`Failed to fetch history: ${response.status} ${response.statusText}`);
+          throw new Error(
+            `Failed to fetch history: ${response.status} ${response.statusText}`
+          );
         }
-        
+
         // Try to parse the response as JSON, catching any parsing errors
         try {
           const data = await response.json();
           setHistoryData(data.history || []);
           setError(null);
         } catch (parseError) {
-          console.error('Error parsing history response:', parseError);
-          throw new Error('Failed to parse server response');
+          console.error("Error parsing history response:", parseError);
+          throw new Error("Failed to parse server response");
         }
       } catch (err) {
-        console.error('Error fetching history:', err);
-        setError(err instanceof Error ? err.message : 'Failed to load history');
+        console.error("Error fetching history:", err);
+        setError(err instanceof Error ? err.message : "Failed to load history");
       } finally {
         setLoading(false);
       }
     };
-    
+
     fetchHistory();
   }, [isAuthenticated]);
-  
+
   // Group history items by date for display
   useEffect(() => {
-    const grouped: {[key: string]: typeof historyData} = {};
-    
-    historyData.forEach(item => {
+    const grouped: { [key: string]: typeof historyData } = {};
+
+    historyData.forEach((item) => {
       // Group by formatted date
       const dateKey = formatDate(item.createdAt);
       if (!grouped[dateKey]) {
@@ -1062,10 +1538,10 @@ const SidebarHistory: React.FC<{
       }
       grouped[dateKey].push({
         ...item,
-        displayDate: dateKey
+        displayDate: dateKey,
       });
     });
-    
+
     setGroupedHistory(grouped);
   }, [historyData]);
 
@@ -1073,23 +1549,49 @@ const SidebarHistory: React.FC<{
   if (!isAuthenticated) {
     return (
       <div className="h-full flex flex-col justify-center p-6">
-        <div className={`p-4 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-50'} mb-6`}>
-          <h3 className={`text-lg font-medium mb-3 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`}>
+        <div
+          className={`p-4 rounded-lg ${
+            darkMode ? "bg-gray-800" : "bg-gray-50"
+          } mb-6`}
+        >
+          <h3
+            className={`text-lg font-medium mb-3 ${
+              darkMode ? "text-indigo-400" : "text-indigo-600"
+            }`}
+          >
             TutorJi AI Assistant
           </h3>
-          <p className={`text-sm mb-3 ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
-            Powered by GPT-o4-mini, our AI can solve complex JEE problems with high accuracy.
+          <p
+            className={`text-sm mb-3 ${
+              darkMode ? "text-gray-300" : "text-gray-600"
+            }`}
+          >
+            Powered by GPT-o4-mini, our AI can solve complex JEE problems with
+            high accuracy.
           </p>
-          <ul className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'} space-y-2`}>
+          <ul
+            className={`text-sm ${
+              darkMode ? "text-gray-400" : "text-gray-500"
+            } space-y-2`}
+          >
             <li>• 95% accuracy on JEE questions</li>
             <li>• Step-by-step explanations</li>
             <li>• Handles Physics, Chemistry & Math</li>
           </ul>
         </div>
-        
-        <div className={`rounded-lg p-4 ${darkMode ? 'bg-indigo-900 bg-opacity-30' : 'bg-indigo-50'}`}>
-          <p className={`text-sm mb-3 ${darkMode ? 'text-indigo-300' : 'text-indigo-700'}`}>
-            Login to access your history and save all your question-answer sessions.
+
+        <div
+          className={`rounded-lg p-4 ${
+            darkMode ? "bg-indigo-900 bg-opacity-30" : "bg-indigo-50"
+          }`}
+        >
+          <p
+            className={`text-sm mb-3 ${
+              darkMode ? "text-indigo-300" : "text-indigo-700"
+            }`}
+          >
+            Login to access your history and save all your question-answer
+            sessions.
           </p>
         </div>
       </div>
@@ -1107,7 +1609,7 @@ const SidebarHistory: React.FC<{
       </div>
     );
   }
-  
+
   // Error state
   if (error) {
     return (
@@ -1116,12 +1618,12 @@ const SidebarHistory: React.FC<{
       </div>
     );
   }
-  
+
   // Empty history state
   if (historyData.length === 0) {
     return (
       <div className="h-full flex justify-center items-center p-4 text-center">
-        <div className={`${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+        <div className={`${darkMode ? "text-gray-400" : "text-gray-500"}`}>
           <p>No history found</p>
           <p className="text-sm mt-2">Questions you ask will appear here</p>
         </div>
@@ -1136,38 +1638,58 @@ const SidebarHistory: React.FC<{
         Object.entries(groupedHistory).map(([dateKey, items]) => (
           <div key={dateKey} className="mb-4">
             <div className="px-4 py-2">
-              <h4 className={`text-xs uppercase font-semibold ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+              <h4
+                className={`text-xs uppercase font-semibold ${
+                  darkMode ? "text-gray-400" : "text-gray-500"
+                }`}
+              >
                 {dateKey}
               </h4>
             </div>
-            
+
             {items.map((item, index) => (
-              <div 
+              <div
                 key={index}
-                onClick={() => onSelectQuestion(item.question, item.answer, item.imageUrl)}
+                onClick={() =>
+                  onSelectQuestion(item.question, item.answer, item.imageUrl)
+                }
                 className={`px-4 py-3 hover:bg-opacity-10 cursor-pointer ${
-                  darkMode ? 'hover:bg-gray-700' : 'hover:bg-gray-100'
+                  darkMode ? "hover:bg-gray-700" : "hover:bg-gray-100"
                 } transition-colors`}
               >
                 <div className="flex items-start space-x-3">
-                  <div className={`flex-shrink-0 w-10 h-10 rounded-lg ${item.imageUrl ? 'overflow-hidden' : 'bg-indigo-500 flex items-center justify-center text-white'}`}>
+                  <div
+                    className={`flex-shrink-0 w-10 h-10 rounded-lg ${
+                      item.imageUrl
+                        ? "overflow-hidden"
+                        : "bg-indigo-500 flex items-center justify-center text-white"
+                    }`}
+                  >
                     {item.imageUrl ? (
-                      <img 
-                        src={item.imageUrl} 
-                        alt="Question" 
+                      <img
+                        src={item.imageUrl}
+                        alt="Question"
                         className="w-full h-full object-cover"
                       />
                     ) : (
                       <FaQuestionCircle />
                     )}
                   </div>
-                  
+
                   <div className="flex-grow min-w-0">
                     <h3 className="text-sm font-medium truncate">
-                      {item.heading || item.question.substring(0, 50)}{!item.heading && item.question.length > 50 ? '...' : ''}
+                      {item.heading || item.question.substring(0, 50)}
+                      {!item.heading && item.question.length > 50 ? "..." : ""}
                     </h3>
-                    <p className={`text-xs truncate ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
-                      {new Date(item.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    <p
+                      className={`text-xs truncate ${
+                        darkMode ? "text-gray-400" : "text-gray-500"
+                      }`}
+                    >
+                      {new Date(item.createdAt).toLocaleTimeString([], {
+                        hour: "2-digit",
+                        minute: "2-digit",
+                      })}
                     </p>
                   </div>
                 </div>
@@ -1186,46 +1708,62 @@ const SidebarHistory: React.FC<{
 
 /**
  * UserProfile Component
- * 
+ *
  * Displays the current user's information and credits status
  * Shows upgrade option for free users and authentication status
  */
-const UserProfile: React.FC<{ 
-  darkMode: boolean; 
-  session: any; 
+const UserProfile: React.FC<{
+  darkMode: boolean;
+  session: any;
   userCredits: number | null;
   creditsLoading: boolean;
   onRefreshCredits: () => void;
 }> = ({ darkMode, session, userCredits, creditsLoading, onRefreshCredits }) => {
   // Check if user is authenticated
   const isAuthenticated = !!session?.user;
-  
+
   // Handle user logout
   const handleLogout = async () => {
-    await signOut({ callbackUrl: '/' });
+    await signOut({ callbackUrl: "/" });
   };
-  
+
   // If not authenticated, show simplified content
   if (!isAuthenticated) {
     return (
-      <div className={`p-4 ${darkMode ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg`}>
+      <div
+        className={`p-4 ${
+          darkMode
+            ? "bg-gray-750 border-gray-700"
+            : "bg-gray-50 border-gray-200"
+        } border rounded-lg`}
+      >
         <div className="flex items-center space-x-3">
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold ${
-            darkMode ? 'bg-gray-700' : 'bg-gray-200'
-          } text-gray-400`}>
+          <div
+            className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold ${
+              darkMode ? "bg-gray-700" : "bg-gray-200"
+            } text-gray-400`}
+          >
             <FaUser />
           </div>
-          
+
           <div className="flex-grow">
             <h3 className="text-sm font-medium">Guest User</h3>
-            <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Not signed in</p>
+            <p
+              className={`text-xs ${
+                darkMode ? "text-gray-400" : "text-gray-500"
+              }`}
+            >
+              Not signed in
+            </p>
           </div>
         </div>
-        
-        <Link 
+
+        <Link
           href="/auth/signin"
           className={`mt-4 w-full py-2 rounded-lg text-sm font-medium ${
-            darkMode ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-indigo-500 hover:bg-indigo-600'
+            darkMode
+              ? "bg-indigo-600 hover:bg-indigo-700"
+              : "bg-indigo-500 hover:bg-indigo-600"
           } text-white transition-colors flex items-center justify-center`}
         >
           <FaUser className="mr-2" size={12} />
@@ -1234,99 +1772,133 @@ const UserProfile: React.FC<{
       </div>
     );
   }
-  
+
   // For authenticated users, show full profile with credits
   const user = session.user;
   // Use userCredits from state if available, fallback to session credits
-  const creditsRemaining = userCredits !== null ? userCredits : (user.credits !== undefined ? user.credits : 0);
+  const creditsRemaining =
+    userCredits !== null
+      ? userCredits
+      : user.credits !== undefined
+      ? user.credits
+      : 0;
   const totalCredits = 25; // This could be made dynamic in the future
-  
+
   return (
-    <div className={`p-4 ${darkMode ? 'bg-gray-750 border-gray-700' : 'bg-gray-50 border-gray-200'} border rounded-lg`}>
+    <div
+      className={`p-4 ${
+        darkMode ? "bg-gray-750 border-gray-700" : "bg-gray-50 border-gray-200"
+      } border rounded-lg`}
+    >
       {/* User profile header with avatar and name */}
       <div className="flex items-center space-x-3">
         {user.image ? (
           // Display the user's image from Google if available
           <div className="w-12 h-12 rounded-full overflow-hidden border-2 border-indigo-500">
-            <img 
-              src={user.image} 
-              alt={user.name || 'User'} 
+            <img
+              src={user.image}
+              alt={user.name || "User"}
               className="w-full h-full object-cover"
             />
           </div>
         ) : (
           // Fallback to initial if no image is available
-          <div className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold ${
-            darkMode ? 'bg-indigo-600' : 'bg-indigo-500'
-          } text-white`}>
-            {user.name?.charAt(0) || 'U'}
+          <div
+            className={`w-12 h-12 rounded-full flex items-center justify-center text-lg font-semibold ${
+              darkMode ? "bg-indigo-600" : "bg-indigo-500"
+            } text-white`}
+          >
+            {user.name?.charAt(0) || "U"}
           </div>
         )}
-        
+
         <div className="flex-grow">
           <div className="flex items-center">
-            <h3 className="text-sm font-medium">{user.name || 'User'}</h3>
+            <h3 className="text-sm font-medium">{user.name || "User"}</h3>
             {/* PRO badge if user has pro account */}
             {user.accountType === "pro" && (
-              <span className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
-                darkMode ? 'bg-yellow-800 text-yellow-300' : 'bg-yellow-100 text-yellow-800'
-              } flex items-center space-x-1`}>
+              <span
+                className={`ml-2 px-2 py-0.5 rounded-full text-xs font-medium ${
+                  darkMode
+                    ? "bg-yellow-800 text-yellow-300"
+                    : "bg-yellow-100 text-yellow-800"
+                } flex items-center space-x-1`}
+              >
                 <FaCrown size={10} />
                 <span>PRO</span>
               </span>
             )}
           </div>
-          <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>{user.email}</p>
+          <p
+            className={`text-xs ${
+              darkMode ? "text-gray-400" : "text-gray-500"
+            }`}
+          >
+            {user.email}
+          </p>
         </div>
       </div>
-      
+
       {/* Credits display and progress bar */}
-      <div className={`mt-4 p-3 rounded-lg ${
-        darkMode ? 'bg-gray-800' : 'bg-white'
-      }`}>
+      <div
+        className={`mt-4 p-3 rounded-lg ${
+          darkMode ? "bg-gray-800" : "bg-white"
+        }`}
+      >
         <div className="flex justify-between items-center mb-2">
-          <span className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+          <span
+            className={`text-xs ${
+              darkMode ? "text-gray-400" : "text-gray-500"
+            }`}
+          >
             Credits Remaining
           </span>
           <div className="flex items-center space-x-2">
-            <span className={`text-xs font-medium ${
-              (creditsRemaining <= 1)
-                ? 'text-red-500' 
-                : darkMode ? 'text-indigo-400' : 'text-indigo-600'
-            }`}>
-              {creditsLoading ? '...' : `${creditsRemaining}/${totalCredits}`}
+            <span
+              className={`text-xs font-medium ${
+                creditsRemaining <= 1
+                  ? "text-red-500"
+                  : darkMode
+                  ? "text-indigo-400"
+                  : "text-indigo-600"
+              }`}
+            >
+              {creditsLoading ? "..." : `${creditsRemaining}/${totalCredits}`}
             </span>
             <button
               onClick={onRefreshCredits}
               disabled={creditsLoading}
               className={`text-xs p-1 rounded transition-colors ${
-                creditsLoading 
-                  ? 'opacity-50 cursor-not-allowed'
-                  : darkMode 
-                    ? 'text-gray-400 hover:text-gray-300' 
-                    : 'text-gray-500 hover:text-gray-700'
+                creditsLoading
+                  ? "opacity-50 cursor-not-allowed"
+                  : darkMode
+                  ? "text-gray-400 hover:text-gray-300"
+                  : "text-gray-500 hover:text-gray-700"
               }`}
               title="Refresh credits"
             >
-              <FaSyncAlt className={creditsLoading ? 'animate-spin' : ''} size={10} />
+              <FaSyncAlt
+                className={creditsLoading ? "animate-spin" : ""}
+                size={10}
+              />
             </button>
           </div>
         </div>
-        
+
         {/* Credits progress bar */}
-        <div className={`w-full h-2 rounded-full overflow-hidden ${
-          darkMode ? 'bg-gray-700' : 'bg-gray-200'
-        }`}>
-          <div 
+        <div
+          className={`w-full h-2 rounded-full overflow-hidden ${
+            darkMode ? "bg-gray-700" : "bg-gray-200"
+          }`}
+        >
+          <div
             style={{ width: `${(creditsRemaining / totalCredits) * 100}%` }}
             className={`h-full ${
-              (creditsRemaining <= 1) 
-                ? 'bg-red-500' 
-                : 'bg-indigo-500'
+              creditsRemaining <= 1 ? "bg-red-500" : "bg-indigo-500"
             }`}
           ></div>
         </div>
-        
+
         {/* Upgrade button for free users */}
         {/* {isAuthenticated && (!user.accountType || user.accountType === "free") && (
           <Link 
@@ -1339,21 +1911,27 @@ const UserProfile: React.FC<{
             Upgrade to Pro
           </Link>
         )} */}
-        
+
         {/* Logout button */}
-        <button 
+        <button
           onClick={handleLogout}
           className={`mt-3 w-full py-1.5 rounded-lg text-sm font-medium ${
-            darkMode ? 'bg-gray-700 hover:bg-gray-600' : 'bg-gray-200 hover:bg-gray-300'
+            darkMode
+              ? "bg-gray-700 hover:bg-gray-600"
+              : "bg-gray-200 hover:bg-gray-300"
           } transition-colors flex items-center justify-center`}
         >
           <FaUser className="mr-2" size={12} />
           Logout
         </button>
-        
+
         {/* Credits reset notice for free users with no credits */}
         {user.accountType === "free" && creditsRemaining === 0 && (
-          <div className={`mt-3 text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'} text-center`}>
+          <div
+            className={`mt-3 text-xs ${
+              darkMode ? "text-gray-400" : "text-gray-500"
+            } text-center`}
+          >
             Credits reset in 24 hours
           </div>
         )}
@@ -1364,36 +1942,49 @@ const UserProfile: React.FC<{
 
 /**
  * Main AskPage Component
- * 
+ *
  * This is the primary component that handles the question-answering interface
  * It manages file uploads, AI interactions, user state, and response display
  */
 export default function AskPage() {
   // Session management with NextAuth
   const { data: session, status } = useSession();
-  
+
   // State for image handling
   const [image, setImage] = useState<string | null>(null); // Base64 preview
   const [imageFile, setImageFile] = useState<File | null>(null); // Actual file for upload
   const [imageUploadProgress, setImageUploadProgress] = useState<number>(0);
   const [imageUploading, setImageUploading] = useState<boolean>(false);
   const [imageId, setImageId] = useState<string | null>(null); // Identifier for uploaded image
-  
+
+  // New states for OCR functionality
+  const [ocrUploading, setOcrUploading] = useState<boolean>(false);
+  const [ocrUploaded, setOcrUploaded] = useState<boolean>(false);
+  const [ocrError, setOcrError] = useState<string | null>(null);
+  const [extractedText, setExtractedText] = useState<string>("");
+
   // State for question, loading, and responses
   const [context, setContext] = useState("");
   const [loading, setLoading] = useState(false);
   const [isStreamingText, setIsStreamingText] = useState(false);
-  const [response, setResponse] = useState<{ finalAnswer: string } | null>(null);
-  
+  const [response, setResponse] = useState<{ finalAnswer: string; aiResponseId?: string } | null>(
+    null
+  );
+
+
+
   // UI state
   const [showHowTo, setShowHowTo] = useState(false);
   const [showImageModal, setShowImageModal] = useState(false);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [fullImageUrl, setFullImageUrl] = useState<string>('');
+  const [fullImageUrl, setFullImageUrl] = useState<string>("");
   const [darkMode, setDarkMode] = useState(true); // Default to dark mode
-  const [shareStatus, setShareStatus] = useState<{ shared: boolean; url?: string }>({ shared: false });
+  const [shareStatus, setShareStatus] = useState<{
+    shared: boolean;
+    url?: string;
+  }>({ shared: false });
   const [sidebarOpen, setSidebarOpen] = useState(true); // Default to open on desktop
-  
+
   // References for file input elements
   const fileInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
@@ -1405,12 +1996,18 @@ export default function AskPage() {
   const [userCredits, setUserCredits] = useState<number | null>(null);
   const [creditsLoading, setCreditsLoading] = useState(false);
 
+  // State for language selection
+  const [selectedLanguage, setSelectedLanguage] = useState<string>("english");
+
+  // State to track if question is from history (to hide language selector)
+  const [isFromHistory, setIsFromHistory] = useState<boolean>(false);
+
   // Additional state variables for crop and paste functionality
   const [isMobile, setIsMobile] = useState(false);
   const [isDragOver, setIsDragOver] = useState(false);
   const [isUploadAreaFocused, setIsUploadAreaFocused] = useState(false);
   const [clipboardFocused, setClipboardFocused] = useState(false);
-  
+
   // Crop modal states
   const [showCropModal, setShowCropModal] = useState(false);
   const [cropImageSrc, setCropImageSrc] = useState<string | null>(null);
@@ -1423,11 +2020,22 @@ export default function AskPage() {
   });
   const [completedCrop, setCompletedCrop] = useState<PixelCrop | null>(null);
   const [rotationAngle, setRotationAngle] = useState(0);
-  
+  const [cropUploading, setCropUploading] = useState(false);
+
   // Additional refs for crop functionality
   const uploadAreaRef = useRef<HTMLDivElement>(null);
   const imgRef = useRef<HTMLImageElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+
+  // Upload promise tracking for better flow control
+  const [uploadPromise, setUploadPromise] = useState<Promise<{
+    imageId: string;
+    imageUrl: string;
+  } | null> | null>(null);
+  const [uploadedImageUrl, setUploadedImageUrl] = useState<string | null>(null);
+
+  // New state for OCR record ID
+  const [ocrRecordId, setOcrRecordId] = useState<string | null>(null);
 
   /**
    * Fetch fresh credits from the API
@@ -1435,15 +2043,15 @@ export default function AskPage() {
    */
   const fetchUserCredits = async () => {
     if (!session?.user) return;
-    
+
     try {
       setCreditsLoading(true);
-      const response = await fetch('/api/user/credits');
-      
+      const response = await fetch("/api/user/credits");
+
       if (!response.ok) {
-        throw new Error('Failed to fetch credits');
+        throw new Error("Failed to fetch credits");
       }
-      
+
       const data = await response.json();
       if (data.success) {
         setUserCredits(data.credits);
@@ -1453,7 +2061,7 @@ export default function AskPage() {
         }
       }
     } catch (error) {
-      console.error('Error fetching credits:', error);
+      console.error("Error fetching credits:", error);
     } finally {
       setCreditsLoading(false);
     }
@@ -1476,22 +2084,20 @@ export default function AskPage() {
     handleResize();
 
     // Add event listener
-    window.addEventListener('resize', handleResize);
-    
+    window.addEventListener("resize", handleResize);
+
     // Cleanup
-    return () => window.removeEventListener('resize', handleResize);
+    return () => window.removeEventListener("resize", handleResize);
   }, []);
 
   /**
    * Fetch user credits when session is available
    */
   useEffect(() => {
-    if (session?.user && status === 'authenticated') {
+    if (session?.user && status === "authenticated") {
       fetchUserCredits();
     }
   }, [session, status]);
-
-
 
   // Toggle dark/light mode
   const toggleDarkMode = () => {
@@ -1510,13 +2116,13 @@ export default function AskPage() {
         alert("File is too large. Maximum size is 5MB.");
         return;
       }
-      
+
       // Validate file type
-      if (!file.type.startsWith('image/')) {
+      if (!file.type.startsWith("image/")) {
         alert("Only image files are allowed.");
         return;
       }
-      
+
       // For mobile, show crop modal first
       if (isMobile) {
         const reader = new FileReader();
@@ -1536,7 +2142,7 @@ export default function AskPage() {
 
   /**
    * Handle image upload processing
-   * Creates preview and stores file
+   * Creates preview and starts S3 upload (OCR will happen after AI response)
    */
   const handleImageUpload = async (file: File) => {
     if (!file.type.startsWith("image/")) {
@@ -1546,7 +2152,15 @@ export default function AskPage() {
 
     setImageFile(file);
     setImageId(null);
+    setUploadedImageUrl(null);
     setWarningMessage(null);
+
+    // Reset OCR states
+    setOcrUploading(false);
+    setOcrUploaded(false);
+    setOcrError(null);
+    setExtractedText("");
+    setOcrRecordId(null);
 
     // Create preview immediately
     const reader = new FileReader();
@@ -1554,6 +2168,23 @@ export default function AskPage() {
       setImage(e.target?.result as string);
     };
     reader.readAsDataURL(file);
+
+    // Start S3 upload immediately and store the promise
+    const upload = uploadImageToS3(file);
+    setUploadPromise(upload);
+
+    // Wait for S3 upload to complete and store the URL
+    try {
+      const result = await upload;
+      if (result) {
+        setUploadedImageUrl(result.imageUrl);
+        setImageId(result.imageId);
+        console.log("S3 upload completed:", result);
+      }
+    } catch (error) {
+      console.error("S3 upload failed:", error);
+      setWarningMessage("Failed to upload image. Please try again.");
+    }
   };
 
   /**
@@ -1691,7 +2322,8 @@ export default function AskPage() {
           const cropHeight = crop.height * scaleY;
 
           // When rotating by 90 or 270 degrees, swap width and height
-          const isRotated90or270 = rotationAngle === 90 || rotationAngle === 270;
+          const isRotated90or270 =
+            rotationAngle === 90 || rotationAngle === 270;
           canvas.width = isRotated90or270 ? cropHeight : cropWidth;
           canvas.height = isRotated90or270 ? cropWidth : cropHeight;
 
@@ -1743,16 +2375,23 @@ export default function AskPage() {
    * Handle crop completion and image processing
    */
   const handleCropComplete = async () => {
-    if (!completedCrop || !imgRef.current) return;
+    if (!completedCrop || !imgRef.current || cropUploading) return;
 
     try {
-      const croppedFile = await generateCroppedImage(imgRef.current, completedCrop);
+      setCropUploading(true);
+      const croppedFile = await generateCroppedImage(
+        imgRef.current,
+        completedCrop
+      );
+      // Process the cropped file (this will start S3 upload immediately)
       await handleImageUpload(croppedFile);
       setShowCropModal(false);
       setCropImageSrc(null);
     } catch (error) {
       console.error("Crop operation failed:", error);
       setWarningMessage("Failed to crop image. Please try again.");
+    } finally {
+      setCropUploading(false);
     }
   };
 
@@ -1760,8 +2399,10 @@ export default function AskPage() {
    * Cancel crop operation
    */
   const handleCropCancel = () => {
+    if (cropUploading) return; // Prevent canceling during upload
     setShowCropModal(false);
     setCropImageSrc(null);
+    setCropUploading(false);
     // Reset camera input
     if (cameraInputRef.current) {
       cameraInputRef.current.value = "";
@@ -1783,48 +2424,69 @@ export default function AskPage() {
   };
 
   /**
+   * Upload image to S3 server
+   * Handles progress tracking and returns image data on success
+   */
+  const uploadImageToS3 = async (
+    file: File
+  ): Promise<{ imageId: string; imageUrl: string } | null> => {
+    try {
+      console.log("Starting S3 upload for file:", file.name);
+      setImageUploading(true);
+      setImageUploadProgress(0);
+
+      // Create form data for file upload
+      const formData = new FormData();
+      formData.append("image", file);
+
+      // Upload the image to S3 server
+      const uploadResponse = await fetch("/api/upload", {
+        method: "POST",
+        body: formData,
+      });
+
+      if (!uploadResponse.ok) {
+        const error = await uploadResponse.json();
+        throw new Error(error.error || "Failed to upload image");
+      }
+
+      // Get the response data
+      const data = await uploadResponse.json();
+      console.log("S3 upload response:", data);
+
+      if (!data.success) {
+        throw new Error(data.error || "Upload failed");
+      }
+
+      setImageUploading(false);
+      setImageUploadProgress(100);
+
+      return {
+        imageId: data.imageId,
+        imageUrl: data.imageUrl,
+      };
+    } catch (error) {
+      console.error("Error uploading image to S3:", error);
+      setImageUploading(false);
+      setImageUploadProgress(0);
+      throw error; // Re-throw to be handled by caller
+    }
+  };
+
+  /**
+   * Legacy upload function (keeping for backward compatibility)
    * Upload image to server
    * Handles progress tracking and returns image ID on success
    */
   const uploadImage = async (): Promise<string | null> => {
     if (!imageFile) return null;
-    
+
     try {
-      setImageUploading(true);
-      setImageUploadProgress(0);
-      
-      // Create form data for file upload
-      const formData = new FormData();
-      formData.append('image', imageFile);
-      
-      // Upload the image to server
-      const uploadResponse = await fetch('/api/upload', {
-        method: 'POST',
-        body: formData,
-      });
-      
-      if (!uploadResponse.ok) {
-        const error = await uploadResponse.json();
-        throw new Error(error.message || 'Failed to upload image');
-      }
-      
-      // Store the image ID from the response
-      const data = await uploadResponse.json();
-      // Store both the imageId (public_id) and the secure_url from Cloudinary
-      setImageId(data.imageId);
-      // If the response includes a URL, update the image preview with it
-      if (data.imageUrl) {
-        setImage(data.imageUrl);
-      }
-      setImageUploading(false);
-      setImageUploadProgress(100);
-      
-      return data.imageId;
+      const result = await uploadImageToS3(imageFile);
+      return result?.imageId || null;
     } catch (error) {
-      console.error('Error uploading image:', error);
-      setImageUploading(false);
-      setImageUploadProgress(0);
-      alert('Failed to upload image. Please try again.');
+      console.error("Error uploading image:", error);
+      alert("Failed to upload image. Please try again.");
       return null;
     }
   };
@@ -1844,24 +2506,38 @@ export default function AskPage() {
     setImage(null);
     setImageFile(null);
     setImageId(null);
+    setUploadedImageUrl(null);
+    setUploadPromise(null);
     setImageUploadProgress(0);
     setShowCropModal(false);
     setCropImageSrc(null);
     setCompletedCrop(null);
     setRotationAngle(0);
     setWarningMessage(null);
+
+    // Reset OCR states
+    setOcrUploading(false);
+    setOcrUploaded(false);
+    setOcrError(null);
+    setExtractedText("");
+    setOcrRecordId(null);
+
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
 
+
+
   /**
    * Handle question submission to AI
-   * Uploads image if present, sends request to AI, manages states
+   * Waits for image upload to complete, then uses the imageUrl/imageId for AI processing
    */
   const handleSubmit = async () => {
     // Form validation
     if (!image && !context.trim()) {
-      setWarningMessage("Please upload an image or provide additional context before submitting.");
+      setWarningMessage(
+        "Please upload an image or provide additional context before submitting."
+      );
       return;
     }
 
@@ -1870,30 +2546,47 @@ export default function AskPage() {
     setWarningMessage(null);
 
     try {
-      // Upload image to server first if present
-      let imageId = null;
-      if (imageFile) {
-        console.log('Uploading image...');
-        setImageUploading(true);
-        imageId = await uploadImage();
-        setImageUploading(false);
-        console.log('Image uploaded with ID:', imageId);
+      let finalImageId = imageId;
+      let finalImageUrl = uploadedImageUrl;
+
+      // If S3 upload is still in progress, wait for it to complete
+      if (uploadPromise && !uploadedImageUrl) {
+        console.log("Waiting for S3 upload to complete...");
+        try {
+          const uploadResult = await uploadPromise;
+          if (uploadResult) {
+            finalImageId = uploadResult.imageId;
+            finalImageUrl = uploadResult.imageUrl;
+            setUploadedImageUrl(uploadResult.imageUrl);
+            setImageId(uploadResult.imageId);
+            console.log("S3 upload completed, proceeding with AI request");
+          }
+        } catch (uploadError) {
+          console.error("S3 upload failed:", uploadError);
+          setWarningMessage("Image upload failed. Please try again.");
+          return;
+        }
       }
 
-      // Submit to AI for processing (this runs concurrently with streaming text)
-      const result = await submitToLLM(imageId, context);
+      // Submit to AI for processing first - pass the image URL as imageId (ask API will handle both)
+      const result = await submitToLLM(
+        finalImageUrl || finalImageId,
+        context, // Use original context for AI
+        selectedLanguage,
+        null // No OCR record ID yet
+      );
 
       // Stop streaming text immediately when API returns
       setIsStreamingText(false);
 
       if (result.error) {
-        console.error('AI Error:', result.error);
+        console.error("AI Error:", result.error);
         setWarningMessage(result.error);
         return;
       }
 
       // Get the final answer from result
-      let finalAnswer = result.finalAnswer || '';
+      let finalAnswer = result.finalAnswer || "";
 
       // If finalAnswer is empty, show error
       if (!finalAnswer.trim()) {
@@ -1903,14 +2596,70 @@ export default function AskPage() {
 
       // Set response with only finalAnswer
       setResponse({
-        finalAnswer
+        finalAnswer,
+        aiResponseId: result.aiResponseId,
       });
+
+      // Now that we have the AI response, upload the image for OCR and link it
+      if (imageFile && session?.user?.id && session?.user?.email && result.aiResponseId) {
+        try {
+          setOcrUploading(true);
+          
+          // Convert file to base64
+          const base64 = await new Promise<string>((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => {
+              const result = reader.result as string;
+              resolve(result);
+            };
+            reader.onerror = reject;
+            reader.readAsDataURL(imageFile);
+          });
+
+          // Upload with OCR
+          const ocrResult = await uploadImageWithOCR(
+            base64,
+            session.user.id!,
+            session.user.email!
+          );
+
+          if (ocrResult.success) {
+            setOcrUploaded(true);
+            setExtractedText(ocrResult.text || "");
+            setOcrRecordId(ocrResult.id || null);
+
+            // Update the OCR record with the AI response ID
+            if (ocrResult.id && result.aiResponseId) {
+              try {
+                await fetch('/api/linkOCRWithAI', {
+                  method: 'POST',
+                  headers: {
+                    'Content-Type': 'application/json',
+                  },
+                  body: JSON.stringify({
+                    ocrRecordId: ocrResult.id,
+                    aiResponseId: result.aiResponseId,
+                  }),
+                });
+              } catch (linkError) {
+                console.error('Failed to link OCR with AI response:', linkError);
+              }
+            }
+          } else {
+            setOcrError(ocrResult.error || "Failed to process image");
+          }
+        } catch (error) {
+          console.error("OCR upload error:", error);
+          setOcrError("Failed to process image");
+        } finally {
+          setOcrUploading(false);
+        }
+      }
 
       // Refresh credits after successful submission
       await fetchUserCredits();
-
     } catch (error) {
-      console.error('Submission error:', error);
+      console.error("Submission error:", error);
       setWarningMessage("An unexpected error occurred. Please try again.");
       setIsStreamingText(false); // Stop streaming on error too
     } finally {
@@ -1937,16 +2686,16 @@ export default function AskPage() {
     const result = mockShareSolution({
       image: image,
       context: context,
-      finalAnswer: response.finalAnswer
+      finalAnswer: response.finalAnswer,
     });
 
     if (result.success) {
       setShareStatus({
         shared: true,
-        url: result.url
+        url: result.url,
       });
     } else {
-      setWarningMessage(result.error || 'Failed to share solution');
+      setWarningMessage(result.error || "Failed to share solution");
     }
   };
 
@@ -1959,10 +2708,10 @@ export default function AskPage() {
     generatePDF({
       image: image,
       context: context,
-      finalAnswer: response.finalAnswer
-    }).then(result => {
+      finalAnswer: response.finalAnswer,
+    }).then((result) => {
       if (!result.success) {
-        setWarningMessage(result.error || 'Failed to download solution');
+        setWarningMessage(result.error || "Failed to download solution");
       }
     });
   };
@@ -1981,7 +2730,16 @@ export default function AskPage() {
     setShareStatus({ shared: false });
     setShowImageModal(false);
     setShowShareModal(false);
-    setFullImageUrl('');
+    setFullImageUrl("");
+    setIsFromHistory(false); // Reset history flag to show language selector again
+
+    // Reset OCR states
+    setOcrUploading(false);
+    setOcrUploaded(false);
+    setOcrError(null);
+    setExtractedText("");
+    setOcrRecordId(null);
+
     if (fileInputRef.current) fileInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
@@ -1991,9 +2749,13 @@ export default function AskPage() {
    */
   const renderQuestionSection = () => {
     return (
-      <div className={`mb-6 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} pb-5`}>
+      <div
+        className={`mb-6 border-b ${
+          darkMode ? "border-gray-700" : "border-gray-200"
+        } pb-5`}
+      >
         <h3 className={`text-lg font-bold mb-4`}>Your Question</h3>
-        
+
         {/* Display uploaded image with fixed size */}
         {image && (
           <div className="mb-4">
@@ -2008,7 +2770,7 @@ export default function AskPage() {
                   className="rounded-lg"
                 />
               </div>
-              
+
               {/* Desktop: Fixed height container matching upload boxes */}
               <div className="hidden md:block relative w-full h-64">
                 <Image
@@ -2019,28 +2781,28 @@ export default function AskPage() {
                   className="rounded-lg"
                 />
               </div>
-              
+
               {imageUploading && (
                 <div className="absolute inset-0 bg-black bg-opacity-50 flex items-center justify-center z-10">
                   <div className="w-3/4 bg-gray-200 rounded-full h-2.5">
-                    <div 
-                      className="bg-indigo-600 h-2.5 rounded-full" 
+                    <div
+                      className="bg-indigo-600 h-2.5 rounded-full"
                       style={{ width: `${imageUploadProgress}%` }}
                     ></div>
                   </div>
                 </div>
               )}
-              
+
               {/* Full screen button */}
-              <button 
+              <button
                 onClick={() => {
                   setFullImageUrl(image);
                   setShowImageModal(true);
                 }}
                 className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
-                  darkMode 
-                    ? 'bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90' 
-                    : 'bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100'
+                  darkMode
+                    ? "bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90"
+                    : "bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100"
                 } shadow-lg transition-all backdrop-blur-sm z-10`}
               >
                 <FaExternalLinkAlt size={12} />
@@ -2049,11 +2811,21 @@ export default function AskPage() {
             </div>
           </div>
         )}
-        
+
         {/* Display context/question text */}
         {context && (
-          <div className={`p-4 rounded-lg text-sm ${darkMode ? 'bg-gray-800' : 'bg-gray-50'}`}>
-            <h4 className={`font-medium mb-2 ${darkMode ? 'text-gray-300' : 'text-gray-700'}`}>Additional Context:</h4>
+          <div
+            className={`p-4 rounded-lg text-sm ${
+              darkMode ? "bg-gray-800" : "bg-gray-50"
+            }`}
+          >
+            <h4
+              className={`font-medium mb-2 ${
+                darkMode ? "text-gray-300" : "text-gray-700"
+              }`}
+            >
+              Additional Context:
+            </h4>
             <p>{context}</p>
           </div>
         )}
@@ -2085,10 +2857,14 @@ export default function AskPage() {
    * Handle selection of a question from history
    * Sets up the question and response for review
    */
-  const handleSelectHistoryQuestion = (question: string, answer: string, imageUrl?: string) => {
+  const handleSelectHistoryQuestion = (
+    question: string,
+    answer: string,
+    imageUrl?: string
+  ) => {
     // Set the question from history
     setContext(question);
-    
+
     // Set the image if available
     if (imageUrl) {
       setImage(imageUrl);
@@ -2098,18 +2874,21 @@ export default function AskPage() {
       setImageId(null);
     }
     setImageFile(null);
-    
+
     // If we have an answer, set the response
     if (answer) {
       setResponse({
-        finalAnswer: answer
+        finalAnswer: answer,
       });
     }
-    
+
+    // Mark as from history to hide language selector
+    setIsFromHistory(true);
+
     // Reset share status so the share button can be used for history items
     setShareStatus({ shared: false });
     setShowShareModal(false);
-    
+
     // Close the sidebar on mobile
     setSidebarOpen(false);
   };
@@ -2123,29 +2902,36 @@ export default function AskPage() {
 
   // Load MathJax script when component mounts
   useEffect(() => {
-    if (typeof window !== 'undefined' && !window.MathJax) {
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js';
+    if (typeof window !== "undefined" && !window.MathJax) {
+      const script = document.createElement("script");
+      script.src =
+        "https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js";
       script.async = true;
-      
+
       // Configure MathJax
       window.MathJax = {
         tex: {
-          inlineMath: [['$', '$'], ['\\(', '\\)']],
-          displayMath: [['$$', '$$'], ['\\[', '\\]']],
+          inlineMath: [
+            ["$", "$"],
+            ["\\(", "\\)"],
+          ],
+          displayMath: [
+            ["$$", "$$"],
+            ["\\[", "\\]"],
+          ],
           processEscapes: true,
         },
         svg: {
-          fontCache: 'global'
+          fontCache: "global",
         },
         options: {
-          enableMenu: false,  // disable the MathJax menu
-          processHtmlClass: 'math'
-        }
+          enableMenu: false, // disable the MathJax menu
+          processHtmlClass: "math",
+        },
       };
-      
+
       document.head.appendChild(script);
-      
+
       return () => {
         // Clean up
         if (script.parentNode) {
@@ -2157,131 +2943,196 @@ export default function AskPage() {
 
   // Render the main page layout
   return (
-    <div className={`min-h-screen flex flex-col ${darkMode ? 'bg-gray-800 text-white' : 'bg-gray-50 text-gray-800'} transition-colors duration-200`}>
-              {/* Navigation bar */}
-        <Navbar onHowToUse={() => setShowHowTo(true)} darkMode={darkMode} toggleDarkMode={toggleDarkMode} onShare={handleShareSolution} showShareButton={!!response} shareStatus={shareStatus} hasResponse={!!response} imageUrl={image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : null} />
-      
+    <div
+      className={`min-h-screen flex flex-col ${
+        darkMode ? "bg-gray-800 text-white" : "bg-gray-50 text-gray-800"
+      } transition-colors duration-200`}
+    >
+      {/* Navigation bar */}
+      <Navbar
+        onHowToUse={() => setShowHowTo(true)}
+        darkMode={darkMode}
+        toggleDarkMode={toggleDarkMode}
+        onShare={handleShareSolution}
+        showShareButton={!!response}
+        shareStatus={shareStatus}
+        hasResponse={!!response}
+        imageUrl={
+          image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, "") : null
+        }
+        selectedLanguage={selectedLanguage}
+        onLanguageChange={setSelectedLanguage}
+        showLanguageSelector={!response && !isFromHistory}
+      />
+
       <div className="flex flex-grow relative pt-16">
         {/* Mobile backdrop overlay when sidebar is open */}
         {sidebarOpen && (
-          <div 
+          <div
             className="md:hidden fixed inset-0 bg-black bg-opacity-50 z-30"
             onClick={() => setSidebarOpen(false)}
           ></div>
         )}
-        
+
         {/* Sidebar with history and user profile */}
-        <div 
+        <div
           className={`fixed top-0 left-0 h-full ${
-            darkMode ? 'bg-gray-900' : 'bg-white'
+            darkMode ? "bg-gray-900" : "bg-white"
           } shadow-xl z-40 transition-transform duration-300 ease-in-out transform ${
-            sidebarOpen ? 'translate-x-0' : 'translate-x-[-100%]'
+            sidebarOpen ? "translate-x-0" : "translate-x-[-100%]"
           } pt-16 flex flex-col w-[280px] md:w-80`}
         >
           {/* Close button for mobile */}
-          <button 
+          <button
             onClick={() => setSidebarOpen(false)}
             className={`md:hidden absolute top-4 right-4 p-2 rounded-full ${
-              darkMode ? 'bg-gray-800 text-gray-300 hover:bg-gray-700' : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+              darkMode
+                ? "bg-gray-800 text-gray-300 hover:bg-gray-700"
+                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
             }`}
           >
             <FaChevronLeft />
           </button>
 
-          
           {/* User profile section */}
           <div className="px-4 py-4 flex-shrink-0">
-            <UserProfile 
-              darkMode={darkMode} 
-              session={session} 
+            <UserProfile
+              darkMode={darkMode}
+              session={session}
               userCredits={userCredits}
               creditsLoading={creditsLoading}
               onRefreshCredits={fetchUserCredits}
             />
           </div>
 
-                    
           {/* History heading */}
           <div className="p-4 border-b border-gray-700 flex-shrink-0">
             <h3 className="text-lg font-semibold">History</h3>
           </div>
-          
-          
+
           {/* History component */}
           <div className="flex-grow overflow-y-auto">
-            <SidebarHistory 
+            <SidebarHistory
               darkMode={darkMode}
               onSelectQuestion={handleSelectHistoryQuestion}
               isAuthenticated={!!session?.user}
             />
           </div>
         </div>
-        
+
         {/* Sidebar toggle button (desktop only) */}
-        <button 
+        <button
           onClick={() => setSidebarOpen(!sidebarOpen)}
           className={`hidden md:flex fixed z-40 top-1/2 transform -translate-y-1/2 ${
-            sidebarOpen ? 'left-80' : 'left-0'
+            sidebarOpen ? "left-80" : "left-0"
           } w-8 h-36 items-center justify-center ${
-            darkMode ? 'bg-gray-700 text-gray-300 hover:bg-gray-600' : 'bg-gray-200 text-gray-600 hover:bg-gray-300'
+            darkMode
+              ? "bg-gray-700 text-gray-300 hover:bg-gray-600"
+              : "bg-gray-200 text-gray-600 hover:bg-gray-300"
           } rounded-r-md transition-all duration-300`}
         >
-          {sidebarOpen ? <FaChevronLeft size={18} /> : <FaChevronRight size={18} />}
+          {sidebarOpen ? (
+            <FaChevronLeft size={18} />
+          ) : (
+            <FaChevronRight size={18} />
+          )}
         </button>
-      
+
         {/* Main content area */}
-        <main className={`flex-grow py-6 transition-all duration-300 ease-in-out w-full ${
-          sidebarOpen ? 'md:ml-80' : 'ml-0'
-        }`}>
+        <main
+          className={`flex-grow py-6 transition-all duration-300 ease-in-out w-full ${
+            sidebarOpen ? "md:ml-80" : "ml-0"
+          }`}
+        >
           <div className="max-w-4xl mx-auto px-4">
             {/* Mobile sidebar toggle */}
             <div className="md:hidden mb-4 flex justify-start">
-              <button 
+              <button
                 onClick={() => setSidebarOpen(!sidebarOpen)}
                 className={`p-2 rounded-lg ${
-                  darkMode ? 'bg-gray-700 text-gray-300' : 'bg-gray-200 text-gray-700'
+                  darkMode
+                    ? "bg-gray-700 text-gray-300"
+                    : "bg-gray-200 text-gray-700"
                 }`}
               >
                 <FaBars />
               </button>
             </div>
-          
+
             {/* Conditionally render form or response */}
             {!response ? (
               // Question input form
-              <div className={`${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-xl shadow-md overflow-hidden`}>
+              <div
+                className={`${
+                  darkMode ? "bg-gray-900" : "bg-white"
+                } rounded-xl shadow-md overflow-hidden`}
+              >
                 {/* Form header */}
-                <div className={`p-5 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
-                  <h2 className="text-xl font-bold">Get Instant Solutions to Your Questions</h2>
-                  <p className={`${darkMode ? 'text-gray-400' : 'text-gray-600'} text-sm mt-1`}>Upload a question image and our AI will provide a step-by-step solution with explanations</p>
+                <div
+                  className={`p-5 border-b ${
+                    darkMode ? "border-gray-700" : "border-gray-200"
+                  }`}
+                >
+                  <h2 className="text-xl font-bold">
+                    Get Instant Solutions to Your Questions
+                  </h2>
+                  <p
+                    className={`${
+                      darkMode ? "text-gray-400" : "text-gray-600"
+                    } text-sm mt-1`}
+                  >
+                    Upload a question image and our AI will provide a
+                    step-by-step solution with explanations
+                  </p>
                 </div>
-                
+
                 {/* Warning message */}
                 {warningMessage && (
-                  <div className={`mx-5 mt-5 p-4 rounded-lg text-sm flex items-center ${
-                    darkMode ? 'bg-red-900 bg-opacity-30 text-red-200' : 'bg-red-50 text-red-800'
-                  }`}>
-                    <FaInfoCircle className={`mr-2 ${darkMode ? 'text-red-300' : 'text-red-500'}`} />
+                  <div
+                    className={`mx-5 mt-5 p-4 rounded-lg text-sm flex items-center ${
+                      darkMode
+                        ? "bg-red-900 bg-opacity-30 text-red-200"
+                        : "bg-red-50 text-red-800"
+                    }`}
+                  >
+                    <FaInfoCircle
+                      className={`mr-2 ${
+                        darkMode ? "text-red-300" : "text-red-500"
+                      }`}
+                    />
                     <span>{warningMessage}</span>
                   </div>
                 )}
-                
+
                 {/* Credit usage information */}
-                <div className={`mx-5 mt-5 p-3 rounded-lg text-sm flex items-center space-x-3 ${
-                  darkMode ? 'bg-indigo-900 bg-opacity-30 text-indigo-200' : 'bg-indigo-50 text-indigo-800'
-                }`}>
-                  <FaInfoCircle className={darkMode ? 'text-indigo-300' : 'text-indigo-500'} />
+                <div
+                  className={`mx-5 mt-5 p-3 rounded-lg text-sm flex items-center space-x-3 ${
+                    darkMode
+                      ? "bg-indigo-900 bg-opacity-30 text-indigo-200"
+                      : "bg-indigo-50 text-indigo-800"
+                  }`}
+                >
+                  <FaInfoCircle
+                    className={darkMode ? "text-indigo-300" : "text-indigo-500"}
+                  />
                   <div>
-                    <span className="font-medium">1 credit will be used</span> for each question. You have {userCredits !== null ? userCredits : (session?.user?.credits ?? 0)} credits remaining.
+                    <span className="font-medium">1 credit will be used</span>{" "}
+                    for each question. You have{" "}
+                    {userCredits !== null
+                      ? userCredits
+                      : session?.user?.credits ?? 0}{" "}
+                    credits remaining.
                   </div>
                 </div>
-                
+
                 {/* Form inputs */}
                 <div className="p-5">
                   {/* Image upload section */}
                   <div className="mb-5">
-                    <h3 className="text-md font-semibold mb-3">Upload Question Image</h3>
-                    
+                    <h3 className="text-md font-semibold mb-3">
+                      Upload Question Image
+                    </h3>
+
                     {image ? (
                       // Display selected image with remove button - Fixed size to match upload boxes
                       <div className="relative w-full bg-gray-100 rounded-lg overflow-hidden">
@@ -2295,7 +3146,7 @@ export default function AskPage() {
                             className="rounded-lg"
                           />
                         </div>
-                        
+
                         {/* Desktop: Fixed height container matching upload boxes height */}
                         <div className="hidden md:block relative w-full h-64">
                           <Image
@@ -2306,24 +3157,24 @@ export default function AskPage() {
                             className="rounded-lg"
                           />
                         </div>
-                        
+
                         <button
                           onClick={removeImage}
                           className="absolute top-2 right-2 p-1.5 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors z-10"
                         >
                           <FaTimes size={14} />
                         </button>
-                        
+
                         {/* Add full screen button for preview */}
-                        <button 
+                        <button
                           onClick={() => {
                             setFullImageUrl(image);
                             setShowImageModal(true);
                           }}
                           className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
-                            darkMode 
-                              ? 'bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90' 
-                              : 'bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100'
+                            darkMode
+                              ? "bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90"
+                              : "bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100"
                           } shadow-lg transition-all backdrop-blur-sm z-10`}
                         >
                           <FaExternalLinkAlt size={12} />
@@ -2338,26 +3189,64 @@ export default function AskPage() {
                             {/* Take Photo Button - Larger */}
                             <button
                               onClick={triggerCameraInput}
-                              className={`flex flex-col items-center gap-3 p-8 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border-2 rounded-xl transition-all`}
+                              className={`flex flex-col items-center gap-3 p-8 ${
+                                darkMode
+                                  ? "bg-gray-800 hover:bg-gray-700 border-gray-700"
+                                  : "bg-gray-50 hover:bg-gray-100 border-gray-200"
+                              } border-2 rounded-xl transition-all`}
                             >
-                              <div className={`p-4 ${darkMode ? 'bg-gray-700' : 'bg-white'} rounded-full`}>
-                                <FaCamera className={`w-8 h-8 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                              <div
+                                className={`p-4 ${
+                                  darkMode ? "bg-gray-700" : "bg-white"
+                                } rounded-full`}
+                              >
+                                <FaCamera
+                                  className={`w-8 h-8 ${
+                                    darkMode
+                                      ? "text-indigo-400"
+                                      : "text-indigo-500"
+                                  }`}
+                                />
                               </div>
                               <div className="text-center">
-                                <h4 className="text-lg font-semibold">Take Photo</h4>
-                                <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Capture, crop & rotate question</p>
+                                <h4 className="text-lg font-semibold">
+                                  Take Photo
+                                </h4>
+                                <p
+                                  className={`text-sm ${
+                                    darkMode ? "text-gray-400" : "text-gray-500"
+                                  }`}
+                                >
+                                  Capture, crop & rotate question
+                                </p>
                               </div>
                             </button>
 
                             {/* Upload Button - Smaller */}
                             <button
                               onClick={triggerFileInput}
-                              className={`flex items-center justify-center gap-3 p-4 ${darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700' : 'bg-gray-50 hover:bg-gray-100 border-gray-200'} border-2 border-dashed rounded-lg transition-all`}
+                              className={`flex items-center justify-center gap-3 p-4 ${
+                                darkMode
+                                  ? "bg-gray-800 hover:bg-gray-700 border-gray-700"
+                                  : "bg-gray-50 hover:bg-gray-100 border-gray-200"
+                              } border-2 border-dashed rounded-lg transition-all`}
                             >
-                              <FaCloudUploadAlt className={`w-6 h-6 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                              <FaCloudUploadAlt
+                                className={`w-6 h-6 ${
+                                  darkMode ? "text-gray-400" : "text-gray-500"
+                                }`}
+                              />
                               <div className="text-left">
-                                <p className="text-sm font-medium">Upload Image</p>
-                                <p className={`text-xs ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>Select, crop & rotate</p>
+                                <p className="text-sm font-medium">
+                                  Upload Image
+                                </p>
+                                <p
+                                  className={`text-xs ${
+                                    darkMode ? "text-gray-400" : "text-gray-500"
+                                  }`}
+                                >
+                                  Select, crop & rotate
+                                </p>
                               </div>
                             </button>
 
@@ -2389,8 +3278,12 @@ export default function AskPage() {
                               onDragLeave={handleDragLeave}
                               className={`border-2 border-dashed rounded-lg p-6 h-48 text-center transition-all cursor-pointer ${
                                 isDragOver
-                                  ? darkMode ? 'border-indigo-400 bg-indigo-900/20' : 'border-indigo-500 bg-indigo-50'
-                                  : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
+                                  ? darkMode
+                                    ? "border-indigo-400 bg-indigo-900/20"
+                                    : "border-indigo-500 bg-indigo-50"
+                                  : darkMode
+                                  ? "bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500"
+                                  : "bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500"
                               } flex flex-col justify-center`}
                               role="button"
                               aria-label="Upload image area - click to select file or drag and drop"
@@ -2404,10 +3297,26 @@ export default function AskPage() {
                               />
 
                               <div className="space-y-4">
-                                <FaCloudUploadAlt className={`w-12 h-12 mx-auto ${isDragOver ? 'text-indigo-500' : darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                                <FaCloudUploadAlt
+                                  className={`w-12 h-12 mx-auto ${
+                                    isDragOver
+                                      ? "text-indigo-500"
+                                      : darkMode
+                                      ? "text-gray-400"
+                                      : "text-gray-500"
+                                  }`}
+                                />
                                 <div>
-                                  <p className="text-lg font-medium">Upload Image</p>
-                                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <p className="text-lg font-medium">
+                                    Upload Image
+                                  </p>
+                                  <p
+                                    className={`text-sm ${
+                                      darkMode
+                                        ? "text-gray-400"
+                                        : "text-gray-500"
+                                    }`}
+                                  >
                                     Click to browse or drag & drop
                                   </p>
                                 </div>
@@ -2422,27 +3331,57 @@ export default function AskPage() {
                               onKeyDown={handleKeyDown}
                               className={`border-2 border-dashed rounded-lg p-6 h-48 text-center transition-all cursor-pointer outline-none flex flex-col justify-center ${
                                 clipboardFocused
-                                  ? darkMode ? 'border-indigo-400 bg-indigo-900/20 ring-2 ring-indigo-500/20' : 'border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20'
-                                  : darkMode ? 'bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500' : 'bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500'
+                                  ? darkMode
+                                    ? "border-indigo-400 bg-indigo-900/20 ring-2 ring-indigo-500/20"
+                                    : "border-indigo-500 bg-indigo-50 ring-2 ring-indigo-500/20"
+                                  : darkMode
+                                  ? "bg-gray-800 hover:bg-gray-700 border-gray-700 hover:border-indigo-500"
+                                  : "bg-gray-50 hover:bg-gray-100 border-gray-200 hover:border-indigo-500"
                               }`}
                               tabIndex={0}
                               role="button"
                               aria-label="Paste image area - click and paste from clipboard"
                             >
                               <div className="space-y-4">
-                                <FaClipboard className={`w-12 h-12 mx-auto ${clipboardFocused ? 'text-indigo-500' : darkMode ? 'text-gray-400' : 'text-gray-500'}`} />
+                                <FaClipboard
+                                  className={`w-12 h-12 mx-auto ${
+                                    clipboardFocused
+                                      ? "text-indigo-500"
+                                      : darkMode
+                                      ? "text-gray-400"
+                                      : "text-gray-500"
+                                  }`}
+                                />
                                 <div>
-                                  <p className="text-lg font-medium">Paste from Clipboard</p>
-                                  <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                                  <p className="text-lg font-medium">
+                                    Paste from Clipboard
+                                  </p>
+                                  <p
+                                    className={`text-sm ${
+                                      darkMode
+                                        ? "text-gray-400"
+                                        : "text-gray-500"
+                                    }`}
+                                  >
                                     Click here and press{" "}
-                                    <kbd className={`px-2 py-1 rounded text-xs font-mono ${darkMode ? 'bg-gray-700' : 'bg-gray-200'}`}>
-                                      {typeof navigator !== 'undefined' && navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}
+                                    <kbd
+                                      className={`px-2 py-1 rounded text-xs font-mono ${
+                                        darkMode ? "bg-gray-700" : "bg-gray-200"
+                                      }`}
+                                    >
+                                      {typeof navigator !== "undefined" &&
+                                      navigator.platform?.indexOf("Mac") > -1
+                                        ? "Cmd+V"
+                                        : "Ctrl+V"}
                                     </kbd>
                                   </p>
                                   {clipboardFocused && (
                                     <p className="text-xs text-indigo-500 font-medium mt-2">
                                       Ready for paste! Press{" "}
-                                      {typeof navigator !== 'undefined' && navigator.platform?.indexOf("Mac") > -1 ? "Cmd+V" : "Ctrl+V"}{" "}
+                                      {typeof navigator !== "undefined" &&
+                                      navigator.platform?.indexOf("Mac") > -1
+                                        ? "Cmd+V"
+                                        : "Ctrl+V"}{" "}
                                       now
                                     </p>
                                   )}
@@ -2454,10 +3393,15 @@ export default function AskPage() {
                       </>
                     )}
                   </div>
-                  
+
+
+
                   {/* Context input textarea */}
                   <div className="mb-5">
-                    <label htmlFor="context" className="block text-md font-semibold mb-2">
+                    <label
+                      htmlFor="context"
+                      className="block text-md font-semibold mb-2"
+                    >
                       Additional Context (Optional)
                     </label>
                     <textarea
@@ -2466,26 +3410,34 @@ export default function AskPage() {
                       onChange={(e) => setContext(e.target.value)}
                       placeholder="Describe your doubt or provide additional information to help our AI understand your question better."
                       className={`w-full h-24 p-3 text-sm border rounded-lg focus:outline-none focus:ring-2 ${
-                        darkMode 
-                          ? 'bg-gray-800 border-gray-700 focus:ring-indigo-500 text-white placeholder:text-gray-500' 
-                          : 'bg-white border-gray-300 focus:ring-indigo-500 text-gray-800 placeholder:text-gray-400'
+                        darkMode
+                          ? "bg-gray-800 border-gray-700 focus:ring-indigo-500 text-white placeholder:text-gray-500"
+                          : "bg-white border-gray-300 focus:ring-indigo-500 text-gray-800 placeholder:text-gray-400"
                       }`}
                     ></textarea>
                   </div>
-                  
+
                   {/* Submit button */}
                   <div className="flex justify-center">
                     <button
                       onClick={handleSubmit}
-                      disabled={loading || (!session && status !== 'loading') || ((userCredits !== null ? userCredits : (session?.user?.credits ?? 0)) <= 0) || imageUploading}
+                      disabled={
+                        loading ||
+                        (!session && status !== "loading") ||
+                        (userCredits !== null
+                          ? userCredits
+                          : session?.user?.credits ?? 0) <= 0
+                      }
                       className={`py-2.5 px-6 rounded-lg text-white font-medium transition-colors ${
-                        loading || imageUploading
+                        loading
                           ? "bg-indigo-400 cursor-not-allowed"
-                          : (!session && status !== 'loading')
-                            ? "bg-indigo-400 hover:bg-indigo-500"
-                            : ((userCredits !== null ? userCredits : (session?.user?.credits ?? 0)) <= 0)
-                              ? "bg-gray-400 cursor-not-allowed"
-                              : "bg-indigo-600 hover:bg-indigo-700"
+                          : !session && status !== "loading"
+                          ? "bg-indigo-400 hover:bg-indigo-500"
+                          : (userCredits !== null
+                              ? userCredits
+                              : session?.user?.credits ?? 0) <= 0
+                          ? "bg-gray-400 cursor-not-allowed"
+                          : "bg-indigo-600 hover:bg-indigo-700"
                       }`}
                     >
                       {loading ? (
@@ -2493,14 +3445,11 @@ export default function AskPage() {
                           <FaSpinner className="animate-spin" />
                           <span>Solving...</span>
                         </span>
-                      ) : imageUploading ? (
-                        <span className="flex items-center space-x-2">
-                          <FaSpinner className="animate-spin" />
-                          <span>Uploading image...</span>
-                        </span>
-                      ) : (!session && status !== 'loading') ? (
+                      ) : !session && status !== "loading" ? (
                         "Sign In to Continue"
-                      ) : ((userCredits !== null ? userCredits : (session?.user?.credits ?? 0)) <= 0) ? (
+                      ) : (userCredits !== null
+                          ? userCredits
+                          : session?.user?.credits ?? 0) <= 0 ? (
                         "No Credits Remaining"
                       ) : (
                         "Solve This Question"
@@ -2508,11 +3457,11 @@ export default function AskPage() {
                     </button>
                   </div>
                 </div>
-                
+
                 {/* Streaming Loading Text - shown when API is processing */}
                 {isStreamingText && (
                   <div className="mt-6">
-                    <StreamingLoadingText 
+                    <StreamingLoadingText
                       isStreaming={isStreamingText}
                       darkMode={darkMode}
                       className="mx-auto"
@@ -2522,53 +3471,119 @@ export default function AskPage() {
               </div>
             ) : (
               // Response display section
-              <div className={`${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-xl shadow-md overflow-hidden`}>
+              <div
+                className={`${
+                  darkMode ? "bg-gray-900" : "bg-white"
+                } rounded-xl shadow-md overflow-hidden`}
+              >
                 {/* Response header with back button */}
-                <div className={`p-5 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex justify-between items-center`}>
-                  <h2 className="text-xl font-bold">Solution and Explanation</h2>
+                <div
+                  className={`p-5 border-b ${
+                    darkMode ? "border-gray-700" : "border-gray-200"
+                  } flex justify-between items-center`}
+                >
+                  <h2 className="text-xl font-bold">
+                    Solution and Explanation
+                  </h2>
                   <button
                     onClick={resetForm}
                     className={`px-4 py-2 rounded-lg font-medium transition-colors ${
-                      darkMode 
-                        ? 'bg-gray-800 text-indigo-400 hover:bg-gray-700' 
-                        : 'bg-indigo-100 text-indigo-700 hover:bg-indigo-200'
+                      darkMode
+                        ? "bg-gray-800 text-indigo-400 hover:bg-gray-700"
+                        : "bg-indigo-100 text-indigo-700 hover:bg-indigo-200"
                     }`}
                   >
                     Solve Another Question
                   </button>
                 </div>
-                
+
                 <div className="p-5">
                   {/* Question review section */}
                   {renderQuestionSection()}
-                  
+
                   {/* Solution display - only show Final Answer */}
                   <div className="p-5">
-                    <h3 className={`text-lg font-bold mb-4 pb-2 border-b ${darkMode ? 'border-gray-700' : 'border-gray-200'}`}>
+                    <h3
+                      className={`text-lg font-bold mb-4 pb-2 border-b ${
+                        darkMode ? "border-gray-700" : "border-gray-200"
+                      }`}
+                    >
                       Solution
                     </h3>
+                    
+                    {/* OCR Upload Status Indicator - shown after AI response */}
+                    {image && (
+                      <div className="mb-4">
+                        {ocrUploading && (
+                          <div
+                            className={`flex items-center space-x-2 text-sm ${
+                              darkMode ? "text-gray-400" : "text-gray-600"
+                            }`}
+                          >
+                            <FaSpinner className="animate-spin" size={12} />
+                            <span>Processing image for storage...</span>
+                          </div>
+                        )}
+
+                        {ocrUploaded && !ocrUploading && (
+                          <div
+                            className={`flex items-center space-x-2 text-sm ${
+                              darkMode ? "text-green-400" : "text-green-600"
+                            }`}
+                          >
+                            <FaCheck size={12} />
+                            <span>Image processed and stored!</span>
+                          </div>
+                        )}
+
+                        {ocrError && !ocrUploading && (
+                          <div
+                            className={`flex items-center space-x-2 text-sm ${
+                              darkMode ? "text-red-400" : "text-red-600"
+                            }`}
+                          >
+                            <FaTimes size={12} />
+                            <span>Failed to process image: {ocrError}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+                    
                     <div className="prose prose-sm max-w-none overflow-x-auto">
-                      <SimpleMathRenderer content={response?.finalAnswer || ''} className={darkMode ? 'text-white' : 'text-gray-800'} />
+                      <SimpleMathRenderer
+                        content={response?.finalAnswer || ""}
+                        className={darkMode ? "text-white" : "text-gray-800"}
+                      />
                     </div>
                   </div>
-                  
+
                   {/* Share and download buttons */}
-                  <div className={`mt-6 pt-5 border-t ${darkMode ? 'border-gray-700' : 'border-gray-200'} flex flex-col items-center gap-4`}>
+                  <div
+                    className={`mt-6 pt-5 border-t ${
+                      darkMode ? "border-gray-700" : "border-gray-200"
+                    } flex flex-col items-center gap-4`}
+                  >
                     <div className="text-center mb-2">
-                      <p className={`${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
+                      <p
+                        className={`${
+                          darkMode ? "text-gray-300" : "text-gray-600"
+                        } mb-3`}
+                      >
                         Still need help with this question?
                       </p>
                       <Link
                         href={{
-                          pathname: '/bot',
+                          pathname: "/bot",
                           query: {
-                            imageUrl: image ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, '') : undefined
-                          }
+                            imageUrl: image
+                              ? image.replace(/\.(jpg|jpeg|png|gif|webp)$/i, "")
+                              : undefined,
+                          },
                         }}
                         className={`flex items-center justify-center space-x-2 px-5 py-2.5 rounded-lg ${
-                          darkMode 
-                            ? 'bg-indigo-600 text-white hover:bg-indigo-700' 
-                            : 'bg-indigo-500 text-white hover:bg-indigo-600'
+                          darkMode
+                            ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                            : "bg-indigo-500 text-white hover:bg-indigo-600"
                         } transition-colors`}
                       >
                         <FaRobot className="mr-2" />
@@ -2582,24 +3597,28 @@ export default function AskPage() {
           </div>
         </main>
       </div>
-      
+
       {/* Footer and modal components */}
       <Footer darkMode={darkMode} />
-      <ShareModal 
-        isOpen={showShareModal} 
-        onClose={() => setShowShareModal(false)} 
+      <ShareModal
+        isOpen={showShareModal}
+        onClose={() => setShowShareModal(false)}
         darkMode={darkMode}
         shareStatus={shareStatus}
         onShare={handleActualShare}
       />
-      <HowToUseModal isOpen={showHowTo} onClose={() => setShowHowTo(false)} darkMode={darkMode} />
-      <ImageModal 
-        isOpen={showImageModal} 
-        onClose={() => setShowImageModal(false)} 
-        imageUrl={fullImageUrl} 
-        darkMode={darkMode} 
+      <HowToUseModal
+        isOpen={showHowTo}
+        onClose={() => setShowHowTo(false)}
+        darkMode={darkMode}
       />
-      
+      <ImageModal
+        isOpen={showImageModal}
+        onClose={() => setShowImageModal(false)}
+        imageUrl={fullImageUrl}
+        darkMode={darkMode}
+      />
+
       {/* Crop Modal with Rotation */}
       {showCropModal && cropImageSrc && (
         <div
@@ -2607,38 +3626,62 @@ export default function AskPage() {
           onClick={(e) => e.stopPropagation()}
         >
           <div
-            className={`${darkMode ? 'bg-gray-900' : 'bg-white'} rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto`}
+            className={`${
+              darkMode ? "bg-gray-900" : "bg-white"
+            } rounded-xl p-6 max-w-4xl max-h-[90vh] w-full overflow-auto`}
             onClick={(e) => e.stopPropagation()}
           >
             <div className="space-y-4">
               {/* Header */}
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <FaCrop className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-500'}`} />
+                  <FaCrop
+                    className={`w-5 h-5 ${
+                      darkMode ? "text-indigo-400" : "text-indigo-500"
+                    }`}
+                  />
                   <h3 className="text-xl font-semibold">Crop & Rotate Image</h3>
                 </div>
                 <button
                   onClick={handleCropCancel}
-                  className={`p-2 rounded-lg ${darkMode ? 'bg-gray-800 hover:bg-gray-700' : 'bg-gray-100 hover:bg-gray-200'} transition-colors`}
+                  className={`p-2 rounded-lg ${
+                    darkMode
+                      ? "bg-gray-800 hover:bg-gray-700"
+                      : "bg-gray-100 hover:bg-gray-200"
+                  } transition-colors`}
                 >
                   <FaTimes className="h-4 w-4" />
                 </button>
               </div>
 
               {/* Instructions */}
-              <p className={`text-sm ${darkMode ? 'text-gray-400' : 'text-gray-600'}`}>
-                Drag the corners to select the area you want to keep. Use rotation controls if needed. Focus on the question content for best results.
+              <p
+                className={`text-sm ${
+                  darkMode ? "text-gray-400" : "text-gray-600"
+                }`}
+              >
+                Drag the corners to select the area you want to keep. Use
+                rotation controls if needed. Focus on the question content for
+                best results.
               </p>
 
               {/* Rotation Controls */}
-              <div className={`flex items-center justify-center gap-4 p-3 rounded-lg ${darkMode ? 'bg-gray-800' : 'bg-gray-100'}`}>
+              <div
+                className={`flex items-center justify-center gap-4 p-3 rounded-lg ${
+                  darkMode ? "bg-gray-800" : "bg-gray-100"
+                }`}
+              >
                 <button
                   onClick={resetRotation}
                   disabled={rotationAngle === 0}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    rotationAngle === 0 
-                      ? darkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800'
+                    rotationAngle === 0
+                      ? darkMode
+                        ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : darkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-white hover:bg-gray-50 text-gray-800"
                   }`}
                 >
                   <FaUndo className="h-4 w-4" />
@@ -2649,10 +3692,12 @@ export default function AskPage() {
                   <span className="text-sm font-medium">{rotationAngle}°</span>
                 </div>
 
-                <button 
-                  onClick={rotateImage} 
+                <button
+                  onClick={rotateImage}
                   className={`flex items-center gap-2 px-4 py-2 rounded-lg transition-colors ${
-                    darkMode ? 'bg-gray-700 hover:bg-gray-600 text-white' : 'bg-white hover:bg-gray-50 text-gray-800'
+                    darkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-white hover:bg-gray-50 text-gray-800"
                   }`}
                 >
                   <FaRedo className="h-4 w-4" />
@@ -2699,25 +3744,38 @@ export default function AskPage() {
               <div className="flex gap-3 justify-end">
                 <button
                   onClick={handleCropCancel}
+                  disabled={cropUploading}
                   className={`px-6 py-2 rounded-lg transition-colors ${
-                    darkMode 
-                      ? 'bg-gray-700 hover:bg-gray-600 text-white' 
-                      : 'bg-gray-200 hover:bg-gray-300 text-gray-800'
+                    cropUploading
+                      ? darkMode
+                        ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : darkMode
+                      ? "bg-gray-700 hover:bg-gray-600 text-white"
+                      : "bg-gray-200 hover:bg-gray-300 text-gray-800"
                   }`}
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleCropComplete}
-                  disabled={!completedCrop}
+                  disabled={!completedCrop || cropUploading}
                   className={`px-6 py-2 rounded-lg transition-colors flex items-center gap-2 ${
-                    !completedCrop
-                      ? darkMode ? 'bg-gray-700 text-gray-500 cursor-not-allowed' : 'bg-gray-200 text-gray-400 cursor-not-allowed'
-                      : darkMode ? 'bg-indigo-600 hover:bg-indigo-700 text-white' : 'bg-indigo-500 hover:bg-indigo-600 text-white'
+                    !completedCrop || cropUploading
+                      ? darkMode
+                        ? "bg-gray-700 text-gray-500 cursor-not-allowed"
+                        : "bg-gray-200 text-gray-400 cursor-not-allowed"
+                      : darkMode
+                      ? "bg-indigo-600 hover:bg-indigo-700 text-white"
+                      : "bg-indigo-500 hover:bg-indigo-600 text-white"
                   }`}
                 >
-                  <FaCrop className="h-4 w-4" />
-                  Crop & Upload
+                  {cropUploading ? (
+                    <FaSpinner className="h-4 w-4 animate-spin" />
+                  ) : (
+                    <FaCrop className="h-4 w-4" />
+                  )}
+                  {cropUploading ? "Cropping..." : "Crop & Upload"}
                 </button>
               </div>
             </div>
@@ -2730,3 +3788,101 @@ export default function AskPage() {
     </div>
   );
 }
+
+// Language options for the selector
+const LANGUAGE_OPTIONS = [
+  { code: "english", name: "English", flag: "🇺🇸" },
+  { code: "hindi", name: "हिंदी", flag: "🇮🇳" },
+  { code: "kannada", name: "ಕನ್ನಡ", flag: "🇮🇳" },
+];
+
+/**
+ * LanguageSelector Component
+ * Displays a dropdown for selecting the response language
+ */
+const LanguageSelector: React.FC<{
+  selectedLanguage: string;
+  onLanguageChange: (language: string) => void;
+  darkMode: boolean;
+}> = ({ selectedLanguage, onLanguageChange, darkMode }) => {
+  const [isOpen, setIsOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
+        setIsOpen(false);
+      }
+    };
+
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const selectedLang =
+    LANGUAGE_OPTIONS.find((lang) => lang.code === selectedLanguage) ||
+    LANGUAGE_OPTIONS[0];
+
+  return (
+    <div className="relative" ref={dropdownRef}>
+      <button
+        onClick={() => setIsOpen(!isOpen)}
+        className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
+          darkMode
+            ? "bg-gray-700 hover:bg-gray-600 text-white"
+            : "bg-white hover:bg-indigo-50 text-indigo-700"
+        }`}
+        aria-label="Select language"
+      >
+        <FaGlobe className="text-sm" />
+        <span className="hidden sm:inline text-sm">
+          {selectedLang.flag} {selectedLang.name}
+        </span>
+        <span className="sm:hidden text-sm">{selectedLang.flag}</span>
+        <FaChevronDown
+          className={`text-xs transition-transform ${
+            isOpen ? "rotate-180" : ""
+          }`}
+        />
+      </button>
+
+      {isOpen && (
+        <div
+          className={`absolute top-full left-0 mt-1 w-40 rounded-lg shadow-lg border z-50 ${
+            darkMode
+              ? "bg-gray-800 border-gray-700"
+              : "bg-white border-gray-200"
+          }`}
+        >
+          {LANGUAGE_OPTIONS.map((lang) => (
+            <button
+              key={lang.code}
+              onClick={() => {
+                onLanguageChange(lang.code);
+                setIsOpen(false);
+              }}
+              className={`w-full text-left px-3 py-2 text-sm transition-colors first:rounded-t-lg last:rounded-b-lg ${
+                selectedLanguage === lang.code
+                  ? darkMode
+                    ? "bg-indigo-900 text-indigo-300"
+                    : "bg-indigo-100 text-indigo-700"
+                  : darkMode
+                  ? "hover:bg-gray-700 text-gray-300"
+                  : "hover:bg-gray-50 text-gray-700"
+              }`}
+            >
+              <span className="flex items-center space-x-2">
+                <span>{lang.flag}</span>
+                <span>{lang.name}</span>
+              </span>
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+};

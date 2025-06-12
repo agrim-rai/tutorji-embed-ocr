@@ -1,13 +1,13 @@
 "use client"
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useSession } from "next-auth/react";
 import { Navbar } from "@/components/ui/navbar";
 import { Footer } from "@/components/ui/footer";
 import { CheckCircle, Loader2, XCircle } from "lucide-react";
 
-export default function PaymentSuccess() {
+function PaymentSuccessContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const { data: session, status } = useSession();
@@ -139,5 +139,29 @@ export default function PaymentSuccess() {
       </div>
       <Footer />
     </div>
+  );
+}
+
+function PaymentSuccessLoading() {
+  return (
+    <div>
+      <Navbar />
+      <div className="min-h-screen flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="h-12 w-12 animate-spin mx-auto mb-4 text-blue-600" />
+          <h2 className="text-xl font-semibold mb-2">Loading payment status...</h2>
+          <p className="text-gray-600">Please wait a moment.</p>
+        </div>
+      </div>
+      <Footer />
+    </div>
+  );
+}
+
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={<PaymentSuccessLoading />}>
+      <PaymentSuccessContent />
+    </Suspense>
   );
 } 
