@@ -4,6 +4,7 @@ import { Navbar } from "@/components/ui/navbar"
 import { Footer } from "@/components/ui/footer"
 import { Pricing2 } from "@/components/pricing2"
 import Script from "next/script";
+import React from "react";
 
 const createOrder = async (amount: number) => {
   const response = await fetch("/api/createOrder", {
@@ -97,19 +98,36 @@ export default function Pricing2Demo() {
   const { data: session, status } = useSession();
 
   // Create user object from session data
-  const user = session?.user ? {
+  const [user, setUser] = React.useState(() => session?.user ? {
     name: session.user.name || "",
     email: session.user.email || "",
     credits: session.user.credits || 0
-  } : null;
+  } : null);
+
+  React.useEffect(() => {
+    if (session?.user) {
+      setUser({
+        name: session.user.name || "",
+        email: session.user.email || "",
+        credits: session.user.credits || 0
+      });
+    }
+  }, [session]);
+
+  const handleCreditsUpdate = (creditsToAdd: number) => {
+    setUser((prev: any) => prev ? { ...prev, credits: (prev.credits || 0) + creditsToAdd } : prev);
+  };
 
   return (
-    <div>
+    <div className="min-h-screen flex flex-col">
       <Navbar />
       <Script 
-      type="text/javascript"
-      src="https://checkout.razorpay.com/v1/checkout.js" />
-      <Pricing2 {...demoData} user={user} />
+        type="text/javascript"
+        src="https://checkout.razorpay.com/v1/checkout.js" 
+      />
+      <main className="flex-1">
+        <Pricing2 {...demoData} user={user} onCreditsUpdate={handleCreditsUpdate} />
+      </main>
       <Footer />
     </div>
   );

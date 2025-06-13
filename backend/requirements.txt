@@ -1,7 +1,0 @@
-fastapi
-uvicorn[standard]
-openai
-langchain
-faiss-cpu        # or faiss-gpu if you have a GPU
-python-dotenv
-numpy

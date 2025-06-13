@@ -25,6 +25,10 @@ const UserSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
+  updatedAt: {
+    type: Date,
+    default: Date.now,
+  },
 });
 
 // Check if the model is already defined to prevent overwriting during hot reloads

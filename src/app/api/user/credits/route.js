@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth/next';
 import { authOptions } from '@/lib/auth';
 import User from '@/models/User';
+import Transaction from '@/models/Transaction';
 import dbConnect from '@/lib/mongoose';
 
 export async function GET() {
@@ -28,6 +29,9 @@ export async function GET() {
 
     return NextResponse.json({
       credits: user.credits || 0,
+      name: user.name,
+      email: user.email,
+      updatedAt: user.updatedAt
     });
 
   } catch (error) {
@@ -55,7 +59,7 @@ export async function POST(request) {
     await dbConnect();
 
     // Parse request body
-    const { amount } = await request.json();
+    const { amount, description = 'Manual credit addition' } = await request.json();
     
     if (typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
@@ -74,13 +78,37 @@ export async function POST(request) {
       );
     }
 
-    // Add credits
-    user.credits = (user.credits || 0) + amount;
+    const oldCredits = user.credits || 0;
+    const newCredits = oldCredits + amount;
+
+    // Update user credits
+    user.credits = newCredits;
+    user.updatedAt = new Date();
     await user.save();
+
+    // Create transaction record
+    try {
+      const transaction = new Transaction({
+        userId: user._id,
+        userEmail: user.email,
+        transactionId: Transaction.generateTransactionId(),
+        type: 'bonus',
+        creditsBefore: oldCredits,
+        creditsAfter: newCredits,
+        creditsChanged: amount,
+        source: 'manual_adjustment',
+        description: description,
+        status: 'completed',
+      });
+      await transaction.save();
+    } catch (transactionError) {
+      console.error('Error creating transaction record:', transactionError);
+      // Don't fail the main operation if transaction logging fails
+    }
 
     return NextResponse.json({
       success: true,
-      credits: user.credits,
+      credits: newCredits,
       message: `Successfully added ${amount} credit(s)`
     });
 
@@ -109,7 +137,7 @@ export async function PATCH(request) {
     await dbConnect();
 
     // Parse request body
-    const { amount } = await request.json();
+    const { amount, description = 'Credit usage' } = await request.json();
     
     if (typeof amount !== 'number' || amount <= 0) {
       return NextResponse.json(
@@ -128,21 +156,46 @@ export async function PATCH(request) {
       );
     }
 
+    const oldCredits = user.credits || 0;
+
     // Check if user has enough credits
-    if ((user.credits || 0) < amount) {
+    if (oldCredits < amount) {
       return NextResponse.json(
         { error: 'Insufficient credits' },
         { status: 400 }
       );
     }
 
+    const newCredits = oldCredits - amount;
+
     // Deduct credits
-    user.credits = (user.credits || 0) - amount;
+    user.credits = newCredits;
+    user.updatedAt = new Date();
     await user.save();
+
+    // Create transaction record
+    try {
+      const transaction = new Transaction({
+        userId: user._id,
+        userEmail: user.email,
+        transactionId: Transaction.generateTransactionId(),
+        type: 'credit_usage',
+        creditsBefore: oldCredits,
+        creditsAfter: newCredits,
+        creditsChanged: -amount,
+        source: 'usage',
+        description: description,
+        status: 'completed',
+      });
+      await transaction.save();
+    } catch (transactionError) {
+      console.error('Error creating transaction record:', transactionError);
+      // Don't fail the main operation if transaction logging fails
+    }
 
     return NextResponse.json({
       success: true,
-      credits: user.credits,
+      credits: newCredits,
       message: `Successfully deducted ${amount} credit(s)`
     });
 
