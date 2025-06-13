@@ -11,6 +11,7 @@ export default function AdaTesting() {
   const [selectedImage, setSelectedImage] = useState(null);
   const [imagePreview, setImagePreview] = useState("");
   const [ocrText, setOcrText] = useState("");
+  const [editableOcrText, setEditableOcrText] = useState("");
   const [imageBusy, setImageBusy] = useState(false);
 
   // State for manual document addition with image
@@ -86,6 +87,7 @@ export default function AdaTesting() {
       
       if (result.success) {
         setOcrText(result.data.text);
+        setEditableOcrText(result.data.text); // Set editable text same as OCR result
         // alert("OCR processing completed!");
       } else {
         throw new Error(result.error || "OCR processing failed");
@@ -98,14 +100,14 @@ export default function AdaTesting() {
     }
   }
 
-  // Search similar text using OCR result
+  // Search similar text using editable OCR result
   async function handleSearchOCR() {
-    if (!ocrText) return;
+    if (!editableOcrText) return;
     
     setBusy(true);
     try {
       const response = await fetch(
-        `/api/vectors?q=${encodeURIComponent(ocrText)}&k=5`
+        `/api/vectors?q=${encodeURIComponent(editableOcrText)}&k=5`
       );
       const json = await response.json();
       setResults(json.results || []);
@@ -117,9 +119,9 @@ export default function AdaTesting() {
     }
   }
 
-  // Add OCR text to vector store
+  // Add editable OCR text to vector store
   async function handleAddOCRToStore() {
-    if (!ocrText) return;
+    if (!editableOcrText) return;
     
     const docIdForOCR = `ocr_${Date.now()}`;
     setBusy(true);
@@ -130,7 +132,7 @@ export default function AdaTesting() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
           id: docIdForOCR, 
-          text: ocrText 
+          text: editableOcrText 
         }),
       });
       
@@ -263,16 +265,20 @@ export default function AdaTesting() {
         
         {ocrText && (
           <div style={ocrResultStyle}>
-            <h3 style={subTitleStyle}>Extracted Text:</h3>
-            <div style={textAreaStyle}>
-              {ocrText}
-            </div>
+            <h3 style={subTitleStyle}>Extracted Text (Editable):</h3>
+            <textarea
+              style={editableTextAreaStyle}
+              value={editableOcrText}
+              onChange={(e) => setEditableOcrText(e.target.value)}
+              placeholder="Edit the extracted text here..."
+              rows={8}
+            />
             
             <div style={buttonGroupStyle}>
               <button 
                 style={buttonStyle} 
                 onClick={handleSearchOCR} 
-                disabled={busy}
+                disabled={busy || !editableOcrText.trim()}
               >
                 {busy ? "Searching..." : "Search Similar Text"}
               </button>
@@ -280,7 +286,7 @@ export default function AdaTesting() {
               <button 
                 style={{...buttonStyle, backgroundColor: "#28a745"}} 
                 onClick={handleAddOCRToStore} 
-                disabled={busy}
+                disabled={busy || !editableOcrText.trim()}
               >
                   {busy ? "Adding..." : "Add to Vector Store"}
               </button>
@@ -477,6 +483,22 @@ const textAreaStyle = {
   marginBottom: "1rem",
   whiteSpace: "pre-wrap",
   wordWrap: "break-word",
+};
+
+const editableTextAreaStyle = {
+  width: "100%",
+  minHeight: "150px",
+  padding: "0.75rem",
+  backgroundColor: "#2a2a2a",
+  color: "#ffffff",
+  border: "1px solid #555",
+  borderRadius: "8px",
+  fontSize: "0.9rem",
+  lineHeight: "1.4",
+  marginBottom: "1rem",
+  resize: "vertical",
+  fontFamily: "inherit",
+  boxSizing: "border-box",
 };
 
 const resultItemStyle = {
