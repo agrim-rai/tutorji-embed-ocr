@@ -45,12 +45,12 @@ function validateBase64Image(base64String) {
 async function extractTextFromImage(dataUrl) {
   try {
     const chat = await openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: 'o4-mini',
       messages: [
         {
           role: 'system',
           content:
-            'You are an OCR assistant. Extract all the text from the image and return it as plain text, without any commentary.'
+            'You are an OCR assistant. Extract ALL THE TEXT from the image and return it as plain text, without any commentary.'
         },
         {
           role: 'user',
