@@ -6,6 +6,7 @@ export default function AdaTesting() {
   const [docId, setDocId] = useState("");
   const [results, setResults] = useState([]);
   const [busy, setBusy] = useState(false);
+  const [resultImages, setResultImages] = useState({});
 
   // State for image operations
   const [selectedImage, setSelectedImage] = useState(null);
@@ -18,6 +19,10 @@ export default function AdaTesting() {
   const [manualDocImage, setManualDocImage] = useState(null);
   const [manualDocImagePreview, setManualDocImagePreview] = useState("");
   const [manualDocBusy, setManualDocBusy] = useState(false);
+
+  // State for image comparison
+  const [comparisonResult, setComparisonResult] = useState(null);
+  const [comparisonBusy, setComparisonBusy] = useState(false);
 
   // Dummy user data (replace with actual user data in production)
   const userData = {
@@ -34,6 +39,15 @@ export default function AdaTesting() {
       reader.onload = () => resolve(reader.result);
       reader.onerror = error => reject(error);
     });
+  }
+
+  // Get confidence color based on percentage
+  function getConfidenceColor(confidence) {
+    const percentage = confidence * 100;
+    if (percentage >= 80) return "#28a745"; // Green
+    if (percentage >= 60) return "#ffc107"; // Yellow
+    if (percentage >= 40) return "#fd7e14"; // Orange
+    return "#dc3545"; // Red
   }
 
   // Handle image file selection for OCR
@@ -70,7 +84,7 @@ export default function AdaTesting() {
       // Convert image to base64
       const base64Image = await fileToBase64(selectedImage);
 
-      const response = await fetch('/api/getQuestionContent', {
+      const response = await fetch('/api/ocr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -100,17 +114,86 @@ export default function AdaTesting() {
     }
   }
 
+  // Compare current image with top search result
+  async function handleImageComparison(topResultId) {
+    if (!selectedImage || !topResultId) return;
+    
+    setComparisonBusy(true);
+    setComparisonResult(null);
+    
+    try {
+      // Convert current image to base64
+      const userImageBase64 = await fileToBase64(selectedImage);
+      
+      const response = await fetch('/api/compare-images', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          topResultId: topResultId,
+          userImageBase64: userImageBase64
+        }),
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setComparisonResult(result.comparison);
+      } else {
+        throw new Error(result.error || "Image comparison failed");
+      }
+    } catch (error) {
+      console.error("Image Comparison Error:", error);
+      alert(`Image comparison failed: ${error.message}`);
+    } finally {
+      setComparisonBusy(false);
+    }
+  }
+
   // Search similar text using editable OCR result
   async function handleSearchOCR() {
     if (!editableOcrText) return;
     
     setBusy(true);
+    setResultImages({}); // Clear previous images
     try {
       const response = await fetch(
         `/api/vectors?q=${encodeURIComponent(editableOcrText)}&k=5`
       );
       const json = await response.json();
-      setResults(json.results || []);
+      const searchResults = json.results || [];
+      setResults(searchResults);
+      
+      // Automatically trigger image comparison if there's a top result and user has uploaded an image
+      if (json.topResult && selectedImage) {
+        setTimeout(() => {
+          handleImageComparison(json.topResult.id);
+        }, 500); // Small delay to ensure UI updates
+      }
+
+      // Fetch images for the search results
+      if (searchResults.length > 0) {
+        const adaIds = searchResults.map(r => r.id).join(',');
+        try {
+          const imageResponse = await fetch(`/api/ada-store/multiple?adaIds=${encodeURIComponent(adaIds)}`);
+          const imageJson = await imageResponse.json();
+          
+          if (imageJson.success) {
+            const imageMap = {};
+            imageJson.data.forEach(item => {
+              imageMap[item.adaId] = item.imageBase64;
+            });
+            setResultImages(imageMap);
+          }
+        } catch (imageError) {
+          console.error("Error fetching images:", imageError);
+          // Continue without images
+          setResultImages({});
+        }
+      } else {
+        setResultImages({});
+      }
     } catch (error) {
       console.error("Search Error:", error);
       alert("Search failed");
@@ -121,13 +204,17 @@ export default function AdaTesting() {
 
   // Add editable OCR text to vector store
   async function handleAddOCRToStore() {
-    if (!editableOcrText) return;
+    if (!editableOcrText || !selectedImage) return;
     
     const docIdForOCR = `ocr_${Date.now()}`;
     setBusy(true);
     
     try {
-      const response = await fetch("/api/vectors", {
+      // Convert image to base64 for storage
+      const base64Image = await fileToBase64(selectedImage);
+
+      // First, add text to vector store
+      const vectorResponse = await fetch("/api/vectors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
@@ -136,14 +223,28 @@ export default function AdaTesting() {
         }),
       });
       
-      if (response.ok) {
-        alert(`OCR text added to vector store with ID: ${docIdForOCR}`);
-      } else {
+      if (!vectorResponse.ok) {
         throw new Error("Failed to add to vector store");
       }
+
+      // Then, store the image with the Ada ID in MongoDB
+      const adaStoreResponse = await fetch("/api/ada-store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          adaId: docIdForOCR, 
+          imageBase64: base64Image 
+        }),
+      });
+      
+      if (!adaStoreResponse.ok) {
+        throw new Error("Failed to store image in database");
+      }
+
+      alert(`OCR text and image added to vector store with ID: ${docIdForOCR}`);
     } catch (error) {
       console.error("Add Error:", error);
-      alert("Failed to add OCR text to store");
+      alert(`Failed to add OCR text to store: ${error.message}`);
     } finally {
       setBusy(false);
     }
@@ -162,7 +263,7 @@ export default function AdaTesting() {
       const base64Image = await fileToBase64(manualDocImage);
 
       // First, extract text from image using OCR API
-      const ocrResponse = await fetch('/api/getQuestionContent', {
+      const ocrResponse = await fetch('/api/ocr', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -191,14 +292,28 @@ export default function AdaTesting() {
         }),
       });
       
-      if (vectorResponse.ok) {
-        setDocId("");
-        setManualDocImage(null);
-        setManualDocImagePreview("");
-        alert(`Document added to vector store with ID: ${docId}`);
-      } else {
+      if (!vectorResponse.ok) {
         throw new Error("Failed to add to vector store");
       }
+
+      // Store the image with the Ada ID in MongoDB
+      const adaStoreResponse = await fetch("/api/ada-store", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+          adaId: docId, 
+          imageBase64: base64Image 
+        }),
+      });
+      
+      if (!adaStoreResponse.ok) {
+        throw new Error("Failed to store image in database");
+      }
+
+      setDocId("");
+      setManualDocImage(null);
+      setManualDocImagePreview("");
+      alert(`Document and image added to vector store with ID: ${docId}`);
     } catch (error) {
       console.error("Add Error:", error);
       alert(`Failed to add document: ${error.message}`);
@@ -211,12 +326,44 @@ export default function AdaTesting() {
   async function handleSearch() {
     if (!query) return;
     setBusy(true);
+    setResultImages({}); // Clear previous images
     try {
       const resp = await fetch(
         `/api/vectors?q=${encodeURIComponent(query)}&k=5`
       );
       const json = await resp.json();
-      setResults(json.results || []);
+      const searchResults = json.results || [];
+      setResults(searchResults);
+      
+      // Automatically trigger image comparison if there's a top result and user has uploaded an image
+      if (json.topResult && selectedImage) {
+        setTimeout(() => {
+          handleImageComparison(json.topResult.id);
+        }, 500); // Small delay to ensure UI updates
+      }
+
+      // Fetch images for the search results
+      if (searchResults.length > 0) {
+        const adaIds = searchResults.map(r => r.id).join(',');
+        try {
+          const imageResponse = await fetch(`/api/ada-store/multiple?adaIds=${encodeURIComponent(adaIds)}`);
+          const imageJson = await imageResponse.json();
+          
+          if (imageJson.success) {
+            const imageMap = {};
+            imageJson.data.forEach(item => {
+              imageMap[item.adaId] = item.imageBase64;
+            });
+            setResultImages(imageMap);
+          }
+        } catch (imageError) {
+          console.error("Error fetching images:", imageError);
+          // Continue without images
+          setResultImages({});
+        }
+      } else {
+        setResultImages({});
+      }
     } catch (err) {
       console.error(err);
       alert("Search failed");
@@ -283,17 +430,92 @@ export default function AdaTesting() {
                 {busy ? "Searching..." : "Search Similar Text"}
               </button>
               
+              {comparisonBusy && (
+                <div style={statusIndicatorStyle}>
+                  🔍 Comparing images with AI...
+                </div>
+              )}
+              
               <button 
                 style={{...buttonStyle, backgroundColor: "#28a745"}} 
                 onClick={handleAddOCRToStore} 
-                disabled={busy || !editableOcrText.trim()}
+                disabled={busy || !editableOcrText.trim() || !selectedImage}
               >
-                  {busy ? "Adding..." : "Add to Vector Store"}
+                  {busy ? "Adding..." : "Add Text & Image to Store"}
               </button>
+              
+              {results.length > 0 && (
+                <button 
+                  style={{...buttonStyle, backgroundColor: "#6f42c1"}} 
+                  onClick={() => handleImageComparison(results[0].id)} 
+                  disabled={comparisonBusy || !selectedImage}
+                >
+                  {comparisonBusy ? "Comparing..." : "Compare with Top Result"}
+                </button>
+              )}
             </div>
           </div>
         )}
       </section>
+
+      {/* Image Comparison Results Section */}
+      {comparisonResult && (
+        <section style={sectionStyle}>
+          <h2 style={sectionTitleStyle}>🔍 Image Comparison Result</h2>
+          
+          <div style={comparisonResultStyle}>
+            {/* Match Status Card */}
+            {/* <div style={matchStatusCardStyle}>
+              <div style={matchStatusIconStyle}>
+                {comparisonResult.areSame ? "✅" : "❌"}
+              </div>
+              <div style={matchStatusTextStyle}>
+                <div style={matchTitleStyle}>
+                  {comparisonResult.areSame ? "MATCH FOUND" : "NO MATCH"}
+                </div>
+                <div style={matchSubtitleStyle}>
+                  {comparisonResult.areSame ? "Images are similar" : "Images are different"}
+                </div>
+              </div>
+            </div> */}
+
+            {/* Confidence Meter */}
+            {/* <div style={confidenceMeterContainerStyle}>
+              <div style={confidenceLabelStyle}>
+                Confidence Level
+              </div>
+              <div style={confidenceMeterStyle}>
+                <div 
+                  style={{
+                    ...confidenceBarStyle,
+                    width: `${Math.round(comparisonResult.confidence * 100)}%`,
+                    backgroundColor: getConfidenceColor(comparisonResult.confidence)
+                  }}
+                />
+              </div>
+              <div style={confidencePercentageStyle}>
+                {Math.round(comparisonResult.confidence * 100)}%
+              </div>
+            </div> */}
+            
+            <div style={explanationStyle}>
+              <strong>AI Analysis:</strong> {comparisonResult.explanation}
+            </div>
+            
+            {selectedImage && (
+              <div style={buttonGroupStyle}>
+                <button 
+                  style={buttonStyle} 
+                  onClick={() => results.length > 0 && handleImageComparison(results[0].id)} 
+                  disabled={comparisonBusy || !selectedImage || results.length === 0}
+                >
+                  {comparisonBusy ? "Comparing..." : "Compare Again"}
+                </button>
+              </div>
+            )}
+          </div>
+        </section>
+      )}
 
       {/* Manual Document Addition Section with Image Upload */}
       {/* <section style={sectionStyle}>
@@ -356,6 +578,18 @@ export default function AdaTesting() {
                   <strong style={resultIdStyle}>ID: {r.id}</strong>
                   <span style={scoreStyle}>Score: {r.score.toFixed(4)}</span>
                 </div>
+                
+                {/* Display image if available */}
+                {resultImages[r.id] && (
+                  <div style={resultImageContainerStyle}>
+                    <img 
+                      src={resultImages[r.id]} 
+                      alt={`Image for ${r.id}`}
+                      style={resultImageStyle}
+                    />
+                  </div>
+                )}
+                
                 <div style={resultTextStyle}>
                   {r.text}
                 </div>
@@ -532,4 +766,112 @@ const resultTextStyle = {
   fontSize: "0.9rem",
   lineHeight: "1.4",
   color: "#e9ecef",
+};
+
+const resultImageContainerStyle = {
+  marginBottom: "1rem",
+  textAlign: "center",
+};
+
+const resultImageStyle = {
+  maxWidth: "100%",
+  maxHeight: "200px",
+  borderRadius: "8px",
+  border: "1px solid #555",
+  objectFit: "contain",
+};
+
+const comparisonResultStyle = {
+  backgroundColor: "#2a2a2a",
+  padding: "1.5rem",
+  borderRadius: "8px",
+  border: "1px solid #444",
+};
+
+// Match Status Card Styles
+const matchStatusCardStyle = {
+  display: "flex",
+  alignItems: "center",
+  backgroundColor: "#1a1a1a",
+  padding: "1rem",
+  borderRadius: "8px",
+  marginBottom: "1.5rem",
+  border: "1px solid #555",
+};
+
+const matchStatusIconStyle = {
+  fontSize: "2rem",
+  marginRight: "1rem",
+};
+
+const matchStatusTextStyle = {
+  flex: 1,
+};
+
+const matchTitleStyle = {
+  fontSize: "1.2rem",
+  fontWeight: "bold",
+  color: "#ffffff",
+  marginBottom: "0.25rem",
+};
+
+const matchSubtitleStyle = {
+  fontSize: "0.9rem",
+  color: "#adb5bd",
+};
+
+// Confidence Meter Styles
+const confidenceMeterContainerStyle = {
+  marginBottom: "1rem",
+};
+
+const confidenceLabelStyle = {
+  fontSize: "0.9rem",
+  color: "#e9ecef",
+  marginBottom: "0.5rem",
+  fontWeight: "500",
+};
+
+const confidenceMeterStyle = {
+  width: "100%",
+  height: "8px",
+  backgroundColor: "#444",
+  borderRadius: "4px",
+  overflow: "hidden",
+  marginBottom: "0.5rem",
+};
+
+const confidenceBarStyle = {
+  height: "100%",
+  borderRadius: "4px",
+  transition: "width 0.5s ease",
+};
+
+const confidencePercentageStyle = {
+  fontSize: "1.1rem",
+  fontWeight: "bold",
+  color: "#ffffff",
+  textAlign: "center",
+};
+
+const explanationStyle = {
+  fontSize: "0.95rem",
+  lineHeight: "1.5",
+  color: "#e9ecef",
+  marginBottom: "1rem",
+  padding: "1rem",
+  backgroundColor: "#1a1a1a",
+  borderRadius: "6px",
+  border: "1px solid #555",
+};
+
+const statusIndicatorStyle = {
+  padding: "0.5rem 1rem",
+  backgroundColor: "#17a2b8",
+  color: "white",
+  borderRadius: "6px",
+  fontSize: "0.9rem",
+  fontWeight: "bold",
+  textAlign: "center",
+  marginTop: "0.5rem",
 };

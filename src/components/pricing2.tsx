@@ -110,7 +110,7 @@ const Pricing2 = ({
       const amount = planAmounts[planId];
       if (!amount) throw new Error("Invalid plan");
       // Create order
-      const response = await fetch("/api/createOrder", {
+      const response = await fetch("/api/create-order", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -136,7 +136,7 @@ const Pricing2 = ({
         order_id: data.id,
         handler: async function(response: any) {
           //verify payment
-          const verifyResponse = await fetch("/api/verifyOrder", {
+          const verifyResponse = await fetch("/api/verify-payment", {
             method: "POST",
             headers: {
               "Content-Type": "application/json",

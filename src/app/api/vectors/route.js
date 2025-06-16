@@ -78,7 +78,14 @@ export async function GET(request) {
     });
 
     sims.sort((a, b) => b.score - a.score);
-    return NextResponse.json({ results: sims.slice(0, k) });
+    
+    // Get the top result
+    const topResult = sims.length > 0 ? sims[0] : null;
+    
+    return NextResponse.json({ 
+      results: sims.slice(0, k),
+      topResult: topResult
+    });
   } catch (error) {
     console.error("GET /api/vectors error", error);
     return NextResponse.json(

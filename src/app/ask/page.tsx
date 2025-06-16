@@ -215,7 +215,7 @@ const uploadImageWithOCR = async (
   error?: string;
 }> => {
   try {
-    const response = await fetch("/api/getQuestionContent", {
+    const response = await fetch("/api/ocr", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -2631,7 +2631,7 @@ export default function AskPage() {
             // Update the OCR record with the AI response ID
             if (ocrResult.id && result.aiResponseId) {
               try {
-                await fetch('/api/linkOCRWithAI', {
+                await fetch('/api/link-ocr-ai', {
                   method: 'POST',
                   headers: {
                     'Content-Type': 'application/json',

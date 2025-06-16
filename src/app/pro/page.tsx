@@ -7,7 +7,7 @@ import Script from "next/script";
 import React from "react";
 
 const createOrder = async (amount: number) => {
-  const response = await fetch("/api/createOrder", {
+  const response = await fetch("/api/create-order", {
     method: "POST",
     body: JSON.stringify({ amount: amount * 100 }),
   })
@@ -19,7 +19,7 @@ const createOrder = async (amount: number) => {
 
     handler: async function(response: any) {
       //verify payment
-      const verifyResponse = await fetch("/api/verifyOrder", {
+      const verifyResponse = await fetch("/api/verify-payment", {
         method: "POST",
         body: JSON.stringify({ order_id: response.razorpay_order_id, payment_id: response.razorpay_payment_id, signature: response.razorpay_signature }),
       })

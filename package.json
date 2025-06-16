@@ -31,6 +31,7 @@
     "@types/katex": "^0.16.7",
     "@types/uuid": "^10.0.0",
     "ai": "^4.3.16",
+    "axios": "^1.10.0",
     "better-react-mathjax": "^2.3.0",
     "class-variance-authority": "^0.7.1",
     "cloudinary": "^2.6.1",
