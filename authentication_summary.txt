@@ -1,0 +1,57 @@
+The files `src/lib/auth.js` and `src/app/api/auth/[...nextauth]/route.js` together configure the authentication system using NextAuth.js.
+
+Here's a breakdown of how they are used:
+
+**1. `src/lib/auth.js` (`authOptions` configuration):**
+
+*   **Google OAuth Provider:** This file sets up Google as an OAuth provider using `GoogleProvider` and retrieves `clientId` and `clientSecret` from environment variables.
+*   **Custom Pages:** It defines custom pages for `signIn` (`/auth/signin`) and `error` (`/auth/error`), which are used for user redirection during the authentication flow.
+*   **`signIn` Callback:** This is a crucial part of the authentication process.
+    *   It fetches a whitelist of allowed emails from `process.env.WHITELIST_URL`.
+    *   It converts both the user's email and the whitelisted emails to lowercase for case-insensitive comparison.
+    *   If the user's email is not in the whitelist, it redirects them to the `/auth/error?error=NotAllowed` page.
+    *   If the whitelist fetch fails, it blocks the sign-in.
+*   **`jwt` Callback:** This callback is executed when a JSON Web Token (JWT) is created or updated.
+    *   It adds `userId`, `credits` (defaulting to 25 if not present), and `role` (defaulting to "user") to the `token` object. These values are initially taken from the `user` object provided by the OAuth provider.
+*   **`session` Callback:** This callback is called whenever a session is checked.
+    *   It takes data from the `token` (specifically `userId`, `credits`, and `role`) and adds it to the `session.user` object, making this information available on the client-side.
+*   **Secret:** It defines the `NEXTAUTH_SECRET` for signing the JWT, falling back to a "dev-secret" if not provided in the environment.
+
+**2. `src/app/api/auth/[...nextauth]/route.js` (NextAuth API Route):**
+
+*   This file acts as the Next.js API route for NextAuth, handling all authentication-related requests to `/api/auth/*`.
+*   It imports `NextAuth`, `dbConnect` (for database connection), `User` (Mongoose model for users), and `authOptions` from `src/lib/auth.js`.
+*   It initializes `NextAuth` by spreading the `authOptions` object.
+*   **Overriding Callbacks (for database integration):** This file extends the `jwt` and `session` callbacks defined in `authOptions` to integrate with the MongoDB database.
+    *   **`jwt` Callback (extended):**
+        *   When a user signs in, it connects to the database using `dbConnect()`.
+        *   It then checks if an `existingUser` with the provided `user.email` exists in the database.
+        *   If the user exists, it updates the `token` with the `_id`, `credits`, and `role` from the `existingUser` document.
+        *   If the user is new, a new user record is created in the database with initial credits and a default role. The new user's data is then used to populate the JWT.
+        *   The JWT now contains `userId`, `credits`, and `role`.
+    *   **`session` Callback (extended):** This callback remains largely similar to the one in `auth.js`, ensuring that the `userId`, `credits`, and `role` from the token are added to the session object.
+*   **Exporting Handlers:** It exports the `handler` as both `GET` and `POST`, allowing NextAuth to handle both types of requests for the authentication flow.
+
+**Authentication Flow Summary:**
+
+1.  **User Initiates Sign-in:** The user clicks a "Sign In with Google" button, which directs them to `/api/auth/signin/google`.
+2.  **Google OAuth Handshake:** NextAuth handles the redirection to Google's authentication page, and upon successful authentication with Google, Google redirects back to your application with user information.
+3.  **`signIn` Callback (in `src/lib/auth.js`):**
+    *   The `signIn` callback is triggered.
+    *   It fetches the email whitelist and checks if the user's email is allowed. If not, the user is redirected to an error page.
+4.  **`jwt` Callback (extended in `src/app/api/auth/[...nextauth]/route.js`):**
+    *   If the user is allowed, the `jwt` callback is executed.
+    *   The application connects to the database.
+    *   It checks if the user already exists in your MongoDB `User` collection.
+    *   If the user exists, their database-stored `_id`, `credits`, and `role` are used to populate the JWT.
+    *   If the user is new, a new user record is created in the database with initial credits and a default role. The new user's data is then used to populate the JWT.
+    *   The JWT now contains `userId`, `credits`, and `role`.
+5.  **`session` Callback (extended in `src/app/api/auth/[...nextauth]/route.js`):**
+    *   The `session` callback is called, which takes the information from the JWT (specifically `userId`, `credits`, and `role`) and attaches it to the `session.user` object. This makes this data accessible on the client-side via `useSession()` or `getSession()`.
+6.  **Session Creation:** A secure session is established for the user.
+
+**JWT and Token Expiry:**
+
+*   NextAuth uses JWTs for session management. By default, NextAuth handles the expiry of these tokens.
+*   The `jwt` callback in these files *adds* custom data (`userId`, `credits`, `role`) to the JWT. It doesn't explicitly set an expiry time within the provided code snippets.
+*   NextAuth's default JWT expiry is typically 30 days for sessions (stored in a cookie), and the JWT itself is refreshed periodically by the NextAuth library. The actual expiry logic is handled internally by NextAuth. If you wanted to customize JWT expiry directly, you would typically configure it within the `NextAuth` options, not directly within the `jwt` callback when enriching the token. 
