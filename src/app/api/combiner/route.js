@@ -94,18 +94,24 @@ export async function POST(req) {
 
     const userId = user._id.toString()
     
-    // STEP 1: Send image to OCR
+    // Convert uploaded image to base64 for internal API calls and storage
+    const imageBuffer = await image.arrayBuffer()
+    const userImageBase64 = `data:${image.type};base64,${Buffer.from(imageBuffer).toString('base64')}`
+    
+    // STEP 1: Send image to OCR (using base64 instead of FormData)
     console.log('Step 1: Performing OCR...')
-    const ocrFormData = new FormData()
-    ocrFormData.append('image', image)
-    ocrFormData.append('userId', userId)
-    ocrFormData.append('userEmail', userEmail)
-    ocrFormData.append('pageName', pageName)
-
     const baseUrl = process.env.NEXTAUTH_URL || `http://localhost:3000`
     const ocrResponse = await fetch(`${baseUrl}/api/ocr`, {
       method: 'POST',
-      body: ocrFormData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64Image: userImageBase64,
+        userId: userId,
+        userEmail: userEmail,
+        pageName: pageName,
+      }),
     })
 
     if (!ocrResponse.ok) {
@@ -117,10 +123,6 @@ export async function POST(req) {
     const ocrResult = await ocrResponse.json()
     const extractedText = ocrResult.data.text
     console.log('OCR completed. Extracted text length:', extractedText?.length || 0)
-
-    // Convert uploaded image to base64 for storage and comparison
-    const imageBuffer = await image.arrayBuffer()
-    const userImageBase64 = `data:${image.type};base64,${Buffer.from(imageBuffer).toString('base64')}`
 
     if (!extractedText || extractedText.trim().length === 0) {
       // Even with no text, we should store the image for potential future use
@@ -208,12 +210,14 @@ export async function POST(req) {
 
     // STEP 4: Check if image contains diagram
     console.log('Step 4: Checking for diagrams...')
-    const diagramFormData = new FormData()
-    diagramFormData.append('file', image)
-
     const diagramResponse = await fetch(`${baseUrl}/api/diagram-check`, {
       method: 'POST',
-      body: diagramFormData,
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        base64Image: userImageBase64,
+      }),
     })
 
     if (!diagramResponse.ok) {

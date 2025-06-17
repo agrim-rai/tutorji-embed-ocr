@@ -7,23 +7,41 @@ const openai = new OpenAI({
 
 export async function POST(request: NextRequest) {
   try {
-    // parse multipart/form-data
-    const formData = await request.formData()
-    const file = formData.get('file')
+    const contentType = request.headers.get('content-type') || ''
+    let dataUri = ''
 
-    if (!file || !(file instanceof File)) {
-      return NextResponse.json(
-        { error: 'No file provided under key "file"' },
-        { status: 400 }
-      )
+    if (contentType.includes('multipart/form-data')) {
+      // Handle FormData (file upload)
+      const formData = await request.formData()
+      const file = formData.get('file')
+
+      if (!file || !(file instanceof File)) {
+        return NextResponse.json(
+          { error: 'No file provided under key "file"' },
+          { status: 400 }
+        )
+      }
+
+      // read the file into a Base64 data URI
+      const arrayBuffer = await file.arrayBuffer()
+      const buffer = Buffer.from(arrayBuffer)
+      const mime = file.type || 'application/octet-stream'
+      const base64 = buffer.toString('base64')
+      dataUri = `data:${mime};base64,${base64}`
+    } else {
+      // Handle JSON (base64 image)
+      const body = await request.json()
+      const { base64Image } = body
+
+      if (!base64Image) {
+        return NextResponse.json(
+          { error: 'base64Image is required' },
+          { status: 400 }
+        )
+      }
+
+      dataUri = base64Image
     }
-
-    // read the file into a Base64 data URI
-    const arrayBuffer = await file.arrayBuffer()
-    const buffer = Buffer.from(arrayBuffer)
-    const mime = file.type || 'application/octet-stream'
-    const base64 = buffer.toString('base64')
-    const dataUri = `data:${mime};base64,${base64}`
 
     // send to OpenAI
     const chat = await openai.chat.completions.create({
