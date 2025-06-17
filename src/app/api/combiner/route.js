@@ -3,6 +3,10 @@ import mongoose from 'mongoose'
 import dbConnect from '@/lib/mongoose'
 import User from '@/models/User'
 
+export const config = {
+    runtime: 'nodejs' 
+  };
+
 // Helper function to store new question in vector database and ada-store
 async function storeNewQuestion(text, imageBase64) {
   const baseUrl = process.env.NEXTAUTH_URL || `http://localhost:3000`
