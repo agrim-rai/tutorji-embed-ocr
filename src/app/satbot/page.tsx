@@ -251,6 +251,16 @@ function SatBotInner() {
               minRows={1}
               maxRows={4}
               placeholder="Ask a follow-up question or request clarification..."
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault();
+                  const form = e.currentTarget.form;
+                  if (form) {
+                    const submitEvent = new Event('submit', { bubbles: true, cancelable: true });
+                    form.dispatchEvent(submitEvent);
+                  }
+                }
+              }}
             />
             <button type="submit" disabled={!input.trim() || isLoading} className={`p-3 rounded-lg ${darkMode ? "bg-indigo-600" : "bg-indigo-500"} text-white disabled:opacity-50 flex items-center justify-center w-12 h-12`}>
               {isLoading ? <FaSpinner className="animate-spin" /> : <FaPaperPlane />}
