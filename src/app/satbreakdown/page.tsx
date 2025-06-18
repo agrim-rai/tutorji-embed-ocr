@@ -1,13 +1,13 @@
 "use client";
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Link from 'next/link';
 import Image from 'next/image';
 import { FaArrowLeft, FaSpinner, FaTimes, FaChevronDown, FaChevronUp, FaExternalLinkAlt } from 'react-icons/fa';
 import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
 
-export default function SatBreakdownPage() {
+function SatBreakdown() {
   const searchParams = useSearchParams();
   const questionId = searchParams.get('id') || '';
   
@@ -373,5 +373,13 @@ export default function SatBreakdownPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SatBreakdownPage() {
+  return (
+    <Suspense>
+      <SatBreakdown />
+    </Suspense>
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import { useChat } from "ai/react";
 import { useSession } from "next-auth/react";
@@ -341,7 +341,7 @@ const InitialQuestionDisplay: React.FC<{
   );
 };
 
-export default function SatAskPage() {
+function SatAsk() {
   const { data: session } = useSession();
   const searchParams = useSearchParams();
   const initialId = searchParams.get('id') || '';
@@ -970,5 +970,13 @@ export default function SatAskPage() {
         )}
       </div>
     </div>
+  );
+}
+
+export default function SatAskPage() {
+  return (
+    <Suspense>
+      <SatAsk />
+    </Suspense>
   );
 }
