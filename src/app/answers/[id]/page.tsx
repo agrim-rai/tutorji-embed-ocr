@@ -342,7 +342,7 @@ export default function AnswerPage() {
         </div>
 
         {/* Footer */}
-        <div className="mt-12 text-center">
+        {/* <div className="mt-12 text-center">
           <Link 
             href="/" 
             className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-lg font-medium transition-colors inline-flex items-center"
@@ -350,7 +350,7 @@ export default function AnswerPage() {
             Upload Another Question
             <span className="ml-2">→</span>
           </Link>
-        </div>
+        </div> */}
       </div>
     </div>
   );
