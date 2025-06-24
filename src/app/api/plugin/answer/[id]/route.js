@@ -16,45 +16,50 @@ export async function GET(request, { params }) {
     // Await params to fix Next.js 15+ requirement
     const { id } = await params;
     
-    console.log('Plugin Answer API: Fetching answer for ID:', id);
-    
     // Connect to database
     await dbConnect();
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
+      console.log(`[PLUGIN-API] Invalid ID format: ${id}`);
       return NextResponse.json(
         { error: 'Invalid answer ID format' },
-        { status: 400, headers: corsHeaders }
+        { status: 400, headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
       );
     }
     
-    // Find the plugin answer
-    const pluginAnswer = await PluginAnswer.findById(id);
+    // Find the plugin answer with fresh data
+    const pluginAnswer = await PluginAnswer.findById(id).lean();
     
     if (!pluginAnswer) {
+      console.log(`[PLUGIN-API] Answer not found for ID: ${id}`);
       return NextResponse.json(
         { error: 'Answer not found' },
-        { status: 404, headers: corsHeaders }
+        { status: 404, headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
       );
     }
     
-    console.log('Plugin Answer API: Found answer:', pluginAnswer._id);
+    console.log(`[PLUGIN-API] ${id.slice(-8)}: ${pluginAnswer.status} ${pluginAnswer.answer ? '✓' : '⧗'}`);
     
     return NextResponse.json({
       success: true,
       answer: pluginAnswer
     }, {
       status: 200,
-      headers: corsHeaders
+      headers: { 
+        ...corsHeaders, 
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+        'Pragma': 'no-cache',
+        'Expires': '0'
+      }
     });
     
   } catch (error) {
-    console.error('Plugin Answer API: Error fetching answer:', error);
+    console.error(`[PLUGIN-API] Error: ${error.message}`);
     
     return NextResponse.json(
       { error: 'Failed to fetch answer: ' + error.message },
-      { status: 500, headers: corsHeaders }
+      { status: 500, headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
     );
   }
 }

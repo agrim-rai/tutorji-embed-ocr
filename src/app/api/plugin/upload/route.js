@@ -33,7 +33,8 @@ export async function POST(request) {
   const startTime = Date.now();
 
   try {
-    console.log('Plugin Upload API: Starting process');
+    const uploadId = Math.random().toString(36).substr(2, 6);
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: Starting upload`);
     
     // Connect to database
     await dbConnect();
@@ -52,7 +53,7 @@ export async function POST(request) {
       );
     }
 
-    console.log('Plugin Upload API: Processing file:', file.name, 'Size:', file.size, 'Type:', file.type);
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: ${file.name} (${(file.size/1024/1024).toFixed(2)}MB)`);
 
     // Convert file to buffer
     const bytes = await file.arrayBuffer();
@@ -76,17 +77,16 @@ export async function POST(request) {
       fileExtension = mimeTypeMap[file.type] || 'jpg';
     }
 
-    console.log('Plugin Upload API: Determined file extension:', fileExtension);
+    // Removed verbose logging
 
     // Optimize image using Sharp if it's too large
     let metadata = null;
     try {
       metadata = await sharp(buffer).metadata();
-      console.log('Plugin Upload API: Original image metadata:', metadata);
 
       // Resize if image is too large (max 2048px on longest side)
       if (metadata.width > 2048 || metadata.height > 2048) {
-        console.log('Plugin Upload API: Resizing large image');
+        console.log(`[PLUGIN-UPLOAD] ${uploadId}: Resizing ${metadata.width}x${metadata.height}`);
         buffer = await sharp(buffer)
           .resize(2048, 2048, { 
             fit: 'inside', 
@@ -96,15 +96,14 @@ export async function POST(request) {
           .toBuffer();
         fileExtension = 'jpg'; // Convert to JPG after processing
       } else if (buffer.length > 5 * 1024 * 1024) { // If larger than 5MB
-        console.log('Plugin Upload API: Compressing large file');
+        console.log(`[PLUGIN-UPLOAD] ${uploadId}: Compressing ${(buffer.length/1024/1024).toFixed(2)}MB file`);
         buffer = await sharp(buffer)
           .jpeg({ quality: 80 })
           .toBuffer();
         fileExtension = 'jpg'; // Convert to JPG after processing
       }
     } catch (sharpError) {
-      console.warn('Plugin Upload API: Sharp processing failed, using original:', sharpError.message);
-      // Continue with original buffer if Sharp fails
+      console.warn(`[PLUGIN-UPLOAD] ${uploadId}: Sharp failed, using original`);
       metadata = null;
     }
 
@@ -113,7 +112,7 @@ export async function POST(request) {
     const randomString = Math.random().toString(36).substring(2, 15);
     const fileName = `plugin-${timestamp}-${randomString}.${fileExtension}`;
 
-    console.log('Plugin Upload API: Generated filename:', fileName);
+    // Generated filename
 
     // Determine content type
     const getContentType = (ext) => {
@@ -144,15 +143,13 @@ export async function POST(request) {
       }
     };
 
-    console.log('Plugin Upload API: Uploading to S3');
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: Uploading to S3`);
 
     const command = new PutObjectCommand(uploadParams);
     await s3Client.send(command);
 
     // Construct the public S3 URL
     const imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
-    
-    console.log('Plugin Upload API: Upload successful, URL:', imageUrl);
 
     // Create initial plugin answer record
     let userId = null;
@@ -169,19 +166,18 @@ export async function POST(request) {
     });
 
     await pluginAnswer.save();
-    console.log('Plugin Upload API: Created plugin answer record:', pluginAnswer._id);
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: Created record ${pluginAnswer._id.toString().slice(-8)}`);
 
     // Return the answer link immediately
     const answerId = pluginAnswer._id.toString();
     const answerUrl = `/answers/${answerId}`;
     
-    console.log('Plugin Upload API: Returning immediate response, processing in background');
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: Returning immediate response, AI processing started`);
 
     // Start OpenAI processing in the background (don't await)
-    processImageWithOpenAI(pluginAnswer._id, buffer, getContentType(fileExtension), metadata, fileExtension, startTime)
+    processImageWithOpenAI(uploadId, pluginAnswer._id, buffer, getContentType(fileExtension), metadata, fileExtension, startTime)
       .catch(error => {
-        console.error('Background OpenAI processing failed:', error);
-        // Update the record with error status
+        console.error(`[PLUGIN-UPLOAD] ${uploadId}: AI processing failed - ${error.message}`);
         updatePluginAnswerWithError(pluginAnswer._id, error.message);
       });
 
@@ -198,7 +194,7 @@ export async function POST(request) {
     });
 
   } catch (error) {
-    console.error('Plugin Upload API: Error during process:', error);
+    console.error(`[PLUGIN-UPLOAD] Error: ${error.message}`);
     
     // Update plugin answer with error if it exists (only for upload/creation errors)
     if (pluginAnswer) {
@@ -235,14 +231,14 @@ export async function POST(request) {
 }
 
 // Background processing function for OpenAI
-async function processImageWithOpenAI(pluginAnswerId, buffer, mimeType, metadata, fileExtension, startTime) {
+async function processImageWithOpenAI(uploadId, pluginAnswerId, buffer, mimeType, metadata, fileExtension, startTime) {
   try {
-    console.log('Background OpenAI processing started for:', pluginAnswerId);
+    console.log(`[PLUGIN-AI] ${uploadId}: Starting AI analysis`);
     
     // Convert image to base64 for OpenAI
     const base64Image = buffer.toString('base64');
 
-    console.log('Sending to OpenAI for analysis');
+    // Sending to OpenAI
 
     // Send to OpenAI for question solving
     const response = await openai.chat.completions.create({
@@ -324,11 +320,11 @@ If there are multiple questions, repeat this format for each question.`
       { new: true }
     );
 
-    console.log('Background OpenAI processing completed for:', pluginAnswerId);
+    console.log(`[PLUGIN-AI] ${uploadId}: Completed in ${(processingTime/1000).toFixed(1)}s`);
     return updatedAnswer;
 
   } catch (error) {
-    console.error('OpenAI processing error:', error);
+    console.error(`[PLUGIN-AI] ${uploadId}: Error - ${error.message}`);
     throw error;
   }
 }
@@ -345,7 +341,7 @@ async function updatePluginAnswerWithError(pluginAnswerId, errorMessage) {
         updatedAt: new Date()
       }
     );
-    console.log('Updated plugin answer with error status:', pluginAnswerId);
+    console.log(`[PLUGIN-ERROR] Updated record ${pluginAnswerId.toString().slice(-8)} with error`);
   } catch (updateError) {
     console.error('Failed to update plugin answer with error:', updateError);
   }

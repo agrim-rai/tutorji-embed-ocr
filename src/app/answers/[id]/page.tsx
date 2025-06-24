@@ -62,28 +62,49 @@ export default function AnswerPage() {
     }
   }, [answerId]);
 
-  // Auto-refresh when status is processing
+  // Smart polling when status is processing
   useEffect(() => {
+    let interval: NodeJS.Timeout;
+    let pollCount = 0;
+    const maxPolls = 20; // Stop after 60 seconds (20 * 3s)
+
     if (pluginAnswer?.status === 'processing') {
-      const interval = setInterval(async () => {
+      console.log(`[ANSWER-PAGE] Starting polling for ${answerId.slice(-8)}`);
+      
+      interval = setInterval(async () => {
+        pollCount++;
+        
         try {
-          const response = await fetch(`/api/plugin/answer/${answerId}`);
+          const response = await fetch(`/api/plugin/answer/${answerId}`, {
+            method: 'GET',
+            headers: {
+              'Cache-Control': 'no-cache',
+              'Pragma': 'no-cache'
+            }
+          });
+          
           if (response.ok) {
             const data = await response.json();
             setPluginAnswer(data.answer);
             
-            // Stop polling if status is no longer processing
-            if (data.answer?.status !== 'processing') {
+            // Stop polling if completed, failed, or max attempts reached
+            if (data.answer?.status !== 'processing' || pollCount >= maxPolls) {
+              console.log(`[ANSWER-PAGE] Polling stopped: ${data.answer?.status || 'timeout'}`);
               clearInterval(interval);
             }
           }
         } catch (err) {
-          console.error('Error refreshing answer:', err);
+          console.error(`[ANSWER-PAGE] Poll failed:`, err);
+          pollCount >= 3 && clearInterval(interval); // Stop after 3 errors
         }
-      }, 3000); // Check every 3 seconds
-
-      return () => clearInterval(interval);
+      }, 3000);
     }
+
+    return () => {
+      if (interval) {
+        clearInterval(interval);
+      }
+    };
   }, [pluginAnswer?.status, answerId]);
 
   const handleImageLoad = () => {
