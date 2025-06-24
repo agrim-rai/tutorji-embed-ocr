@@ -240,12 +240,21 @@ export default function SatAdminPage() {
                   Upload Another Question
                 </button>
                 
-                <Link 
-                  href={`/satask?id=${encodeURIComponent(questionId)}`}
-                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
-                >
-                  <span>View Question</span>
-                </Link>
+                <div className="flex gap-2">
+                  <Link 
+                    href={`/satbreakdown?id=${encodeURIComponent(questionId)}`}
+                    className="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 transition-colors flex items-center"
+                  >
+                    <span>View Detailed Breakdown</span>
+                  </Link>
+                  
+                  <Link 
+                    href={`/satask?id=${encodeURIComponent(questionId)}`}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors flex items-center"
+                  >
+                    <span>View Question</span>
+                  </Link>
+                </div>
               </div>
             </div>
           ) : (

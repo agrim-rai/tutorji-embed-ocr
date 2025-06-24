@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useEffect, useRef, useMemo, useCallback, Suspense } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { useChat } from "ai/react";
-import { useSession } from "next-auth/react";
+import { useSession, signIn } from "next-auth/react";
 import Image from 'next/image';
 import Link from 'next/link';
 import TextareaAutosize from "react-textarea-autosize";
@@ -18,9 +18,27 @@ import {
   FaPaperPlane,
   FaCopy,
   FaCheck,
-  FaTrash
+  FaTrash,
+  FaBullseye
 } from 'react-icons/fa';
 import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
+import { Navbar } from '@/components/ui/navbar';
+import { Footer } from '@/components/ui/footer';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  Bot, 
+  Target, 
+  Sun, 
+  Moon, 
+  Sparkles,
+  BookOpen,
+  ChevronRight,
+  Home,
+  FileText,
+  Brain,
+  MessageCircle,
+  Loader2
+} from 'lucide-react';
 
 /**
  * Optimized TypeWriter component for streaming with batched updates
@@ -229,120 +247,54 @@ const InitialQuestionDisplay: React.FC<{
     >
       <div
         className={`p-3 rounded-lg ${
-          darkMode ? "bg-gray-750" : "bg-indigo-50/80"
-        } mb-3`}
+          darkMode
+            ? "bg-gray-800 border-gray-700"
+            : "bg-gray-50 border-gray-200"
+        } border`}
       >
-        <h3
-          className={`text-lg font-semibold mb-3 ${
-            darkMode ? "text-indigo-400" : "text-indigo-700"
+        <h4
+          className={`text-sm font-medium mb-2 ${
+            darkMode ? "text-gray-200" : "text-gray-700"
           }`}
         >
-          SAT Question: {question.questionId}
-        </h3>
-
+          Original SAT Question ({question.questionId})
+        </h4>
+        
         {question.imageUrl && (
-          <div className="mb-4 flex justify-center">
-            <div className="relative group w-full max-w-md">
-              {/* Mobile: Fixed height container */}
-              <div className="md:hidden relative h-48 w-full bg-gray-100 rounded-lg overflow-hidden">
-                <img
-                  src={question.imageUrl}
-                  alt="SAT Question"
-                  className="w-full h-full object-contain rounded-lg"
-                  onError={(e) => {
-                    console.error("Image failed to load:", question.imageUrl);
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-              
-              {/* Desktop: Auto height with max height */}
-              <div className="hidden md:block relative w-full max-h-64">
-                <img
-                  src={question.imageUrl}
-                  alt="SAT Question"
-                  className="w-full h-auto max-h-64 object-contain bg-gray-100 rounded-lg"
-                  onError={(e) => {
-                    console.error("Image failed to load:", question.imageUrl);
-                    e.currentTarget.style.display = 'none';
-                  }}
-                />
-              </div>
-              
-              <button
-                onClick={onImageClick}
-                className={`absolute bottom-2 right-2 px-3 py-2 rounded-lg text-sm font-medium flex items-center gap-2 ${
-                  darkMode
-                    ? "bg-gray-900 bg-opacity-80 text-white hover:bg-opacity-90"
-                    : "bg-white bg-opacity-90 text-gray-800 hover:bg-opacity-100"
-                } shadow-lg transition-all backdrop-blur-sm`}
-                title="View full screen"
-              >
-                <FaExternalLinkAlt size={12} />
-                <span className="hidden sm:inline">Full Screen</span>
-              </button>
-            </div>
-          </div>
-        )}
-
-        {/* Display question text if available */}
-        {question.questionText && question.questionText.trim() && (
-          <div className="mb-4">
-            <h4
-              className={`text-sm font-medium mb-2 ${
-                darkMode ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Question Text:
-            </h4>
-            <p
-              className={`text-sm ${
-                darkMode ? "text-gray-200" : "text-gray-800"
-              }`}
-            >
-              {question.questionText}
-            </p>
-          </div>
-        )}
-
-        {/* Display initial answer */}
-        {question.aiResponse && question.aiResponse.trim() && (
-          <div>
-            <h3
-              className={`text-sm font-medium mb-2 ${
-                darkMode ? "text-gray-300" : "text-gray-700"
-              }`}
-            >
-              Solution:
-            </h3>
+          <div className="mb-3">
             <div
-              className={`text-sm ${
-                darkMode ? "text-gray-200" : "text-gray-800"
-              }`}
+              className="relative cursor-pointer rounded-lg overflow-hidden"
+              onClick={onImageClick}
             >
-              <SimpleMathRenderer
-                content={question.aiResponse}
-                className={darkMode ? "text-gray-200" : "text-gray-800"}
+              <Image
+                src={question.imageUrl}
+                alt="SAT Question"
+                width={300}
+                height={200}
+                className="rounded-lg object-contain bg-white"
               />
+              <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-10 transition-opacity flex items-center justify-center">
+                <FaExternalLinkAlt className="text-white opacity-0 hover:opacity-100 transition-opacity" />
+              </div>
             </div>
           </div>
         )}
+        
+        <div
+          className={`text-sm ${
+            darkMode ? "text-gray-300" : "text-gray-600"
+          }`}
+        >
+          <SimpleMathRenderer content={question.aiResponse} />
+        </div>
       </div>
-
-      <p
-        className={`text-sm ${
-          darkMode ? "text-gray-400" : "text-gray-600"
-        } text-center`}
-      >
-        💬 Continue the conversation below - ask follow-up questions, request
-        clarifications, or explore related SAT topics!
-      </p>
     </div>
   );
 };
 
 function SatAsk() {
   const { data: session } = useSession();
+  const router = useRouter();
   const searchParams = useSearchParams();
   const initialId = searchParams.get('id') || '';
   
@@ -360,6 +312,8 @@ function SatAsk() {
   const [darkMode, setDarkMode] = useState(true);
   const [showChat, setShowChat] = useState(false);
   const [chatId, setChatId] = useState<string | null>(null);
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [processedData, setProcessedData] = useState<any>(null);
 
   // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -417,7 +371,7 @@ function SatAsk() {
     if (initialId) {
       fetchQuestion(initialId);
     }
-  }, [initialId]); // fetchQuestion is stable since it doesn't depend on state
+  }, [initialId]);
 
   // Focus on input when chat opens
   useEffect(() => {
@@ -469,6 +423,67 @@ function SatAsk() {
       setQuestion(null);
     } finally {
       setLoading(false);
+    }
+  };
+
+  // Start Interactive Learning function
+  const startInteractiveLearning = async () => {
+    if (!question) {
+      setError("No question available for interactive learning");
+      return;
+    }
+
+    setIsProcessing(true);
+    setError("");
+
+    try {
+      // Step 1: Process the existing question image for SAT interactive learning
+      const response = await fetch("/api/sat/process-image", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          imageUrl: question.imageUrl,
+          questionId: question.questionId
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || "Failed to process question for interactive learning");
+      }
+
+      setProcessedData(result.data);
+
+      // Step 2: Create SAT chatbot session
+      const chatbotResponse = await fetch("/api/sat/upload-json", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(result.data),
+      });
+
+      const chatbotResult = await chatbotResponse.json();
+
+      if (!chatbotResponse.ok) {
+        throw new Error(chatbotResult.error || "Failed to create SAT learning session");
+      }
+
+      // Navigate to SAT learnbot for MCQ-style interactive learning
+      const sessionId = chatbotResult.chatbotLink.split('id=')[1];
+      router.push(`/satlearnbot?id=${sessionId}`);
+
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Failed to start interactive learning"
+      );
+    } finally {
+      setIsProcessing(false);
     }
   };
 
@@ -541,67 +556,72 @@ function SatAsk() {
             >
               {darkMode ? "☀️" : "🌙"}
             </button>
-          <Link 
-            href="/sat"
-              className={`px-4 py-2 ${darkMode ? 'bg-gray-700 text-gray-200 hover:bg-gray-600' : 'bg-gray-200 text-gray-700 hover:bg-gray-300'} rounded-lg transition-colors flex items-center space-x-2`}
-          >
-            <FaArrowLeft size={14} />
-            <span>Back to SAT Portal</span>
-          </Link>
-        </div>
-        </div>
 
-        {/* Chat with Bot Link */}
-        {canUseChat && question && (
-          <div className="mb-8 flex justify-center">
             <Link
-              href={`/satbot?id=${encodeURIComponent(question.questionId)}`}
-              className={`px-8 py-4 rounded-lg font-medium text-lg flex items-center space-x-3 transition-colors shadow-lg ${
+              href="/sat"
+              className={`flex items-center space-x-2 px-3 py-2 rounded-lg transition-colors ${
                 darkMode
-                  ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                  : "bg-indigo-500 hover:bg-indigo-600 text-white"
+                  ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
+                  : "bg-gray-200 hover:bg-gray-300 text-gray-700"
               }`}
             >
-              <FaRobot size={20} />
-              <span>Chat with TutorJi Bot</span>
+              <FaArrowLeft size={14} />
+              <span>Back to SAT Portal</span>
             </Link>
           </div>
-        )}
+        </div>
 
-        {/* Chat Interface */}
-        {showChat && canUseChat && (
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg overflow-hidden mb-8 flex flex-col`} style={{ height: '70vh', maxHeight: '70vh' }}>
+        {/* Chat Interface - show when enabled */}
+        {showChat && question && (
+          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg overflow-hidden mb-8`}>
             {/* Chat Header */}
-            <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-900' : 'border-gray-200 bg-indigo-50'} flex justify-between items-center flex-shrink-0`}>
-              <div className="flex items-center space-x-2">
-                <FaRobot className={`${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
-                <h3 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
-                  TutorJi SAT Assistant
-                </h3>
+            <div className={`p-4 border-b ${darkMode ? 'border-gray-700 bg-gray-750' : 'border-gray-200 bg-gray-50'} flex justify-between items-center`}>
+              <div className="flex items-center space-x-3">
+                <FaRobot className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                <h2 className={`text-lg font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                  Chat about Question: {question.questionId}
+                </h2>
               </div>
-              <button
-                onClick={clearChat}
-                className={`p-2 rounded-lg ${
-                  darkMode
-                    ? "bg-gray-700 hover:bg-gray-600 text-gray-300"
-                    : "bg-gray-200 hover:bg-gray-300 text-gray-600"
-                } transition-colors`}
-                title="Clear chat"
-              >
-                <FaTrash size={14} />
-              </button>
+              <div className="flex items-center space-x-2">
+                <button
+                  onClick={clearChat}
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-200"
+                  }`}
+                  title="Clear chat"
+                >
+                  <FaTrash size={14} />
+                </button>
+                <button
+                  onClick={toggleChat}
+                  className={`p-2 rounded-lg transition-colors ${
+                    darkMode
+                      ? "text-gray-400 hover:text-white hover:bg-gray-700"
+                      : "text-gray-500 hover:text-gray-800 hover:bg-gray-200"
+                  }`}
+                  title="Close chat"
+                >
+                  <FaTimes size={16} />
+                </button>
+              </div>
             </div>
 
-            {/* Chat Messages Container */}
-            <div className="flex-grow overflow-y-auto min-h-0">
+            {/* Messages Area */}
+            <div
+              className={`h-96 overflow-y-auto ${
+                darkMode ? "bg-gray-800" : "bg-white"
+              }`}
+            >
               {/* Initial Question Display */}
-              {question && (
+              <div className="p-4">
                 <InitialQuestionDisplay
                   question={question}
                   darkMode={darkMode}
-                  onImageClick={() => setShowFullImage(true)}
+                  onImageClick={toggleFullImage}
                 />
-              )}
+              </div>
 
               {/* Chat Messages */}
               {messages.map((message, index) => (
@@ -609,74 +629,22 @@ function SatAsk() {
                   key={message.id || index}
                   message={message}
                   darkMode={darkMode}
-                  isStreaming={
-                    isChatLoading &&
-                    index === messages.length - 1 &&
-                    message.role === "assistant"
-                  }
+                  isStreaming={isChatLoading && index === messages.length - 1}
                 />
               ))}
 
-              {/* Loading indicator for new messages */}
-              {isChatLoading && messages[messages.length - 1]?.role === "user" && (
-                <div
-                  className={`flex gap-4 p-4 ${
-                    darkMode ? "bg-gray-750" : "bg-gray-50"
-                  }`}
-                >
-                  <div
-                    className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
-                      darkMode ? "bg-indigo-600" : "bg-indigo-500"
-                    } text-white`}
-                  >
-                    <FaRobot size={14} />
-                  </div>
-                  <div className="flex-grow">
-                    <div className="flex items-center space-x-2 mb-2">
-                      <span
-                        className={`text-sm font-medium ${
-                          darkMode ? "text-gray-200" : "text-gray-700"
-                        }`}
-                      >
-                        TutorJi SAT Assistant
-                      </span>
-                    </div>
-                    <div className="flex items-center space-x-2">
-                      <FaSpinner className="animate-spin" size={16} />
-                      <span
-                        className={`text-sm ${
-                          darkMode ? "text-gray-400" : "text-gray-600"
-                        }`}
-                      >
-                        Thinking...
-                      </span>
-                    </div>
+              {isChatLoading && messages.length > 0 && (
+                <div className={`flex justify-center p-4 ${darkMode ? 'text-gray-400' : 'text-gray-500'}`}>
+                  <div className="flex items-center space-x-2">
+                    <FaSpinner className="animate-spin w-4 h-4" />
+                    <span className="text-sm">TutorJi is thinking...</span>
                   </div>
                 </div>
               )}
 
-              {/* Error display */}
               {chatError && (
-                <div
-                  className={`p-4 rounded-lg ${
-                    darkMode
-                      ? "bg-red-900 bg-opacity-30 text-red-200"
-                      : "bg-red-50 text-red-800"
-                  } mx-4 mb-4`}
-                >
-                  <p className="text-sm">
-                    <strong>Error:</strong> {chatError.message}
-                  </p>
-                  <button
-                    onClick={() => reload()}
-                    className={`mt-2 px-3 py-1 rounded text-sm ${
-                      darkMode
-                        ? "bg-red-800 hover:bg-red-700"
-                        : "bg-red-200 hover:bg-red-300"
-                    } transition-colors`}
-                  >
-                    Retry
-                  </button>
+                <div className={`p-4 ${darkMode ? 'bg-red-900/30 text-red-300' : 'bg-red-50 text-red-600'} border-l-4 border-red-500`}>
+                  <p className="text-sm">Error: {chatError.message}</p>
                 </div>
               )}
 
@@ -769,44 +737,112 @@ function SatAsk() {
           </div>
         )}
 
-        {/* Search form - only show when chat is hidden */}
+        {/* Enhanced Search form - only show when chat is hidden */}
         {!showChat && (
-          <div className={`${darkMode ? 'bg-gray-800' : 'bg-white'} rounded-xl shadow-lg overflow-hidden mb-8`}>
+          <motion.div 
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6 }}
+            className={`rounded-2xl shadow-2xl overflow-hidden mb-8 backdrop-blur-sm border ${
+              darkMode 
+                ? 'bg-gradient-to-br from-slate-800/80 to-gray-800/80 border-white/10' 
+                : 'bg-gradient-to-br from-white/80 to-gray-50/80 border-gray-200'
+            }`}
+          >
+            <div className={`p-6 border-b ${
+              darkMode 
+                ? 'border-gray-700/50 bg-gradient-to-r from-indigo-500/10 to-purple-500/10' 
+                : 'border-gray-200 bg-gradient-to-r from-indigo-500/5 to-purple-500/5'
+            }`}>
+              <div className="flex items-center space-x-3">
+                <div className={`p-2 rounded-lg ${
+                  darkMode ? 'bg-indigo-500/20' : 'bg-indigo-500/10'
+                }`}>
+                  <FaSearch className={`w-5 h-5 ${darkMode ? 'text-indigo-400' : 'text-indigo-600'}`} />
+                </div>
+                <div>
+                  <h2 className={`text-xl font-semibold ${darkMode ? 'text-white' : 'text-gray-800'}`}>
+                    Search for a SAT Question
+                  </h2>
+                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'}`}>
+                    Enter a question ID to view detailed solutions and interactive learning
+                  </p>
+                </div>
+              </div>
+            </div>
+            
           <div className="p-6">
-            <form onSubmit={handleSearch} className="flex gap-4">
-              <div className="flex-grow">
+            <form onSubmit={handleSearch} className="space-y-4">
+              <div>
                 <label 
                   htmlFor="questionId" 
-                    className={`block text-sm font-medium ${darkMode ? 'text-gray-300' : 'text-gray-700'} mb-1`}
+                  className={`block text-sm font-medium mb-3 ${
+                    darkMode ? 'text-gray-300' : 'text-gray-700'
+                  }`}
                 >
                   Question ID
                 </label>
-                <input
-                  type="text"
-                  id="questionId"
-                  value={questionId}
-                  onChange={(e) => setQuestionId(e.target.value)}
-                    className={`w-full px-4 py-2 border ${darkMode ? 'border-gray-600 bg-gray-700 text-white' : 'border-gray-300 bg-white text-gray-900'} rounded-lg focus:ring-2 focus:ring-indigo-500`}
-                  placeholder="Enter the SAT question ID"
-                />
+                <div className="flex gap-4">
+                  <div className="flex-grow relative">
+                    <input
+                      type="text"
+                      id="questionId"
+                      value={questionId}
+                      onChange={(e) => setQuestionId(e.target.value)}
+                      className={`w-full px-4 py-3 border rounded-xl transition-all duration-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
+                        darkMode 
+                          ? 'border-gray-600/50 bg-gray-700/50 text-white placeholder:text-gray-400' 
+                          : 'border-gray-300 bg-white text-gray-900 placeholder:text-gray-500'
+                      }`}
+                      placeholder="Enter the SAT question ID (e.g., SAT-2024-Q1)"
+                    />
+                    <div className={`absolute inset-y-0 right-3 flex items-center pointer-events-none ${
+                      darkMode ? 'text-gray-400' : 'text-gray-500'
+                    }`}>
+                      <FileText size={16} />
+                    </div>
+                  </div>
+                  <button
+                    type="submit"
+                    disabled={loading || !questionId.trim()}
+                    className={`px-8 py-3 rounded-xl font-semibold flex items-center space-x-2 transition-all duration-300 shadow-lg hover:shadow-xl ${
+                      loading || !questionId.trim() 
+                        ? "bg-gray-400 cursor-not-allowed text-gray-600" 
+                        : "bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-700 hover:to-purple-700 text-white"
+                    }`}
+                  >
+                    {loading ? (
+                      <>
+                        <FaSpinner className="animate-spin h-5 w-5" />
+                        <span className="hidden sm:inline">Searching...</span>
+                      </>
+                    ) : (
+                      <>
+                        <Sparkles className="h-5 w-5" />
+                        <span className="hidden sm:inline">Find Question</span>
+                        <span className="sm:hidden">Search</span>
+                      </>
+                    )}
+                  </button>
+                </div>
               </div>
-              <div className="flex items-end">
-                <button
-                  type="submit"
-                  disabled={loading || !questionId.trim()}
-                  className={`px-6 py-2 rounded-lg text-white font-medium flex items-center space-x-2 transition-colors h-10 ${
-                    loading || !questionId.trim() 
-                      ? "bg-indigo-400 cursor-not-allowed" 
-                      : "bg-indigo-600 hover:bg-indigo-700"
-                  }`}
-                >
-                  {loading ? (
-                    <FaSpinner className="animate-spin h-4 w-4" />
-                  ) : (
-                    <FaSearch className="h-4 w-4" />
-                  )}
-                  <span className="hidden sm:inline">Search</span>
-                </button>
+              
+              {/* Quick Tips */}
+              <div className={`flex flex-wrap gap-4 text-xs ${
+                darkMode ? 'text-gray-400' : 'text-gray-500'
+              }`}>
+                <div className="flex items-center space-x-1">
+                  <Target className="w-3 h-3" />
+                  <span>AI Solutions</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <Brain className="w-3 h-3" />
+                  <span>Step-by-step</span>
+                </div>
+                <div className="flex items-center space-x-1">
+                  <MessageCircle className="w-3 h-3" />
+                  <span>Interactive Chat</span>
+                </div>
               </div>
             </form>
             
@@ -826,7 +862,7 @@ function SatAsk() {
               </div>
             )}
           </div>
-        </div>
+        </motion.div>
         )}
 
         {/* Result display - only show when chat is hidden */}
@@ -893,10 +929,14 @@ function SatAsk() {
                   
                   <Link
                     href={`/satbreakdown?id=${encodeURIComponent(question.questionId)}`}
-                    className={`text-sm ${darkMode ? 'text-indigo-400' : 'text-indigo-600'} hover:underline flex items-center gap-1`}
+                    className={`px-3 py-1.5 text-sm font-medium rounded-md ${
+                        darkMode
+                            ? "bg-purple-600 text-white hover:bg-purple-700"
+                            : "bg-purple-500 text-white hover:bg-purple-600"
+                    } flex items-center gap-1`}
                   >
+                    <FaBullseye size={12} />
                     <span>View Detailed Breakdown</span>
-                    <FaExternalLinkAlt size={10} />
                   </Link>
                 </div>
                 
@@ -916,23 +956,61 @@ function SatAsk() {
                 )}
               </div>
 
-              {/* Chat with Bot Button */}
+              {/* Action Buttons */}
               {canUseChat && (
-                <div className="mt-6 pt-4 border-t border-gray-200 dark:border-gray-700 text-center">
-                  <p className={`text-sm ${darkMode ? 'text-gray-300' : 'text-gray-600'} mb-3`}>
-                    Need more help with this question?
-                  </p>
-                  <Link
-                    href={`/satbot?id=${encodeURIComponent(question.questionId)}`}
-                    className={`px-6 py-3 rounded-lg font-medium flex items-center space-x-2 transition-colors mx-auto ${
-                      darkMode
-                        ? "bg-indigo-600 hover:bg-indigo-700 text-white"
-                        : "bg-indigo-500 hover:bg-indigo-600 text-white"
-                    }`}
-                  >
-                    <FaRobot />
-                    <span>Chat with TutorJi Bot</span>
-                  </Link>
+                <div className="mt-8 pt-6 border-t border-gray-700">
+                  <div className="text-center mb-6">
+                    <div className="flex items-center justify-center mb-3">
+                      <div className="p-2 bg-gradient-to-br from-green-500/20 to-blue-500/20 rounded-lg">
+                        <Bot className="w-6 h-6 text-green-400" />
+                      </div>
+                    </div>
+                    <h3 className="text-xl font-semibold text-white mb-2">Ready for More Learning?</h3>
+                    <p className="text-gray-300 text-sm">
+                      Chat with our AI or try interactive step-by-step learning
+                    </p>
+                  </div>
+
+                  <div className="grid sm:grid-cols-2 gap-4">
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={() => router.push(`/satbot?questionId=${question.questionId}&imageUrl=${encodeURIComponent(question.imageUrl)}&answer=${encodeURIComponent(question.aiResponse)}`)}
+                      className="p-6 bg-gradient-to-br from-blue-600/90 to-indigo-600/90 hover:from-blue-700/90 hover:to-indigo-700/90 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl"
+                    >
+                      <div className="flex items-center justify-center space-x-3 mb-3">
+                        <MessageCircle className="w-6 h-6" />
+                        <span className="text-lg font-semibold">
+                          Chat with TutorJi
+                        </span>
+                      </div>
+                      <p className="text-sm text-blue-100">
+                        Ask questions and get instant AI responses about this problem
+                      </p>
+                    </motion.button>
+
+                    <motion.button
+                      whileHover={{ scale: 1.02 }}
+                      whileTap={{ scale: 0.98 }}
+                      onClick={startInteractiveLearning}
+                      disabled={isProcessing}
+                      className="p-6 bg-gradient-to-br from-green-600/90 to-emerald-600/90 hover:from-green-700/90 hover:to-emerald-700/90 disabled:from-gray-600/50 disabled:to-gray-600/50 text-white rounded-xl transition-all duration-300 shadow-lg hover:shadow-xl disabled:cursor-not-allowed"
+                    >
+                      <div className="flex items-center justify-center space-x-3 mb-3">
+                        {isProcessing ? (
+                          <Loader2 className="w-6 h-6 animate-spin" />
+                        ) : (
+                          <Target className="w-6 h-6" />
+                        )}
+                        <span className="text-lg font-semibold">
+                          {isProcessing ? 'Creating Session...' : 'Interactive Learning'}
+                        </span>
+                      </div>
+                      <p className="text-sm text-green-100">
+                        Step-by-step guided practice with personalized feedback
+                      </p>
+                    </motion.button>
+                  </div>
                 </div>
               )}
             </div>
@@ -969,6 +1047,8 @@ function SatAsk() {
           </div>
         )}
       </div>
+      
+      <Footer />
     </div>
   );
 }
@@ -976,6 +1056,7 @@ function SatAsk() {
 export default function SatAskPage() {
   return (
     <Suspense>
+      <Navbar />
       <SatAsk />
     </Suspense>
   );

@@ -41,7 +41,6 @@ try {
 }
 
 
-
 /**
  * Generate a mock response for development when OpenAI API key is not available
  */
