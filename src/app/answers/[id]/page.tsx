@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
-import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer';
+import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer-plugin';
 import Image from 'next/image';
 import Link from 'next/link';
 
