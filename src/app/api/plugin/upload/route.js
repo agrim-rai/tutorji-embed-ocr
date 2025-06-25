@@ -39,17 +39,56 @@ export async function POST(request) {
     // Connect to database
     await dbConnect();
     
-    // Get session for authentication (optional)
+    // Get session for authentication (required)
     const session = await getServerSession(authOptions);
+    
+    // Check if user is logged in
+    if (!session || !session.user || !session.user.email) {
+      return NextResponse.json(
+        { error: 'Authentication required. Please log in to use this service.' },
+        { status: 401, headers: corsHeaders }
+      );
+    }
+
+    // Find user and check credits
+    const user = await User.findOne({ email: session.user.email });
+    if (!user) {
+      return NextResponse.json(
+        { error: 'User not found. Please contact support.' },
+        { status: 404, headers: corsHeaders }
+      );
+    }
+
+    // Check if user has sufficient credits
+    if (!user.credits || user.credits <= 0) {
+      return NextResponse.json(
+        { 
+          error: 'Insufficient credits. You need at least 1 credit to use this service.',
+          creditsRemaining: user.credits || 0
+        },
+        { status: 402, headers: corsHeaders }
+      );
+    }
+
+    // Deduct one credit from user
+    const updatedUser = await User.findByIdAndUpdate(
+      user._id,
+      { $inc: { credits: -1 } },
+      { new: true }
+    );
+
+    console.log(`[PLUGIN-UPLOAD] ${uploadId}: Credit deducted. User ${user.email} has ${updatedUser.credits} credits remaining`);
     
     // Get form data from request
     const formData = await request.formData();
     const file = formData.get('image');
 
     if (!file || typeof file === 'string') {
+      // Refund the credit if no image is provided
+      await User.findByIdAndUpdate(user._id, { $inc: { credits: 1 } });
       return NextResponse.json(
         { error: 'No image file provided' },
-        { status: 400 }
+        { status: 400, headers: corsHeaders }
       );
     }
 
@@ -152,11 +191,7 @@ export async function POST(request) {
     const imageUrl = `https://${process.env.S3_BUCKET_NAME}.s3.${process.env.AWS_REGION}.amazonaws.com/${fileName}`;
 
     // Create initial plugin answer record
-    let userId = null;
-    if (session?.user?.email) {
-      const user = await User.findOne({ email: session.user.email });
-      userId = user ? user._id : null;
-    }
+    const userId = user._id;
     
     pluginAnswer = new PluginAnswer({
       userId: userId,
@@ -187,7 +222,8 @@ export async function POST(request) {
       imageUrl: imageUrl,
       status: 'processing',
       redirectUrl: answerUrl,
-      message: 'Image uploaded successfully. Processing in progress...'
+      message: 'Image uploaded successfully. Processing in progress...',
+      creditsRemaining: updatedUser.credits
     }, {
       status: 200,
       headers: corsHeaders

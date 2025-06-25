@@ -22,6 +22,6 @@
       "@/*": ["./src/*"]
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/ocr-get/route.js", "src/app/ada-tester/page.jsx", "src/app/api/verify-oder/route.js", "src/app/apisrc/app/api/compare-images/oldroute.js/apisrc/app/api/compare-images/route.js", "src/app/api/verify-payment/route.js", "src/app/test-combiner/page.jsx", "src/app/api/vectors/route.js", "src/app/api/auth/status.js"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/app/api/ocr-get/route.js", "src/app/ada-tester/page.jsx", "src/app/api/verify-oder/route.js", "src/app/apisrc/app/api/compare-images/oldroute.js/apisrc/app/api/compare-images/route.js", "src/app/api/verify-payment/route.js", "src/app/test-combiner/page.jsx", "src/app/api/vectors/route.js"],
   "exclude": ["node_modules"]
 }
