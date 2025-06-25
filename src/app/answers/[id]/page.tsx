@@ -3,6 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'next/navigation';
 import { SimpleMathRenderer } from '@/components/ui/simple-math-renderer-plugin';
+import { ThinkingAnimation } from '@/components/thinking';
 import Image from 'next/image';
 import Link from 'next/link';
 
@@ -12,7 +13,7 @@ interface PluginAnswer {
   imageId: string;
   question?: string;
   answer: string;
-  status: 'processing' | 'completed' | 'failed';
+  status: 'processing' | 'completed' | 'failed' | 'timeout';
   error_message?: string;
   metadata?: {
     processing_time?: number;
@@ -26,6 +27,22 @@ interface PluginAnswer {
   };
   createdAt: string;
   updatedAt: string;
+  // Enhanced fields from API
+  processingTime?: number;
+  progress?: number;
+  estimatedTimeRemaining?: number;
+  thinkingMessage?: string;
+  isThinking?: boolean;
+  timeoutAfter?: number;
+}
+
+interface ApiResponse {
+  success: boolean;
+  answer: PluginAnswer;
+  loading?: boolean;
+  message?: string;
+  error?: string;
+  shouldRetry?: boolean;
 }
 
 export default function AnswerPage() {
@@ -37,6 +54,7 @@ export default function AnswerPage() {
   const [error, setError] = useState<string | null>(null);
   const [imageLoading, setImageLoading] = useState(true);
   const [imageError, setImageError] = useState(false);
+  const [apiResponse, setApiResponse] = useState<ApiResponse | null>(null);
 
   useEffect(() => {
     const fetchAnswer = async () => {
@@ -44,11 +62,24 @@ export default function AnswerPage() {
         const response = await fetch(`/api/plugin/answer/${answerId}`);
         
         if (!response.ok) {
-          throw new Error(`Failed to fetch answer: ${response.statusText}`);
+          if (response.status === 408) {
+            // Timeout error
+            const data = await response.json();
+            setApiResponse(data);
+            setPluginAnswer(data.answer);
+            setError(data.message || 'Request timed out');
+          } else {
+            throw new Error(`Failed to fetch answer: ${response.statusText}`);
+          }
+        } else {
+          const data: ApiResponse = await response.json();
+          setApiResponse(data);
+          setPluginAnswer(data.answer);
+          
+          if (!data.success && data.error) {
+            setError(data.error);
+          }
         }
-        
-        const data = await response.json();
-        setPluginAnswer(data.answer);
       } catch (err) {
         console.error('Error fetching answer:', err);
         setError(err instanceof Error ? err.message : 'Failed to load answer');
@@ -66,7 +97,7 @@ export default function AnswerPage() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     let pollCount = 0;
-    const maxPolls = 20; // Stop after 60 seconds (20 * 3s)
+    const maxPolls = 25; // Extended to 75 seconds (25 * 3s) to account for timeout handling
 
     if (pluginAnswer?.status === 'processing') {
       console.log(`[ANSWER-PAGE] Starting polling for ${answerId.slice(-8)}`);
@@ -83,13 +114,22 @@ export default function AnswerPage() {
             }
           });
           
-          if (response.ok) {
-            const data = await response.json();
+          if (response.ok || response.status === 408) {
+            const data: ApiResponse = await response.json();
+            setApiResponse(data);
             setPluginAnswer(data.answer);
+            
+            // Handle timeout specifically
+            if (response.status === 408 || data.answer?.status === 'timeout') {
+              console.log(`[ANSWER-PAGE] Timeout detected`);
+              setError(data.message || 'Processing timed out');
+              clearInterval(interval);
+              return;
+            }
             
             // Stop polling if completed, failed, or max attempts reached
             if (data.answer?.status !== 'processing' || pollCount >= maxPolls) {
-              console.log(`[ANSWER-PAGE] Polling stopped: ${data.answer?.status || 'timeout'}`);
+              console.log(`[ANSWER-PAGE] Polling stopped: ${data.answer?.status || 'max-polls'}`);
               clearInterval(interval);
             }
           }
@@ -128,6 +168,13 @@ export default function AnswerPage() {
       return `${mb.toFixed(2)} MB`;
     }
     return `${kb.toFixed(2)} KB`;
+  };
+
+  const handleRetry = () => {
+    setError(null);
+    setLoading(true);
+    // Trigger a fresh fetch
+    window.location.reload();
   };
 
   if (loading) {
@@ -211,43 +258,58 @@ export default function AnswerPage() {
         </div>
 
         <div className="space-y-8">
-          {/* Status Banner */}
+          {/* Enhanced Status Display */}
           {pluginAnswer.status === 'processing' && (
-            <div className="bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg p-4">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center">
-                  <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-yellow-600 mr-3"></div>
-                  <div>
-                    <span className="text-yellow-800 dark:text-yellow-300 font-medium">
-                      AI is analyzing your question...
-                    </span>
-                    <p className="text-yellow-600 dark:text-yellow-400 text-sm mt-1">
-                      This usually takes 10-30 seconds. This page will auto-update when complete.
-                    </p>
-                  </div>
-                </div>
-                <div className="text-yellow-600 dark:text-yellow-400 text-sm">
-                  🤖 Working...
-                </div>
-              </div>
+            <div className="flex justify-center">
+              <ThinkingAnimation
+                message={pluginAnswer.thinkingMessage || apiResponse?.message || "AI is analyzing your question..."}
+                progress={pluginAnswer.progress || 0}
+                processingTime={pluginAnswer.processingTime || 0}
+                estimatedTimeRemaining={pluginAnswer.estimatedTimeRemaining || 60}
+                isComplete={false}
+                hasError={false}
+                className="w-full max-w-lg"
+              />
             </div>
           )}
 
-          {pluginAnswer.status === 'failed' && (
-            <div className="bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-800 rounded-lg p-4">
-              <div className="flex items-center">
-                <span className="text-red-600 text-xl mr-3">⚠️</span>
-                <div>
-                  <span className="text-red-800 dark:text-red-300 font-medium">
-                    Processing failed
-                  </span>
-                  {pluginAnswer.error_message && (
-                    <p className="text-red-600 dark:text-red-400 text-sm mt-1">
-                      {pluginAnswer.error_message}
-                    </p>
-                  )}
-                </div>
+          {(pluginAnswer.status === 'failed' || pluginAnswer.status === 'timeout') && (
+            <div className="space-y-4">
+              <div className="flex justify-center">
+                <ThinkingAnimation
+                  message={pluginAnswer.error_message || error || "Processing failed"}
+                  progress={100}
+                  processingTime={pluginAnswer.processingTime || pluginAnswer.timeoutAfter || 0}
+                  estimatedTimeRemaining={0}
+                  isComplete={false}
+                  hasError={true}
+                  className="w-full max-w-lg"
+                />
               </div>
+              {apiResponse?.shouldRetry && (
+                <div className="text-center">
+                  <button
+                    onClick={handleRetry}
+                    className="bg-blue-600 hover:bg-blue-700 text-white px-6 py-2 rounded-lg font-medium transition-colors"
+                  >
+                    Try Again
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+
+          {pluginAnswer.status === 'completed' && (
+            <div className="flex justify-center mb-6">
+              <ThinkingAnimation
+                message="Solution ready!"
+                progress={100}
+                processingTime={pluginAnswer.processingTime || 0}
+                estimatedTimeRemaining={0}
+                isComplete={true}
+                hasError={false}
+                className="w-full max-w-lg"
+              />
             </div>
           )}
 

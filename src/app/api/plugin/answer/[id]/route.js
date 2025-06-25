@@ -38,14 +38,104 @@ export async function GET(request, { params }) {
         { status: 404, headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
       );
     }
+
+    // Check for timeout (60 seconds)
+    const currentTime = new Date();
+    const createdTime = new Date(pluginAnswer.createdAt);
+    const timeDifference = (currentTime - createdTime) / 1000; // in seconds
+
+    // If more than 60 seconds and still processing, mark as timeout
+    if (timeDifference > 60 && pluginAnswer.status === 'processing') {
+      console.log(`[PLUGIN-API] ${id.slice(-8)}: Timeout after ${timeDifference.toFixed(1)}s`);
+      
+      // Update the record to timeout status
+      await PluginAnswer.findByIdAndUpdate(id, {
+        status: 'timeout',
+        error_message: 'Processing timeout: The AI took too long to respond. Please try again.',
+        updatedAt: new Date()
+      });
+
+      return NextResponse.json({
+        success: false,
+        answer: {
+          ...pluginAnswer,
+          status: 'timeout',
+          error_message: 'Processing timeout: The AI took too long to respond. Please try again.',
+          timeoutAfter: Math.floor(timeDifference)
+        },
+        error: 'Processing timeout',
+        message: 'The AI analysis took too long. Please try uploading your image again.',
+        shouldRetry: true
+      }, {
+        status: 408, // Request Timeout
+        headers: { 
+          ...corsHeaders, 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
+
+    // Calculate processing progress and time
+    const progressPercentage = Math.min((timeDifference / 60) * 100, 95); // Max 95% until completed
+    const estimatedTimeRemaining = Math.max(60 - timeDifference, 0);
+
+    // Generate thinking messages based on processing time
+    const getThinkingMessage = (seconds) => {
+      if (seconds < 10) return "Analyzing your image...";
+      if (seconds < 20) return "Reading the mathematical content...";
+      if (seconds < 30) return "Processing equations and formulas...";
+      if (seconds < 40) return "Generating step-by-step solution...";
+      if (seconds < 50) return "Finalizing the detailed explanation...";
+      return "Almost done, putting finishing touches...";
+    };
+
+    // Generate animated dots for thinking effect
+    const thinkingDots = ".".repeat((Math.floor(timeDifference) % 3) + 1);
     
-    console.log(`[PLUGIN-API] ${id.slice(-8)}: ${pluginAnswer.status} ${pluginAnswer.answer ? '✓' : '⧗'}`);
+    console.log(`[PLUGIN-API] ${id.slice(-8)}: ${pluginAnswer.status} ${pluginAnswer.answer ? '✓' : '⧗'} (${timeDifference.toFixed(1)}s)`);
     
+    // If still processing, return enhanced loading state
+    if (pluginAnswer.status === 'processing') {
+      return NextResponse.json({
+        success: true,
+        answer: {
+          ...pluginAnswer,
+          processingTime: Math.floor(timeDifference),
+          progress: Math.floor(progressPercentage),
+          estimatedTimeRemaining: Math.floor(estimatedTimeRemaining),
+          thinkingMessage: getThinkingMessage(timeDifference) + thinkingDots,
+          isThinking: true
+        },
+        loading: true,
+        message: `AI is working on your solution... ${Math.floor(progressPercentage)}% complete`
+      }, {
+        status: 202, // Accepted - still processing
+        headers: { 
+          ...corsHeaders, 
+          'Cache-Control': 'no-cache, no-store, must-revalidate',
+          'Pragma': 'no-cache',
+          'Expires': '0'
+        }
+      });
+    }
+    
+    // If completed, failed, or timeout - return the final result
     return NextResponse.json({
-      success: true,
-      answer: pluginAnswer
+      success: pluginAnswer.status === 'completed',
+      answer: {
+        ...pluginAnswer,
+        processingTime: Math.floor(timeDifference),
+        isThinking: false
+      },
+      loading: false,
+      message: pluginAnswer.status === 'completed' ? 'Solution ready!' : 
+               pluginAnswer.status === 'failed' ? 'Processing failed' :
+               'Request timed out'
     }, {
-      status: 200,
+      status: pluginAnswer.status === 'completed' ? 200 : 
+              pluginAnswer.status === 'failed' ? 500 : 408,
       headers: { 
         ...corsHeaders, 
         'Cache-Control': 'no-cache, no-store, must-revalidate',
@@ -58,7 +148,12 @@ export async function GET(request, { params }) {
     console.error(`[PLUGIN-API] Error: ${error.message}`);
     
     return NextResponse.json(
-      { error: 'Failed to fetch answer: ' + error.message },
+      { 
+        success: false,
+        error: 'Failed to fetch answer: ' + error.message,
+        loading: false,
+        shouldRetry: true
+      },
       { status: 500, headers: { ...corsHeaders, 'Cache-Control': 'no-cache, no-store, must-revalidate' } }
     );
   }
