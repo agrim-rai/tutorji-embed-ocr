@@ -39,13 +39,15 @@ export async function GET(request, { params }) {
       );
     }
 
-    // Check for timeout (60 seconds)
+    // Check for timeout threshold (extended to 180 seconds)
     const currentTime = new Date();
     const createdTime = new Date(pluginAnswer.createdAt);
     const timeDifference = (currentTime - createdTime) / 1000; // in seconds
 
-    // If more than 60 seconds and still processing, mark as timeout
-    if (timeDifference > 60 && pluginAnswer.status === 'processing') {
+    const TIMEOUT_THRESHOLD = 180; // 3 minutes
+
+    // If exceeded threshold and still processing, mark as timeout
+    if (timeDifference > TIMEOUT_THRESHOLD && pluginAnswer.status === 'processing') {
       console.log(`[PLUGIN-API] ${id.slice(-8)}: Timeout after ${timeDifference.toFixed(1)}s`);
       
       // Update the record to timeout status
@@ -64,7 +66,7 @@ export async function GET(request, { params }) {
           timeoutAfter: Math.floor(timeDifference)
         },
         error: 'Processing timeout',
-        message: 'The AI analysis took too long. Please try uploading your image again.',
+        message: 'The AI analysis took too long (over 3 minutes). Please try uploading your image again.',
         shouldRetry: true
       }, {
         status: 408, // Request Timeout
@@ -77,17 +79,17 @@ export async function GET(request, { params }) {
       });
     }
 
-    // Calculate processing progress and time
-    const progressPercentage = Math.min((timeDifference / 60) * 100, 95); // Max 95% until completed
-    const estimatedTimeRemaining = Math.max(60 - timeDifference, 0);
+    // Calculate processing progress and time (scale to new threshold)
+    const progressPercentage = Math.min((timeDifference / TIMEOUT_THRESHOLD) * 100, 95); // Max 95% until completed
+    const estimatedTimeRemaining = Math.max(TIMEOUT_THRESHOLD - timeDifference, 0);
 
     // Generate thinking messages based on processing time
     const getThinkingMessage = (seconds) => {
       if (seconds < 10) return "Analyzing your image...";
       if (seconds < 20) return "Reading the mathematical content...";
-      if (seconds < 30) return "Processing equations and formulas...";
-      if (seconds < 40) return "Generating step-by-step solution...";
-      if (seconds < 50) return "Finalizing the detailed explanation...";
+      if (seconds < 40) return "Processing equations and formulas...";
+      if (seconds < 80) return "Generating step-by-step solution...";
+      if (seconds < 120) return "Finalizing the detailed explanation...";
       return "Almost done, putting finishing touches...";
     };
 

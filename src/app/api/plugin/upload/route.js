@@ -288,16 +288,17 @@ async function processImageWithOpenAI(uploadId, pluginAnswerId, buffer, mimeType
               text: `Please analyze this image and solve any mathematical or academic question you find. 
 
 Instructions:
-1. First, identify and extract the question from the image
-2. Provide a detailed step-by-step solution 
-3. Include all mathematical reasoning and calculations
-4. Use LaTeX notation for mathematical expressions:
+1. Provide a detailed step-by-step solution for the provided question.
+2. Provide clear explanations for each step
+3. Include the final answer using \\boxed{} notation: \\boxed{answer}
+4. If you cannot identify a clear question, describe what you see and provide relevant educational insights
+5. Make sure the user is able to understand and interpret the solution.
+6. If the question is multiple choice, provide the correct answer and the explanation for why it is the correct answer.
+7. Keep the answer short and concise but provide a detailed explanation for the answer.
+8. Use LaTeX notation for mathematical expressions:
    - For inline math, use \\( and \\) like: \\( f(x) = x^2 \\)
    - For display math, use \\[ and \\] like: \\[ \\int_0^1 x^2 dx = \\frac{1}{3} \\]
-5. Provide clear explanations for each step
-6. Include the final answer using \\boxed{} notation: \\boxed{answer}
-7. If you cannot identify a clear question, describe what you see and provide relevant educational insights
-8. Do not use any *** or ** ### type of formating in response
+9. Do not use any *** or ** ### type of formating in response
 
 Please provide your response in the following format:
 

@@ -97,7 +97,7 @@ export default function AnswerPage() {
   useEffect(() => {
     let interval: NodeJS.Timeout;
     let pollCount = 0;
-    const maxPolls = 25; // Extended to 75 seconds (25 * 3s) to account for timeout handling
+    const maxPolls = 60; // Extended to 180 seconds (60 * 3s) to match timeout threshold
 
     if (pluginAnswer?.status === 'processing') {
       console.log(`[ANSWER-PAGE] Starting polling for ${answerId.slice(-8)}`);
