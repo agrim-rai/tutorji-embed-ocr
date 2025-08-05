@@ -5,6 +5,7 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
+import { SuperMathRenderer } from '@/components/ui/super-math-renderer';
 
 interface DiscordResponse {
   response_id: string;
@@ -134,7 +135,16 @@ export default function DiscordResponsePage() {
       const jsonMatch = response.match(/```json\n(.*?)\n```/s);
       if (jsonMatch) {
         const parsed = JSON.parse(jsonMatch[1]);
-        return parsed.steps || null;
+        if (parsed.steps) {
+          // Process each step to fix LaTeX line breaks
+          return parsed.steps.map((step: any) => ({
+            ...step,
+            latex_content: step.latex_content 
+              ? step.latex_content.replace(/\\\[(\d+(?:\.\d+)?)em\]/g, '\\\\[$1em]')
+              : step.latex_content
+          }));
+        }
+        return null;
       }
       return null;
     } catch {
@@ -188,7 +198,7 @@ export default function DiscordResponsePage() {
 
         <Card>
           <CardHeader>
-            <CardTitle>Question</CardTitle>
+            <CardTitle>User Prompt</CardTitle>
           </CardHeader>
           <CardContent>
             <p className="text-gray-700">{data.question_text}</p>
@@ -233,10 +243,12 @@ export default function DiscordResponsePage() {
                     <h4 className="font-semibold text-lg">
                       Step {step.step_number}: {step.title}
                     </h4>
-                    <div 
-                      className="mt-2 p-4 bg-gray-50 rounded-lg font-mono text-sm overflow-x-auto"
-                      dangerouslySetInnerHTML={{ __html: step.latex_content.replace(/\\\\/g, '\\') }}
-                    />
+                    <div className="mt-2 p-4 bg-gray-50 rounded-lg text-sm overflow-x-auto">
+                      <SuperMathRenderer 
+                        content={step.latex_content || ''}
+                        className="text-inherit"
+                      />
+                    </div>
                   </div>
                 ))}
               </div>
@@ -244,55 +256,7 @@ export default function DiscordResponsePage() {
           </Card>
         )}
 
-        <Card>
-          <CardHeader>
-            <CardTitle>AI Response</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="whitespace-pre-wrap text-sm bg-gray-50 p-4 rounded-lg overflow-x-auto">
-              {data.openai_response}
-            </pre>
-          </CardContent>
-        </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>Technical Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-sm">
-              <div>
-                <h3 className="font-semibold text-gray-500 uppercase tracking-wide">Tokens</h3>
-                <p>Total: {data.total_tokens}</p>
-                <p>Prompt: {data.prompt_tokens}</p>
-                <p>Completion: {data.completion_tokens}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-500 uppercase tracking-wide">Processing</h3>
-                <p>Time: {data.processing_time_seconds.toFixed(2)}s</p>
-                <p>Tool: {data.tool_used}</p>
-                <p>Type: {data.prompt_type}</p>
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-500 uppercase tracking-wide">Response</h3>
-                <p>Type: {data.response_type}</p>
-                <p>LaTeX: {data.latex_rendered ? 'Yes' : 'No'}</p>
-                {data.thread_id && <p>Thread: {data.thread_id}</p>}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Raw JSON Data</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <pre className="text-xs bg-gray-900 text-green-400 p-4 rounded-lg overflow-x-auto">
-              {JSON.stringify(data, null, 2)}
-            </pre>
-          </CardContent>
-        </Card>
       </div>
     </div>
   );

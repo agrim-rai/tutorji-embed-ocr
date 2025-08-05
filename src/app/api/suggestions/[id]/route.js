@@ -8,7 +8,7 @@ export async function PATCH(request, { params }) {
   try {
     await dbConnect();
     
-    const { id } = params;
+    const { id } = await params;
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -87,7 +87,7 @@ export async function DELETE(request, { params }) {
   try {
     await dbConnect();
     
-    const { id } = params;
+    const { id } = await params;
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
@@ -125,7 +125,7 @@ export async function GET(request, { params }) {
   try {
     await dbConnect();
     
-    const { id } = params;
+    const { id } = await params;
     
     // Validate ID format
     if (!mongoose.Types.ObjectId.isValid(id)) {
