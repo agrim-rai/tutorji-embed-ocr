@@ -5,7 +5,8 @@ import { useParams } from 'next/navigation';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Separator } from '@/components/ui/separator';
-import { SuperMathRenderer } from '@/components/ui/super-math-renderer';
+import 'katex/dist/katex.min.css';
+import { InlineMath, BlockMath } from 'react-katex';
 
 interface DiscordResponse {
   response_id: string;
@@ -140,7 +141,7 @@ export default function DiscordResponsePage() {
           return parsed.steps.map((step: any) => ({
             ...step,
             latex_content: step.latex_content 
-              ? step.latex_content.replace(/\\\[(\d+(?:\.\d+)?)em\]/g, '\\\\[$1em]')
+              ? step.latex_content.replace(/\\\[(\d+(?:\.\d+)?)em\]/g, '\n\n')
               : step.latex_content
           }));
         }
@@ -150,6 +151,123 @@ export default function DiscordResponsePage() {
     } catch {
       return null;
     }
+  };
+
+  // Function to preprocess raw LaTeX content
+  const preprocessLatexContent = (content: string) => {
+    if (!content) return content;
+    return content.replace(/\\\[(\d+(?:\.\d+)?)em\]/g, '\n\n');
+  };
+
+  // LaTeX Renderer Component
+  interface LaTeXRendererProps {
+    content: string;
+    className?: string;
+  }
+
+  interface ParsedPart {
+    type: 'text' | 'math';
+    content: string;
+    display?: boolean;
+  }
+
+  const LaTeXRenderer = ({ content, className = "" }: LaTeXRendererProps) => {
+    if (!content) return null;
+
+    // Split content by LaTeX delimiters
+    const parts: ParsedPart[] = [];
+    let currentIndex = 0;
+    const text = content;
+
+    // Handle different LaTeX delimiters
+    const delimiters = [
+      { left: '\\[', right: '\\]', display: true },
+      { left: '\\(', right: '\\)', display: false },
+      { left: '$$', right: '$$', display: true },
+      { left: '$', right: '$', display: false }
+    ];
+
+    while (currentIndex < text.length) {
+      let nextMath = -1;
+      let nextDelimiter = null;
+      let nextStart = -1;
+
+      // Find the earliest math delimiter
+      for (const delimiter of delimiters) {
+        const start = text.indexOf(delimiter.left, currentIndex);
+        if (start !== -1 && (nextMath === -1 || start < nextMath)) {
+          nextMath = start;
+          nextDelimiter = delimiter;
+          nextStart = start;
+        }
+      }
+
+      if (nextMath === -1) {
+        // No more math, add remaining text
+        if (currentIndex < text.length) {
+          parts.push({
+            type: 'text',
+            content: text.substring(currentIndex)
+          });
+        }
+        break;
+      }
+
+      // Add text before math
+      if (nextMath > currentIndex) {
+        parts.push({
+          type: 'text',
+          content: text.substring(currentIndex, nextMath)
+        });
+      }
+
+      // Find the end of math expression
+      const mathStart = nextMath + nextDelimiter!.left.length;
+      const mathEnd = text.indexOf(nextDelimiter!.right, mathStart);
+
+      if (mathEnd === -1) {
+        // No closing delimiter found, treat as text
+        parts.push({
+          type: 'text',
+          content: text.substring(nextMath)
+        });
+        break;
+      }
+
+      // Add math expression
+      const mathContent = text.substring(mathStart, mathEnd);
+      parts.push({
+        type: 'math',
+        content: mathContent,
+        display: nextDelimiter!.display
+      });
+
+      currentIndex = mathEnd + nextDelimiter!.right.length;
+    }
+
+    return (
+      <div className={className}>
+        {parts.map((part, index) => {
+          if (part.type === 'text') {
+            return <span key={index}>{part.content}</span>;
+          } else if (part.type === 'math') {
+            try {
+              if (part.display) {
+                return <BlockMath key={index} math={part.content} />;
+              } else {
+                return <InlineMath key={index} math={part.content} />;
+              }
+            } catch (error) {
+              // Fallback to raw text if LaTeX parsing fails
+              return <span key={index} style={{ color: 'red' }}>
+                {part.display ? `\\[${part.content}\\]` : `\\(${part.content}\\)`}
+              </span>;
+            }
+          }
+          return null;
+        })}
+      </div>
+    );
   };
 
   const steps = parseSteps(data.openai_response);
@@ -231,7 +349,7 @@ export default function DiscordResponsePage() {
           </Card>
         )}
 
-        {steps && (
+        {steps ? (
           <Card>
             <CardHeader>
               <CardTitle>Solution Steps</CardTitle>
@@ -244,7 +362,7 @@ export default function DiscordResponsePage() {
                       Step {step.step_number}: {step.title}
                     </h4>
                     <div className="mt-2 p-4 bg-gray-50 rounded-lg text-sm overflow-x-auto">
-                      <SuperMathRenderer 
+                      <LaTeXRenderer 
                         content={step.latex_content || ''}
                         className="text-inherit"
                       />
@@ -254,8 +372,21 @@ export default function DiscordResponsePage() {
               </div>
             </CardContent>
           </Card>
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle>AI Response</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="p-4 bg-gray-50 rounded-lg overflow-x-auto">
+                <LaTeXRenderer 
+                  content={preprocessLatexContent(data.openai_response)}
+                  className="text-inherit whitespace-pre-wrap"
+                />
+              </div>
+            </CardContent>
+          </Card>
         )}
-
 
       </div>
     </div>

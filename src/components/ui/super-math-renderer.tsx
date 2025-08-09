@@ -46,6 +46,8 @@ export const SuperMathRenderer: React.FC<SuperMathRendererProps> = ({
     if (!text || typeof text !== 'string') return '';
 
     let processedText = text
+      // Fix LaTeX line breaks - replace \[<number>em] with proper line breaks
+      .replace(/\\\[(\d+(?:\.\d+)?)em\]/g, '\n\n')
       // Greek letters
       .replace(/α/g, '\\alpha')
       .replace(/β/g, '\\beta')
@@ -170,7 +172,7 @@ export const SuperMathRenderer: React.FC<SuperMathRendererProps> = ({
       { regex: /\\\[([^]*?)\\\]/g, type: 'block' as const },
       { regex: /\$\$([^]*?)\$\$/g, type: 'block' as const },
       { regex: /\\\(([^]*?)\\\)/g, type: 'inline' as const },
-      { regex: /\$([^$\n]+?)\$/g, type: 'inline' as const },
+      { regex: /\$([^$\n\r]+?)\$/g, type: 'inline' as const },
     ];
 
     const allMatches: Array<{
@@ -274,30 +276,50 @@ export const SuperMathRenderer: React.FC<SuperMathRendererProps> = ({
 
   // Try rendering with different methods in order of preference
   const renderWithFallbacks = () => {
-    console.log(`Attempting to render with method: ${renderingMethod}`);
+    console.log(`Attempting to render with method: ${renderingMethod}`, { processedContent });
     
     try {
       switch (renderingMethod) {
         case 'markdown':
-          return <MarkdownRenderer content={processedContent} />;
+          const markdownResult = <MarkdownRenderer content={processedContent} />;
+          if (markdownResult) return markdownResult;
+          break;
         case 'mathjax':
-          return <MathJaxRenderer content={processedContent} />;
+          const mathjaxResult = <MathJaxRenderer content={processedContent} />;
+          if (mathjaxResult) return mathjaxResult;
+          break;
         case 'katex':
-          return <KatexRenderer content={processedContent} />;
+          const katexResult = <KatexRenderer content={processedContent} />;
+          if (katexResult) return katexResult;
+          break;
         case 'fallback':
         default:
           return <FallbackRenderer content={content} />;
       }
+      
+      // If we reach here, try the next method
+      const methods: Array<typeof renderingMethod> = ['markdown', 'mathjax', 'katex'];
+      const currentIndex = methods.indexOf(renderingMethod);
+      if (currentIndex < methods.length - 1) {
+        const nextMethod = methods[currentIndex + 1];
+        console.log(`Falling back to method: ${nextMethod}`);
+        setRenderingMethod(nextMethod);
+        return <div className="text-gray-500">Switching rendering method to {nextMethod}...</div>;
+      }
+      
+      return <FallbackRenderer content={content} />;
+      
     } catch (error) {
       console.warn(`Rendering failed with method ${renderingMethod}:`, error);
       
       // Auto-fallback to next method
-      const methods: Array<typeof renderingMethod> = ['markdown', 'mathjax', 'katex', 'fallback'];
+      const methods: Array<'markdown' | 'mathjax' | 'katex' | 'fallback'> = ['markdown', 'mathjax', 'katex', 'fallback'];
       const currentIndex = methods.indexOf(renderingMethod);
       if (currentIndex < methods.length - 1) {
         const nextMethod = methods[currentIndex + 1];
+        console.log(`Error fallback to method: ${nextMethod}`);
         setRenderingMethod(nextMethod);
-        return <div>Switching rendering method...</div>;
+        return <div className="text-red-500">Error occurred, switching to {nextMethod}...</div>;
       }
       
       return <FallbackRenderer content={content} />;
@@ -307,6 +329,16 @@ export const SuperMathRenderer: React.FC<SuperMathRendererProps> = ({
   return (
     <div className={`super-math-renderer ${className}`} data-render-method={renderingMethod}>
       {renderWithFallbacks()}
+      {process.env.NODE_ENV === 'development' && (
+        <details className="mt-2 text-xs text-gray-500">
+          <summary>Debug Info</summary>
+          <div className="mt-2 p-2 bg-gray-100 rounded">
+            <div><strong>Original:</strong> <pre className="whitespace-pre-wrap">{content}</pre></div>
+            <div><strong>Processed:</strong> <pre className="whitespace-pre-wrap">{processedContent}</pre></div>
+            <div><strong>Method:</strong> {renderingMethod}</div>
+          </div>
+        </details>
+      )}
     </div>
   );
 }; 
